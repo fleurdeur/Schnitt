@@ -9,6 +9,7 @@ import android.webkit.WebViewClient
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,6 +56,7 @@ import app.absentmotion.editor.EditorState
 import app.absentmotion.editor.addEffectToChosen
 import app.absentmotion.effects.EffectCatalog
 import app.absentmotion.plugins.Jsx
+import app.absentmotion.plugins.JsxInterpreter
 import app.absentmotion.plugins.Plugin
 import app.absentmotion.plugins.PluginKind
 import app.absentmotion.plugins.PluginStore
@@ -215,9 +217,11 @@ private fun PluginDetail(state: EditorState, plugin: Plugin, catalog: EffectCata
             Text(detected.joinToString(" · "), Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 4.dp), color = Am.OnDark, fontSize = 11.sp,
                 lineHeight = 15.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
         }
-        if (plugin.panel) {
+        if (plugin.kind == PluginKind.Script) {
+            ScriptPluginPanel(state, plugin, catalog, targetId, onNotice, Modifier.fillMaxWidth().weight(1f))
+        } else if (plugin.panel) {
             val tall = Modifier.fillMaxWidth().weight(1f)
-            PluginWebPanel(state, plugin, catalog, tall, ::apply, onNotice)
+            PluginWebPanel(state, plugin, catalog, targetId, tall, ::apply, onNotice)
         } else {
             Spacer(Modifier.height(4.dp))
         }
@@ -249,10 +253,41 @@ private fun PluginDetail(state: EditorState, plugin: Plugin, catalog: EffectCata
     }
 }
 
+@Composable
+private fun ScriptPluginPanel(state: EditorState, plugin: Plugin, catalog: EffectCatalog?, targetId: Long, onNotice: (String) -> Unit, modifier: Modifier) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val source = remember(plugin.id) { Jsx.decode(File(plugin.folder, plugin.entry.orEmpty())) }
+    var running by remember { mutableStateOf(false) }
+    Column(modifier.padding(horizontal = 16.dp)) {
+        Text(plugin.summary.ifBlank { stringResource(R.string.plugins_script_note) }, color = Am.OnDarkDim, fontSize = 11.sp, lineHeight = 15.sp)
+        if (source == null) {
+            Text(stringResource(R.string.plugins_jsxbin_locked), Modifier.padding(top = 10.dp), color = Am.Warning, fontSize = 12.sp, lineHeight = 17.sp)
+        } else {
+            Text(source.take(1200), Modifier.weight(1f).padding(top = 8.dp).verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                color = Am.OnDark, fontSize = 10.sp, lineHeight = 14.sp)
+            Box(
+                Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(20.dp)).background(Am.Accent)
+                    .clickable(enabled = !running) {
+                        running = true
+                        scope.launch {
+                            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                                JsxInterpreter.execute(state, targetId, source, catalog)
+                            }
+                            onNotice(result)
+                            running = false
+                        }
+                    },
+                Alignment.Center,
+            ) { Text(if (running) stringResource(R.string.beat_detecting) else "Run script", color = Am.OnAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+        }
+    }
+}
+
 @SuppressLint("SetJavaScriptEnabled")
 @Suppress("DEPRECATION")
 @Composable
-private fun PluginWebPanel(state: EditorState, plugin: Plugin, catalog: EffectCatalog?, modifier: Modifier, applyEffect: (String) -> Unit, onNotice: (String) -> Unit) {
+private fun PluginWebPanel(state: EditorState, plugin: Plugin, catalog: EffectCatalog?, targetId: Long, modifier: Modifier, applyEffect: (String) -> Unit, onNotice: (String) -> Unit) {
     val context = LocalContext.current
     val web = remember(plugin.id) {
         WebView(context).apply {
@@ -272,6 +307,13 @@ private fun PluginWebPanel(state: EditorState, plugin: Plugin, catalog: EffectCa
     val bridge = remember(plugin.id, state) {
         object {
             @JavascriptInterface fun applyEffect(id: String) = handler.post { applyEffect(id) }
+            @JavascriptInterface fun evalScriptCode(code: String): String {
+                handler.post {
+                    val result = JsxInterpreter.execute(state, targetId, code, catalog)
+                    onNotice(result)
+                }
+                return "queued"
+            }
             @JavascriptInterface fun applyEffectByName(name: String) = handler.post {
                 val wanted = name.trim()
                 val resolved = plugin.effects.firstOrNull { it.contains(wanted, true) || wanted.contains(it, true) }
@@ -341,7 +383,8 @@ window.__adobe_cep__ = {
       if (m) { Schnitt.applyEffectByName(m[1]); return 'ok'; }
       var n = text.match(/(?:effect|preset|filter)\s*(?:name)?\s*[:=]\s*["']([^"']+)["']/i);
       if (n) { Schnitt.applyEffectByName(n[1]); return 'ok'; }
-      return 'ok';
+      Schnitt.evalScriptCode(String(s));
+      return 'queued';
     } catch(e) { Schnitt.log('EvalScript: ' + e); return 'error'; }
   },
   addEventListener: function(){}, removeEventListener: function(){},
