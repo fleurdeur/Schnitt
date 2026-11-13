@@ -5,6 +5,8 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -120,7 +122,7 @@ internal fun TikTokScreen(onClose: () -> Unit, onImportXml: (Uri) -> Unit) {
             }
             SearchField(query, { query = it }, Modifier.padding(horizontal = 14.dp).fillMaxWidth().height(40.dp),
                 hint = stringResource(R.string.tiktok_search), background = Am.Card, content = Am.Navy, faint = Am.HomeDim)
-            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 listOf("All", "Effects", "CC", "Transition", "Preset").forEach { item ->
                     val on = item == category
                     Box(Modifier.height(32.dp).clip(RoundedCornerShape(16.dp)).background(if (on) Am.Navy else Am.Card).clickable { category = item }.padding(horizontal = 12.dp), Alignment.Center) {

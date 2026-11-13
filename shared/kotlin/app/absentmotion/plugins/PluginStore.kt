@@ -2,6 +2,7 @@ package app.absentmotion.plugins
 
 import android.content.Context
 import android.net.Uri
+import android.provider.OpenableColumns
 import java.io.File
 import java.io.InputStream
 import java.security.MessageDigest
@@ -63,7 +64,7 @@ class PluginStore(private val context: Context) {
     suspend fun import(uri: Uri, displayName: String?): PluginImport = withContext(Dispatchers.IO) {
         val temp = File(context.cacheDir, "schnitt-plugin-${System.nanoTime()}.bin")
         try {
-            val name = copyToTemp(uri, temp) ?: return@withContext PluginImport(null, "empty")
+            val name = copyToTemp(uri, temp, displayName) ?: return@withContext PluginImport(null, "empty")
             val id = slug(name.substringBeforeLast('.')) + "-" + digest("$name:${temp.length()}:${System.currentTimeMillis()}").take(6)
             val folder = File(root, id).apply { mkdirs() }
             val zip = temp.isZip()
@@ -84,10 +85,15 @@ class PluginStore(private val context: Context) {
         }
     }
 
-    private fun copyToTemp(uri: Uri, target: File): String? {
+    private fun copyToTemp(uri: Uri, target: File, display: String? = null): String? {
         val input = context.contentResolver.openInputStream(uri) ?: return null
         var total = 0L
-        var name = uri.lastPathSegment.orEmpty().substringAfterLast('/')
+        var name = display?.takeIf { it.isNotBlank() } ?: uri.lastPathSegment.orEmpty().substringAfterLast('/')
+        runCatching {
+            context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                if (c.moveToFirst()) name = c.getString(0) ?: name
+            }
+        }
         input.use { source ->
             target.outputStream().buffered().use { out ->
                 val buffer = ByteArray(64 * 1024)

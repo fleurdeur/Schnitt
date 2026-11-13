@@ -222,8 +222,8 @@ internal fun AudioLibrarySheet(state: EditorState, onClose: () -> Unit) {
 
 @Composable
 private fun ShelfTab(label: String, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Box(modifier.fillMaxHeight().clickable(onClick = onClick), Alignment.Center) {
-        Text(label, color = if (active) Am.Accent else Am.OnDarkDim, fontSize = 14.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
+    Box(modifier.fillMaxWidth().fillMaxHeight().clickable(onClick = onClick), Alignment.Center) {
+        Text(label, color = if (active) Am.Accent else Am.OnDarkDim, fontSize = 13.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.6f).height(2.dp).background(if (active) Am.Accent else Color.Transparent))
     }
 }

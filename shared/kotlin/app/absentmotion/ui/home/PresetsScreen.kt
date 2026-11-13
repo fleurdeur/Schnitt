@@ -3,6 +3,8 @@ package app.absentmotion.ui.home
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -99,7 +101,7 @@ internal fun PresetsScreen(onClose: () -> Unit, onUse: (Scene) -> Unit) {
                 Text(stringResource(R.string.presets_title), Modifier.weight(1f), color = Am.Navy, fontSize = 19.sp, fontWeight = FontWeight.Bold)
             }
             SearchField(search, { search = it }, Modifier.padding(horizontal = 14.dp).fillMaxWidth().height(38.dp), hint = stringResource(R.string.presets_search), background = Am.Card, content = Am.Navy, faint = Am.HomeDim)
-            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 categories.forEach { item ->
                     val on = item == category
                     Box(
