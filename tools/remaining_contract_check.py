@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+from pathlib import Path
+import re
+import subprocess
+import sys
+import unittest
+
+ROOT = Path(__file__).resolve().parent.parent
+REVISION = None
+if len(sys.argv) > 2 and sys.argv[1] == '--revision':
+    REVISION = sys.argv[2]
+    del sys.argv[1:3]
+
+
+LEGACY = (('shared/kotlin/', 'app/src/main/kotlin/'), ('android/src/main/kotlin/', 'app/src/main/kotlin/'), ('shared/res/', 'app/src/main/res/'), ('shared/cpp/', 'app/src/main/cpp/'), ('shared/assets/', 'app/src/main/assets/'), ('android/src/', 'app/src/'))
+
+
+def read(path):
+    if not REVISION:
+        return (ROOT / path).read_text()
+    for new, old in ((path, path),) + LEGACY:
+        if path.startswith(new):
+            result = subprocess.run(['git', 'show', REVISION + ':' + old + path[len(new):]], cwd=ROOT, text=True, capture_output=True)
+            if result.returncode == 0:
+                return result.stdout
+    raise FileNotFoundError(path)
+
+
+def kotlin_path(relative):
+    android = 'android/src/main/kotlin/com/arch/schnitt/' + relative
+    return android if (ROOT / android).exists() else 'shared/kotlin/com/arch/schnitt/' + relative
+
+
+def source(path):
+    return read(path)
+
+
+def kotlin(path):
+    return source(kotlin_path(path))
+
+
+def english(key):
+    text = source('shared/res/values/strings.xml')
+    return re.search(r'<string name="' + key + r'"[^>]*>(.*?)</string>', text, re.S).group(1)
+
+
+class RemainingContracts(unittest.TestCase):
+    def test_wheel_scrubbing_settles_after_the_last_event(self):
+        text = kotlin('ui/editor/Timeline.kt')
+        self.assertIn('\n                view.finishWheelScrub()\n', text)
+        self.assertIn('fun finishWheelScrub() { motion = scope.launch { kotlinx.coroutines.delay(120); settle() } }', text)
+
+    def test_test_intents_handle_closed_engines_and_preserve_cancellation(self):
+        text = source('android/src/debug/kotlin/com/arch/schnitt/TestHooks.kt')
+        self.assertIn('if (e.message != "engine closed") throw e', text)
+        self.assertIn('catch (e: kotlinx.coroutines.CancellationException)', text)
+
+    def test_border_state_lives_above_the_easing_navigation(self):
+        text = kotlin('ui/editor/LayerTools.kt')
+        self.assertIn('BorderShadowLifetime(state, selected.id, panel)', text)
+        self.assertLess(text.index('BorderShadowLifetime'), text.index('if (state.easingOpen)'))
+        text = kotlin('ui/editor/panels/BorderShadowPanel.kt')
+        self.assertIn('DisposableEffect(owner, layerId, panel)', text)
+        panel = text.split('internal fun BorderShadowPanel', 1)[1].split('private fun editColour', 1)[0]
+        self.assertNotIn('onDispose', panel)
+
+    def test_nested_fonts_are_resolved_for_preview_and_explicit_exports(self):
+        text = kotlin('engine/EngineThread.kt')
+        body = text.split('fun setScene(next: Scene, xml: Lazy<String> = lazy { next.toXml() })', 1)[1].split('fun refreshMedia', 1)[0]
+        self.assertIn('next.fontNames()', body)
+        self.assertNotIn('Scene.parse(', body)
+        self.assertGreaterEqual(text.count('document.fontNames().forEach'), 2)
+        text = kotlin('fonts/TextLayout.kt')
+        self.assertIn('scene.mapTimedLayers(fps, timeMs.toDouble())', text)
+
+    def test_gif_storage_gate_uses_an_encoded_measurement(self):
+        text = kotlin('ui/export/ExportScreen.kt')
+        self.assertIn('val measured = measureGif(engine, exported, s).bytes', text)
+        self.assertIn('if (storageStatus(measured, free) is StorageStatus.NotEnough)', text)
+        self.assertIn('if (kind != ExportKind.Gif && storageStatus(estimate, free) is StorageStatus.NotEnough)', text)
+
+    def test_interpolation_errors_cannot_silently_choose_a_blend_or_plain_frame(self):
+        text = source('shared/cpp/engine.cpp')
+        self.assertIn('if (flow && !field)', text)
+        self.assertIn('if (!mixed)', text)
+        self.assertNotIn('if (mixed) image = std::move(mixed)', text)
+        text = kotlin('media/VideoLibrary.kt')
+        self.assertIn('throw ExportError(txt(R.string.media_error_interp_render, txt(request.smoothing.label)))', text)
+        self.assertIn('could not render the requested video frame', english('media_error_interp_render'))
+        exact = text.split('suspend fun exact(', 1)[1].split('private suspend fun decode', 1)[0]
+        self.assertIn('throw e', exact)
+        self.assertNotIn('if (image.timestamp / 1000 != pts) return false', text)
+
+    def test_nested_video_selection_uses_each_track_local_scene(self):
+        text = kotlin('media/VideoLibrary.kt')
+        self.assertIn('request.scene.videoSamples(', text)
+        self.assertIn('val tracks = layerTracks()', text)
+        self.assertIn('sample.timeMs + ahead', text)
+        self.assertIn('sample.scene', text)
+
+    def test_unused_receive_controls_are_removed_from_both_home_layouts(self):
+        for path in ['ui/home/HomeScreen.kt', 'ui/home/WideHome.kt', 'ui/home/HomeIcons.kt']:
+            text = kotlin(path)
+            self.assertNotIn('onReceive', text)
+            self.assertNotIn('Receive from phone', text)
+            self.assertNotIn('val Receive =', text)
+        self.assertIn('BottomBar(onNew = newProject', kotlin('ui/home/HomeScreen.kt'))
+
+
+if __name__ == '__main__':
+    unittest.main()

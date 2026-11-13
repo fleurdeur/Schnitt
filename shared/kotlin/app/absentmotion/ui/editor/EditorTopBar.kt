@@ -1,0 +1,220 @@
+package app.absentmotion.ui.editor
+
+import app.absentmotion.ui.editor.panels.buttonLabel
+import app.absentmotion.ui.tutorial.tutorialTarget
+import app.absentmotion.ui.tutorial.tutorialGuard
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Text
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.res.stringResource
+import app.absentmotion.R
+import app.absentmotion.editor.MultiSelect
+import app.absentmotion.editor.EditorPanel
+import app.absentmotion.editor.EditorState
+import app.absentmotion.editor.deleteSelected
+import app.absentmotion.editor.rename
+import app.absentmotion.editor.renameLayer
+import app.absentmotion.editor.stepBack
+import app.absentmotion.platform.PlatformFeatures
+import app.absentmotion.ui.home.handCursor
+import app.absentmotion.ui.home.hoverFill
+import app.absentmotion.ui.theme.Am
+import app.absentmotion.ui.theme.pressScale
+import app.absentmotion.ui.theme.Presence
+import app.absentmotion.ui.theme.animatedBackground
+import app.absentmotion.ui.theme.enterFade
+
+private val Underline get() = Am.Deepest
+
+enum class BarPlace { Whole, Project, Layer }
+
+@Composable
+fun EditorTopBar(state: EditorState, onExit: () -> Unit, modifier: Modifier = Modifier, place: BarPlace = BarPlace.Whole) {
+    if (place != BarPlace.Project) {
+        (state.drawing as? app.absentmotion.editor.PointMode)?.let {
+            PointTopBar(state, it, modifier)
+            return
+        }
+        if (MultiSelect.active) {
+            MultiTopBar(state, modifier)
+            return
+        }
+    }
+    val layer = if (place == BarPlace.Project) null else state.selectedId?.let { state.scene.layer(it) }
+    if (place == BarPlace.Layer && layer == null) {
+        Box(modifier.background(Am.Button))
+        return
+    }
+    val inPanel = layer != null && state.panel != EditorPanel.Tools
+    val focus = LocalFocusManager.current
+    var settingsOpen by remember { mutableStateOf(false) }
+    var layerMenuOpen by remember { mutableStateOf(false) }
+    var parentMenuOpen by remember { mutableStateOf(false) }
+    val color = when {
+        layer == null -> Am.TimelineBg
+        inPanel -> Am.Button
+        else -> Am.TopBar
+    }
+    fun act(action: () -> Unit) {
+        focus.clearFocus()
+        action()
+    }
+    val cell = Modifier.width(40.dp).fillMaxHeight()
+    Row(modifier.animatedBackground(color), verticalAlignment = Alignment.CenterVertically) {
+        val crumbs = layer == null && state.inGroup
+        if (place == BarPlace.Project && !crumbs) Spacer(Modifier.width(8.dp))
+        else if (!crumbs) BarButton(
+            if (layer == null) ChromeIcons.Exit else ChromeIcons.Back,
+            stringResource(if (layer == null) R.string.topbar_exit_to_project_list else R.string.topbar_back), cell.tutorialTarget(if (layer == null) null else "back"),
+        ) {
+            act { if (layer == null) onExit() else state.stepBack() }
+        }
+        if (inPanel) {
+            Text(stringResource(state.panel.title), Modifier.weight(1f).enterFade(), color = Am.OnDark, fontSize = 15.sp, maxLines = 1)
+        } else if (crumbs) {
+            Row(Modifier.weight(1f).padding(start = 8.dp).enterFade(), verticalAlignment = Alignment.CenterVertically) {
+                GroupCrumbs(state, 15.sp) { act(it) }
+            }
+        } else {
+            if (layer != null && state.inGroup) {
+                Row(
+                    Modifier.padding(start = 2.dp).widthIn(max = 104.dp).clip(RoundedCornerShape(6.dp)).background(Am.Field)
+                        .clickable { act { state.exitGroup() } }.padding(horizontal = 6.dp, vertical = 4.dp).enterFade(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(SelectionIcons.Group, stringResource(R.string.group_leave), Modifier.size(16.dp), tint = Am.OnDark)
+                    Spacer(Modifier.width(4.dp))
+                    Text(state.groupNames.lastOrNull().orEmpty(), color = Am.OnDark, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            key(layer?.id) {
+                val id = layer?.id
+                NameField(layer?.label ?: state.scene.title, Modifier.weight(1f).fillMaxHeight().enterFade()) { name ->
+                    if (id == null) state.rename(name) else state.renameLayer(id, name)
+                }
+            }
+        }
+        if (layer == null) {
+            BarButton(ChromeIcons.Gear, stringResource(R.string.topbar_project_settings), cell.enterFade().tutorialTarget("gear")) { act { settingsOpen = true } }
+            val exportPress = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            if (place == BarPlace.Project) Box(Modifier.width(52.dp).fillMaxHeight().enterFade().tutorialTarget("export").tutorialGuard().clickable(exportPress, null) { act { state.playing = false; state.exportOpen = true } }, contentAlignment = Alignment.Center) {
+                Box(Modifier.size(40.dp, 28.dp).pressScale(exportPress).background(Am.Accent, RoundedCornerShape(7.dp)), contentAlignment = Alignment.Center) {
+                    Icon(ChromeIcons.Share, stringResource(R.string.topbar_export_share), Modifier.size(18.dp), tint = Am.OnAccent)
+                }
+            }
+            else BarButton(ChromeIcons.Share, stringResource(R.string.topbar_export_share), cell.enterFade().tutorialTarget("export")) { act { state.playing = false; state.exportOpen = true } }
+        } else if (!inPanel) {
+            Spacer(Modifier.width(5.dp))
+            Box(cell.enterFade().buttonLabel(stringResource(R.string.structure_link_parent)).clickable { act { parentMenuOpen = true } }, contentAlignment = Alignment.Center) {
+                LayerParentIcon()
+                Presence(parentMenuOpen) { ParentMenu(state) { parentMenuOpen = false } }
+            }
+            Spacer(Modifier.width(6.dp))
+            BarButton(ChromeIcons.Trash, stringResource(R.string.topbar_delete_layer), cell.enterFade()) { act { state.deleteSelected() } }
+            Spacer(Modifier.width(6.dp))
+            BarButton(ChromeIcons.More, stringResource(R.string.topbar_layer_menu), cell.enterFade()) { act { layerMenuOpen = true } }
+        }
+        Presence(layer != null && !inPanel && layerMenuOpen) { LayerMenu(state) { layerMenuOpen = false } }
+        Presence(settingsOpen) { ProjectSettingsPopup(state) { settingsOpen = false } }
+    }
+}
+
+@Composable
+internal fun RowScope.GroupCrumbs(state: EditorState, fontSize: TextUnit, act: (() -> Unit) -> Unit) {
+    val names = state.groupNames
+    Row(
+        Modifier.weight(1f, fill = false).clip(RoundedCornerShape(6.dp)).background(Am.Field).crumbHover(6.dp).clickable { act { state.leaveGroups() } }
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(SelectionIcons.ToProject, stringResource(R.string.group_leave), Modifier.size(16.dp), tint = Am.OnDark)
+        Spacer(Modifier.width(4.dp))
+        Text(state.project.title, color = Am.OnDark, fontSize = fontSize, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+    names.forEachIndexed { i, name ->
+        Icon(SelectionIcons.Previous, null, Modifier.padding(horizontal = 4.dp).size(16.dp), tint = Am.OnDarkDim)
+        val last = i == names.lastIndex
+        Text(name, (if (last) Modifier else Modifier.crumbHover(4.dp).clickable { act { state.exitTo(i + 1) } }).weight(1f, fill = false),
+            color = if (last) Am.OnDark else Am.OnDarkDim, fontSize = fontSize, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun Modifier.crumbHover(radius: androidx.compose.ui.unit.Dp): Modifier =
+    if (PlatformFeatures.desktop) clip(RoundedCornerShape(radius)).hoverFill(radius).handCursor() else this
+
+internal fun typedName(typed: String, shown: String): String? = typed.trim().takeIf { typed != shown && it.isNotEmpty() && it != shown }
+
+@Composable
+private fun NameField(value: String, modifier: Modifier, onCommit: (String) -> Unit) {
+    var text by remember(value) { mutableStateOf(value) }
+    var focused by remember { mutableStateOf(false) }
+    val focus = LocalFocusManager.current
+    fun commit() {
+        val name = typedName(text, value)
+        text = name ?: value
+        if (name != null) onCommit(name)
+    }
+    val commitNow by rememberUpdatedState(::commit)
+    DisposableEffect(Unit) { onDispose { commitNow() } }
+    Box(
+        modifier.drawBehind {
+            val inset = 4.dp.toPx()
+            drawRect(Underline, Offset(inset, 33.dp.toPx()), Size(size.width - 2 * inset, 1.4.dp.toPx()))
+        },
+    ) {
+        BasicTextField(
+            text, { text = it },
+            Modifier.align(Alignment.CenterStart).fillMaxWidth().padding(horizontal = 4.dp)
+                .onFocusChanged {
+                    if (focused && !it.isFocused) commit()
+                    focused = it.isFocused
+                },
+            textStyle = TextStyle(color = Am.OnDark, fontSize = 15.sp, textDirection = androidx.compose.ui.text.style.TextDirection.Content),
+            singleLine = true,
+            cursorBrush = SolidColor(Am.Accent),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
+        )
+    }
+}

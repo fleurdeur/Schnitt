@@ -1,0 +1,39 @@
+package app.absentmotion.model
+
+fun copyLayers(
+    layers: List<Layer>, startTime: Int? = null, preserveOutsideParents: Boolean = false,
+    move: (Layer, Int) -> Layer = { layer, start -> layer.movedTo(start) }, newId: () -> Long = Layer::newId,
+): List<Layer> {
+    val ids = mutableMapOf<Long, Long>()
+    fun collect(node: XmlNode) {
+        if (node.name in Scene.LAYER_TAGS) node["id"]?.toLongOrNull()?.let { ids.getOrPut(it, newId) }
+        node.children.forEach(::collect)
+    }
+    layers.forEach { collect(it.node) }
+    fun remap(node: XmlNode): XmlNode {
+        var result = node
+        if (node.name in Scene.LAYER_TAGS) {
+            node["id"]?.toLongOrNull()?.let { result = result.with("id", ids[it]?.toString()) }
+            node["parent"]?.toLongOrNull()?.let { result = result.with("parent", ids[it]?.toString() ?: node["parent"].takeIf { preserveOutsideParents }) }
+            result = result.withSiblingRefs(ids::get)
+        }
+        if (node.name == "valueLink") node["layer"]?.toLongOrNull()?.let { id -> ids[id]?.let { result = result.with("layer", "$it") } }
+        return result.copy(children = node.children.map(::remap))
+    }
+    val shift = if (startTime == null || layers.isEmpty()) 0 else startTime - layers.minOf { it.startTime }
+    return layers.map { move(Layer(remap(it.node)), it.startTime + shift) }
+}
+
+internal fun Scene.withCopiedLayerIds(): Scene {
+    val copies = copyLayers(layers).iterator()
+    return Scene(node.copy(children = node.children.map { if (it.name in Scene.LAYER_TAGS) copies.next().node else it }))
+}
+
+internal fun XmlNode.withSiblingRefs(map: (Long) -> Long?): XmlNode {
+    var result = this
+    for (name in listOf("noiseId", "pathLayer")) this[name]?.toLongOrNull()?.let(map)?.let { result = result.with(name, it.toString()) }
+    for (slot in MotionSlot.entries) MotionRecord.parse(this[slot.attr])?.takeIf { it.transition }?.let { record ->
+        map(record.partner)?.let { result = result.with(slot.attr, record.copy(partner = it).toString()) }
+    }
+    return result
+}

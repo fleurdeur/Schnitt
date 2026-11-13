@@ -1,0 +1,62 @@
+package app.absentmotion.editor
+
+import app.absentmotion.R
+import app.absentmotion.i18n.AppText
+import app.absentmotion.platform.Context
+import app.absentmotion.ai.SPEECH_RATE
+import app.absentmotion.ai.speechChunks
+import app.absentmotion.audio.Beats
+import app.absentmotion.audio.OfflineMix
+import app.absentmotion.audio.Resampler
+import app.absentmotion.audio.soundUri
+import app.absentmotion.model.Scene
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.Closeable
+import kotlin.math.abs
+import kotlin.math.roundToInt
+
+fun EditorState.toggleBookmark() = edit { it.withBookmarkToggled(frame) }
+
+internal fun hasBookmarkNear(sorted: List<Int>, time: Int, tolerance: Double): Boolean {
+    val at = sorted.binarySearch(time)
+    if (at >= 0) return true
+    val next = -at - 1
+    return next < sorted.size && abs(sorted[next] - time) <= tolerance || next > 0 && abs(sorted[next - 1] - time) <= tolerance
+}
+
+suspend fun EditorState.markBeatsNote(context: Context): String = try {
+    markBeats(context).let { if (it == 0) context.getString(R.string.menu_no_new_beats) else context.resources.getQuantityString(R.plurals.menu_beats_marked, it, it.toString()) }
+} catch (e: kotlinx.coroutines.CancellationException) {
+    throw e
+} catch (e: Exception) {
+    app.absentmotion.i18n.failureText(context.getString(R.string.menu_beats_not_found), e)
+}
+
+suspend fun EditorState.markBeats(context: Context): Int {
+    val layer = selectedId?.let(scene::layer)?.takeIf { it.soundUri != null } ?: error(AppText.get(R.string.edit_beats_select_layer))
+    val fps = scene.fps
+    val path = groupPath
+    val alone = Scene(scene.node.copy(children = scene.node.children.filter { it.name !in Scene.LAYER_TAGS } +
+        layer.node.with("hidden", null).let { it.copy(children = it.children.filterNot { c -> c.name == "gain" }) }))
+    val mix = withContext(Dispatchers.IO) { OfflineMix.of(context, alone, Resampler.HIGH) } ?: error(AppText.get(R.string.edit_beats_no_sound))
+    val stream = Beats.Stream(SPEECH_RATE)
+    try {
+        withContext(Dispatchers.IO) { speechChunks(mix, layer.startTime, layer.endTime + 1, {}) { chunk, count -> stream.add(chunk, count) } }
+    } finally {
+        (mix as? Closeable)?.close()
+    }
+    val beats = withContext(Dispatchers.Default) { stream.beats() }
+    val first = scene.frameAt(layer.startTime)
+    val last = scene.frameAt(layer.endTime)
+    val frames = beats.map { (((layer.startTime + it) * fps / 1000.0).roundToInt()) }.filter { it in first..last }.distinct()
+    if (groupPath != path) return 0
+    var added = 0
+    edit { s ->
+        val existing = s.bookmarks
+        val times = frames.map(s::frameStart).filter { t -> !hasBookmarkNear(existing, t, 1000.0 / fps) }
+        added = times.size
+        s.withBookmarks(times)
+    }
+    return added
+}

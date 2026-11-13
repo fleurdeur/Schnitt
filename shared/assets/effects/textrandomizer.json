@@ -1,0 +1,136 @@
+{
+ "id": "textrandomizer",
+ "name": "Text Randomizer",
+ "category": "text",
+ "since": "3.0.0",
+ "native": true,
+ "description": "Randomly replaces Amount of the characters between Start and End. Animate Evolution or raise Speed to change the replacements; Reveal settles them back into the original text.",
+ "params": [
+  {
+   "id": "amount",
+   "label": "Amount",
+   "type": "float",
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 0.001,
+   "percent": true
+  },
+  {
+   "id": "evolution",
+   "label": "Evolution",
+   "type": "float",
+   "default": 0,
+   "min": -50,
+   "max": 50,
+   "step": 0.01
+  },
+  {
+   "id": "progress",
+   "label": "Reveal",
+   "type": "float",
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 0.001,
+   "percent": true
+  },
+  {
+   "id": "direction",
+   "label": "Direction",
+   "type": "choice",
+   "default": 0,
+   "options": [
+    "From Start",
+    "From End",
+    "From Center",
+    "Random"
+   ]
+  },
+  {
+   "id": "start",
+   "label": "Start",
+   "type": "float",
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 0.001,
+   "percent": true
+  },
+  {
+   "id": "end",
+   "label": "End",
+   "type": "float",
+   "default": 1,
+   "min": 0,
+   "max": 1,
+   "step": 0.001,
+   "percent": true
+  },
+  {
+   "id": "charset",
+   "label": "Characters",
+   "type": "choice",
+   "default": 1,
+   "options": [
+    "Letters",
+    "Upper Case",
+    "Lower Case",
+    "Numbers",
+    "Letters and Numbers",
+    "Symbols",
+    "Custom"
+   ]
+  },
+  {
+   "id": "characters",
+   "label": "Custom",
+   "type": "text",
+   "default": "01"
+  },
+  {
+   "id": "speed",
+   "label": "Speed",
+   "type": "float",
+   "default": 0,
+   "min": 0,
+   "max": 60,
+   "step": 0.1
+  },
+  {
+   "id": "keepSpaces",
+   "label": "Keep Spaces",
+   "type": "switch",
+   "default": true
+  },
+  {
+   "id": "seed",
+   "label": "Seed",
+   "type": "float",
+   "default": 0,
+   "min": 0,
+   "max": 1000,
+   "step": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "Scramble",
+   "params": {
+    "charset": 4,
+    "speed": 20,
+    "progress": [
+     [
+      0,
+      0
+     ],
+     [
+      1.5,
+      1
+     ]
+    ],
+    "amount": 1
+   }
+  }
+ ]
+}

@@ -1,0 +1,195 @@
+package app.absentmotion.ui.home
+
+import app.absentmotion.export.formatBytes
+import android.provider.OpenableColumns
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.absentmotion.i18n.UiText
+import app.absentmotion.i18n.text
+import app.absentmotion.i18n.txt
+import app.absentmotion.export.MediaStoreExport
+import app.absentmotion.export.freeSpace
+import app.absentmotion.library.AppSettings
+import app.absentmotion.library.Backup
+import app.absentmotion.library.ImportFailed
+import app.absentmotion.library.MediaAccess
+import app.absentmotion.library.ProjectStore
+import app.absentmotion.platform.ActivityResultContracts
+import app.absentmotion.platform.Context
+import app.absentmotion.platform.LocalContext
+import app.absentmotion.platform.Log
+import app.absentmotion.platform.Uri
+import app.absentmotion.platform.rememberLauncherForActivityResult
+import app.absentmotion.platform.rememberStorageAccess
+import app.absentmotion.ui.theme.Am
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import androidx.compose.ui.res.stringResource
+import app.absentmotion.R
+
+private class BackupTask(val title: UiText, val finished: UiText) {
+    var progress by mutableFloatStateOf(0f)
+    var result by mutableStateOf<List<UiText>?>(null)
+    @Volatile var stopped = false
+
+    fun report(fraction: Float) {
+        if (stopped) throw Stopped()
+        if (fraction - progress >= 0.005f || fraction >= 1f) progress = fraction
+    }
+}
+
+private class Stopped : RuntimeException("stopped")
+
+@Composable
+internal fun BackupRows(settings: AppSettings, onRestored: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var task by remember { mutableStateOf<BackupTask?>(null) }
+    fun run(title: UiText, finished: UiText, stoppedText: UiText, after: () -> Unit = {}, work: (BackupTask) -> List<UiText>) {
+        if (task != null) return
+        val started = BackupTask(title, finished)
+        task = started
+        scope.launch {
+            started.result = withContext(Dispatchers.IO) {
+                try {
+                    work(started)
+                } catch (e: Stopped) {
+                    listOf(stoppedText)
+                } catch (e: ImportFailed) {
+                    listOf(e.text)
+                } catch (e: Exception) {
+                    Log.w("AMBackup", "backup task failed", e)
+                    listOf(txt(R.string.backup_error_generic, e.message ?: e.javaClass.simpleName))
+                }
+            }
+            after()
+        }
+    }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) run(txt(R.string.backup_restoring_title), txt(R.string.backup_restore_result_title), txt(R.string.backup_restore_stopped), onRestored) {
+            restoreBackup(context, uri, it)
+        }
+    }
+    val storage = rememberStorageAccess()
+    fun backUpNow() {
+        if (storage.ready(::backUpNow)) run(txt(R.string.backup_backing_up_title), txt(R.string.backup_result_title), txt(R.string.backup_stopped)) { backUp(context, it) }
+    }
+    Column(Modifier.fillMaxWidth()) {
+        ActionRow(stringResource(R.string.backup_all_projects)) { backUpNow() }
+        ActionRow(stringResource(R.string.backup_restore)) { picker.launch(arrayOf("*/*")) }
+        SwitchRow(stringResource(R.string.backup_weekly), settings.weeklyBackup, enabled = true) {
+            settings.weeklyBackup = it
+            if (it) storage.ready {}
+        }
+        if (settings.weeklyBackup && settings.autoBackupFailed) Text(
+            stringResource(R.string.backup_weekly_failed), Modifier.padding(start = 15.dp, end = 15.dp, bottom = 8.dp), color = Am.HomeMid, fontSize = 12.sp, lineHeight = 16.sp,
+        )
+    }
+    task?.let { current ->
+        app.absentmotion.ui.theme.ThemeFade.Hold(current.result == null)
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text((if (current.result == null) current.title else current.finished).text(), color = Am.Navy) },
+            text = {
+                Box(Modifier.fillMaxWidth().height(168.dp)) {
+                    val result = current.result
+                    if (result == null) Column {
+                        LinearProgressIndicator(progress = { current.progress }, Modifier.fillMaxWidth().padding(top = 8.dp), color = Am.Accent)
+                        Text("${(current.progress * 100).toInt()}%", Modifier.padding(top = 12.dp), color = Am.Navy, fontSize = 15.sp)
+                    } else Text(result.map { it.text() }.joinToString(" "), Modifier.verticalScroll(rememberScrollState()), color = Am.Navy, fontSize = 15.sp)
+                }
+            },
+            confirmButton = {
+                if (current.result == null) TextButton({ current.stopped = true }) { Text(stringResource(R.string.stop), color = Am.Navy) }
+                else TextButton({ task = null }) { Text(stringResource(R.string.ok), color = Am.Navy) }
+            },
+            containerColor = Am.Card,
+        )
+    }
+}
+
+internal fun isWeeklyBackupName(name: String?) = name != null && name.startsWith(WEEKLY_PREFIX) && name.endsWith("." + Backup.EXTENSION)
+
+private fun displayName(context: Context, uri: Uri): String? =
+    context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null }
+
+private const val WEEKLY_PREFIX = "Schnitt-weekly-"
+
+private fun stamp() = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmm"))
+
+private fun backUp(context: Context, task: BackupTask): List<UiText> {
+    val root = context.filesDir
+    val ai = context.getExternalFilesDir(null)?.resolve("ai")
+    val needed = Backup.files(root, includeMedia = true, ai).sumOf { it.second.length() }
+    if (needed + (50L shl 20) > freeSpace()) return listOf(txt(R.string.backup_no_space, formatBytes(needed)))
+    val name = "Schnitt-backup-${stamp()}.${Backup.EXTENSION}"
+    val uri = MediaStoreExport(context).save(null, name, "application/octet-stream") { out ->
+        Backup.write(root, out, includeMedia = true, ai) { done, total -> task.report(done.toFloat() / total) }
+    }
+    task.progress = 1f
+    val written = runCatching {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null }
+    }.getOrNull() ?: name
+    return listOf(txt(R.string.backup_saved, written))
+}
+
+private fun restoreBackup(context: Context, uri: Uri, task: BackupTask): List<UiText> {
+    val size = runCatching {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { if (it.moveToFirst() && !it.isNull(0)) it.getLong(0) else -1L }
+    }.getOrNull() ?: -1L
+    if (size > 0 && context.filesDir.usableSpace < size + (100L shl 20)) return listOf(txt(R.string.backup_restore_no_space, formatBytes(size)))
+    val restored = (context.contentResolver.openInputStream(uri) ?: return listOf(txt(R.string.backup_open_failed))).use { input ->
+        val external = context.getExternalFilesDir(null)
+        Backup.restore(ProjectStore(context), context.filesDir, input, MediaAccess.forPhone(context.filesDir, external), external?.resolve("ai")) { read -> if (size > 0) task.report(read.toFloat() / size) else task.report(0f) }
+    }
+    task.progress = 1f
+    fun count(n: Int) = UiText.plural(R.plurals.backup_projects, n, n.toString())
+    return listOfNotNull(
+        txt(R.string.backup_restored, count(restored.added)),
+        restored.renamed.takeIf { it > 0 }?.let { UiText.plural(R.plurals.backup_restored_copies, it, it.toString()) },
+        restored.skipped.takeIf { it > 0 }?.let { UiText.plural(R.plurals.backup_restored_skipped, it, it.toString()) },
+        restored.rejected.takeIf { it > 0 }?.let { UiText.plural(R.plurals.backup_restored_rejected, it, it.toString()) },
+    )
+}
+
+suspend fun autoBackupIfDue(context: Context, settings: AppSettings) = withContext(Dispatchers.IO) {
+    if (!settings.weeklyBackup || System.currentTimeMillis() - settings.lastAutoBackup < WEEK_MS) return@withContext
+    try {
+        val needed = Backup.files(context.filesDir, includeMedia = false).sumOf { it.second.length() }
+        if (needed + (50L shl 20) > freeSpace()) throw java.io.IOException("not enough free storage for the weekly backup")
+        val name = "$WEEKLY_PREFIX${stamp()}.${Backup.EXTENSION}"
+        val saved = MediaStoreExport(context).save(null, name, "application/octet-stream") { Backup.write(context.filesDir, it, includeMedia = false) }
+        settings.autoBackupUri?.takeIf { it != saved.toString() }?.let { old -> runCatching { if (isWeeklyBackupName(displayName(context, Uri.parse(old)))) context.contentResolver.delete(Uri.parse(old), null, null) } }
+        settings.autoBackupUri = saved.toString()
+        settings.lastAutoBackup = System.currentTimeMillis()
+        settings.autoBackupFailed = false
+        Log.i("AMBackup", "weekly backup written: $name")
+    } catch (e: Exception) {
+        settings.autoBackupFailed = true
+        Log.w("AMBackup", "weekly backup failed", e)
+    }
+}
+
+private const val WEEK_MS = 7L * 24 * 3600 * 1000

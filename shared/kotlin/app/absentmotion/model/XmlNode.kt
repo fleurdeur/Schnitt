@@ -1,0 +1,111 @@
+package app.absentmotion.model
+
+import app.absentmotion.R
+import app.absentmotion.i18n.AppText
+import app.absentmotion.platform.xmlParser
+import org.xmlpull.v1.XmlPullParser
+
+data class XmlNode(
+    val name: String,
+    val attrs: Map<String, String> = emptyMap(),
+    val children: List<XmlNode> = emptyList(),
+    val text: String = "",
+) {
+    operator fun get(attr: String): String? = attrs[attr]
+
+    fun child(name: String): XmlNode? = children.firstOrNull { it.name == name }
+
+    fun with(attr: String, value: String?): XmlNode =
+        copy(attrs = if (value == null) attrs - attr else attrs + (attr to value))
+
+    fun withChild(name: String, node: XmlNode?): XmlNode {
+        val index = children.indexOfFirst { it.name == name }
+        return copy(
+            children = when {
+                node == null -> children.filterNot { it.name == name }
+                index < 0 -> children + node
+                else -> children.toMutableList().also { it[index] = node }
+            },
+        )
+    }
+
+    fun toXml(): String = StringBuilder("<?xml version='1.0' encoding='UTF-8' ?>\n").also { write(it, 0) }.toString()
+
+    private fun write(out: StringBuilder, depth: Int) {
+        repeat(depth) { out.append("  ") }
+        out.append('<').append(name)
+        for ((key, value) in attrs) {
+            out.append(' ').append(key).append("=\"")
+            escape(out, value)
+            out.append('"')
+        }
+        if (children.isEmpty() && text.isEmpty()) {
+            out.append(" />\n")
+            return
+        }
+        out.append('>')
+        if (children.isEmpty()) {
+            escape(out, text)
+        } else {
+            out.append('\n')
+            for (child in children) child.write(out, depth + 1)
+            repeat(depth) { out.append("  ") }
+        }
+        out.append("</").append(name).append(">\n")
+    }
+
+    companion object {
+        fun parse(xml: String, maxNodes: Int = Int.MAX_VALUE): XmlNode {
+            val parser = xmlParser()
+            parser.setInput(xml.reader())
+            while (parser.eventType != XmlPullParser.START_TAG) {
+                if (parser.eventType == XmlPullParser.END_DOCUMENT) throw IllegalArgumentException(AppText.get(R.string.xml_err_empty))
+                parser.next()
+            }
+            return read(parser, 1, intArrayOf(maxNodes))
+        }
+
+        const val IMPORT_NODES = 500_000
+
+        private const val MAX_DEPTH = 256
+
+        private fun read(parser: XmlPullParser, depth: Int, budget: IntArray): XmlNode {
+            if (depth > MAX_DEPTH) throw IllegalArgumentException(AppText.get(R.string.xml_err_too_deep, MAX_DEPTH.toString()))
+            if (--budget[0] < 0) throw IllegalArgumentException(AppText.get(R.string.xml_err_too_many))
+            val name = parser.name
+            val attrs = LinkedHashMap<String, String>()
+            for (i in 0 until parser.attributeCount) attrs[parser.getAttributeName(i)] = parser.getAttributeValue(i)
+            val children = ArrayList<XmlNode>()
+            val text = StringBuilder()
+            while (true) {
+                when (parser.next()) {
+                    XmlPullParser.START_TAG -> children += read(parser, depth + 1, budget)
+                    XmlPullParser.TEXT -> text.append(parser.text)
+                    XmlPullParser.END_TAG -> break
+                    XmlPullParser.END_DOCUMENT -> throw IllegalArgumentException(AppText.get(R.string.xml_err_unexpected_end, name))
+                }
+            }
+            return XmlNode(name, attrs, children, if (children.isEmpty()) text.toString() else "")
+        }
+
+        private fun escape(out: StringBuilder, s: String) {
+            var from = 0
+            for (i in s.indices) {
+                val c = s[i]
+                val entity = when (c) {
+                    '&' -> "&amp;"
+                    '<' -> "&lt;"
+                    '>' -> "&gt;"
+                    '"' -> "&quot;"
+                    '\n' -> "&#10;"
+                    '\r' -> "&#13;"
+                    '\t' -> "&#9;"
+                    else -> if (c >= ' ' && c != '\uFFFE' && c != '\uFFFF') continue else ""
+                }
+                out.append(s, from, i).append(entity)
+                from = i + 1
+            }
+            out.append(s, from, s.length)
+        }
+    }
+}

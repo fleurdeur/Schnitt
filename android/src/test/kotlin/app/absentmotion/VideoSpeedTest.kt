@@ -1,0 +1,49 @@
+package app.absentmotion
+
+import app.absentmotion.model.Layer
+import app.absentmotion.model.VideoTiming
+import app.absentmotion.model.XmlNode
+import app.absentmotion.model.keyframes
+import app.absentmotion.model.retimedVideo
+import app.absentmotion.model.withVideoSpeedMap
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class VideoSpeedTest {
+    private fun span(layer: Layer) = VideoTiming(layer).let { it.mediaMs((layer.endTime - layer.startTime).toDouble()) - it.mediaMs(0.0) }
+
+    @Test fun retimingARampKeepsItsShapeAndTheMediaItShows() {
+        val ramp = XmlNode("speedMap", children = listOf(
+            XmlNode("kf", mapOf("t" to "500000000", "v" to "1")),
+            XmlNode("kf", mapOf("t" to "2500000000", "v" to "3", "e" to "linear")),
+        ))
+        val layer = videoLayer(1000, 3000, children = listOf(ramp))
+        val retimed = layer.retimedVideo(1000, 2000)
+        val keys = retimed.node.child("speedMap")!!.keyframes
+        assertEquals(listOf(500_000_000f, 2_500_000_000f), keys.map { it.t })
+        assertEquals(listOf(null, "linear"), keys.map { it.e })
+        assertEquals(3f, keys[1].v.toFloat() / keys[0].v.toFloat(), 1e-5f)
+        assertEquals(2f, keys[0].v.toFloat(), 1e-5f)
+        assertEquals(span(layer), span(retimed), 0.5)
+        assertEquals("2000", retimed.node["endTime"])
+    }
+
+    @Test fun retimingAConstantSpeedStillFitsTheSameMedia() {
+        val layer = videoLayer(0, 2000).let { it.copy(node = it.node.with("speed", "2")) }
+        val retimed = layer.retimedVideo(500, 2000)
+        assertEquals(span(layer), span(retimed), 0.5)
+        assertEquals(null, retimed.node.child("speedMap"))
+    }
+
+    @Test fun aLongClipAtTheLowestSpeedDoesNotWrapItsEnd() {
+        val slowed = videoLayer(1000, 1000 + 40 * 60_000).withVideoSpeedMap(XmlNode("speedMap", mapOf("value" to "0.001")))
+        assertTrue(slowed.endTime > slowed.startTime)
+        assertEquals((1000 + (40 * 60_000 + 1) * 20 - 1).toDouble(), slowed.endTime.toDouble(), 2.0)
+    }
+
+    @Test fun doublingTheSpeedHalvesTheFrameCountWithoutAnExtraFrame() {
+        val fast = videoLayer(0, 2999).withVideoSpeedMap(XmlNode("speedMap", mapOf("value" to "2")))
+        assertEquals(1499, fast.endTime)
+    }
+}

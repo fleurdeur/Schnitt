@@ -1,0 +1,325 @@
+<?xml version='1.0' encoding='utf-8'?>
+<shapes>
+  <shape name="Circle" fillType="color" s=".circle">
+    <property name="size" type="vec2" value="100.000000,100.000000" />
+  </shape>
+  <shape name="Rounded Rectangle" fillType="color" s=".roundrect">
+    <property name="size" type="vec2" value="100.000000,100.000000" />
+    <property name="cornerRadius" type="float" value="25.000000" />
+  </shape>
+  <shape name="Plus" fillType="color" s=".plus">
+    <property name="size" type="vec2" value="100.000000,100.000000" />
+    <property name="stemSize" type="float" value="50.000000" />
+  </shape>
+  <shape name="Arc" fillType="none" s=".arc">
+    <path-stroke direction="centered" end-size="1.500000">
+      <color value="#ff40d166" />
+      <size value="20.000000" />
+    </path-stroke>
+    <property name="startAngle" type="float" value="0.000000" />
+    <property name="endAngle" type="float" value="90.000000" />
+    <property name="radius" type="float" value="100.000000" />
+    <property name="closed" type="bool" value="false" />
+  </shape>
+  <shape name="Triangle" fillType="color" s=".triangle">
+    <property name="p1" type="vec2" value="-100.000000,100.000000" />
+    <property name="p2" type="vec2" value="0.000000,-100.000000" />
+    <property name="p3" type="vec2" value="100.000000,100.000000" />
+    <property name="closed" type="bool" value="true" />
+  </shape>
+  <shape name="Callout" fillType="color" s=".callout.roundrect">
+    <property name="size" type="vec2" value="100.000000,100.000000" />
+    <property name="tail" type="vec2" value="-50.000000,150.000000" />
+    <property name="cornerRadius" type="float" value="25.000000" />
+    <property name="tailWidth" type="float" value="40.000000" />
+  </shape>
+  <shape name="Pie" fillType="color" s=".pie">
+    <property name="startAngle" type="float" value="45.000000" />
+    <property name="endAngle" type="float" value="90.000000" />
+    <property name="radius" type="float" value="100.000000" />
+  </shape>
+  <shape name="Polygon" fillType="color" s=".poly">
+    <property name="sideCount" type="float" value="6.000000" />
+    <property name="radius" type="float" value="100.000000" />
+    <property name="offsetAngle" type="float" value="0.000000" />
+  </shape>
+  <shape name="Multifoil" fillType="color" s=".multifoil">
+    <property name="pointCount" type="float" value="5.000000" />
+    <property name="outerRadius" type="float" value="100.000000" />
+    <property name="innerRadius" type="float" value="50.000000" />
+    <property name="offsetAngle" type="float" value="0.000000" />
+  </shape>
+  <shape name="Arrow" fillType="color" s=".arrow">
+    <property name="end" type="vec2" value="250.000000,-250.000000" />
+    <property name="lineWidth" type="float" value="40.000000" />
+    <property name="headWidth" type="float" value="120.000000" />
+    <property name="headLength" type="float" value="130.000000" />
+  </shape>
+  <shape name="Quad" fillType="color" s=".quad">
+    <property name="p1" type="vec2" value="-100.000000,-100.000000" />
+    <property name="p2" type="vec2" value="50.000000,-100.000000" />
+    <property name="p3" type="vec2" value="100.000000,100.000000" />
+    <property name="p4" type="vec2" value="-100.000000,100.000000" />
+    <property name="closed" type="bool" value="true" />
+  </shape>
+  <shape name="Moon" fillType="color" s=".moon">
+    <property name="radius" type="float" value="100.000000" />
+    <property name="offset" type="float" value="250.000000" />
+  </shape>
+  <shape name="Rectangle" fillType="color" s=".rect">
+    <property name="size" type="vec2" value="100.000000,100.000000" />
+  </shape>
+  <shape name="Star" fillType="color" s=".star">
+    <property name="pointCount" type="float" value="5.000000" />
+    <property name="outerRadius" type="float" value="100.000000" />
+    <property name="innerRadius" type="float" value="50.000000" />
+    <property name="offsetAngle" type="float" value="0.000000" />
+  </shape>
+  <shape name="Line" fillType="none" s=".line">
+    <path-stroke direction="centered" end-size="1.500000">
+      <color value="#ffb4b3a0" />
+      <size value="20.000000" />
+    </path-stroke>
+    <property name="p1" type="vec2" value="-100.000000,100.000000" />
+    <property name="p2" type="vec2" value="100.000000,-100.000000" />
+  </shape>
+  <shape name="Wide Line" fillType="color" s=".wideline">
+    <property name="end" type="vec2" value="250.000000,-250.000000" />
+    <property name="lineWidth" type="float" value="40.000000" />
+  </shape>
+  <shape name="Irregular Pentagon" fillType="color" s=".penta">
+    <property name="p1" type="vec2" value="-100.000000,-100.000000" />
+    <property name="p2" type="vec2" value="0.000000,-100.000000" />
+    <property name="p4" type="vec2" value="100.000000,100.000000" />
+    <property name="p5" type="vec2" value="-100.000000,100.000000" />
+    <property name="closed" type="bool" value="true" />
+  </shape>
+  <shape name="Stamp" fillType="color" s=".stamp">
+    <property name="size" type="vec2" value="150.000000,150.000000" />
+    <property name="cornerRadius" type="float" value="5.000000" />
+    <property name="perforationSize" type="float" value="40.000000" />
+    <property name="perforationSpacing" type="float" value="20.000000" />
+  </shape>
+  <shape name="Teardrop" fillType="color" s=".teardrop">
+    <property name="radius" type="float" value="100.000000" />
+    <property name="tail" type="float" value="200.000000" />
+    <property name="squeeze" type="float" value="2.500000" />
+    <property name="tailWidth" type="float" value="0.000000" />
+  </shape>
+  <shape name="Heart" fillType="color" outlineShape="heart">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="100.000000,90.000000" />
+    <property name="notch" type="float" value="37.000000" />
+    <property name="point" type="float" value="50.000000" />
+  </shape>
+  <shape name="Cloud" fillType="color" outlineShape="cloud">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="100.000000,48.000000" />
+    <property name="bumps" type="float" value="4.000000" />
+    <property name="flatBottom" type="bool" value="true" />
+  </shape>
+  <shape name="Lightning Bolt" fillType="color" outlineShape="lightning-bolt">
+    <property name="roundCorners" type="float" value="3.000000" />
+    <property name="size" type="vec2" value="54.000000,100.000000" />
+  </shape>
+  <shape name="Check Mark" fillType="color" outlineShape="check-mark">
+    <property name="roundCorners" type="float" value="19.000000" />
+    <property name="size" type="vec2" value="100.000000,80.000000" />
+    <property name="thickness" type="float" value="24.000000" />
+    <property name="shortArm" type="float" value="41.000000" />
+  </shape>
+  <shape name="X Mark" fillType="color" outlineShape="x-mark">
+    <property name="roundCorners" type="float" value="4.000000" />
+    <property name="size" type="vec2" value="100.000000,100.000000" />
+    <property name="thickness" type="float" value="15.000000" />
+  </shape>
+  <shape name="Ring" fillType="color" outlineShape="ring">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="100.000000,100.000000" />
+    <property name="thickness" type="float" value="38.000000" />
+    <property name="startAngle" type="float" value="90.000000" />
+    <property name="sweep" type="float" value="360.000000" />
+  </shape>
+  <shape name="Speech Bubble" fillType="color" outlineShape="speech-bubble">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="89.000000,89.000000" />
+    <property name="tail" type="vec2" value="-69.000000,111.000000" />
+    <property name="tailWidth" type="float" value="34.000000" />
+  </shape>
+  <shape name="Shield" fillType="color" outlineShape="shield">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="86.000000,100.000000" />
+  </shape>
+  <shape name="House" fillType="color" outlineShape="house">
+    <property name="roundCorners" type="float" value="3.000000" />
+    <property name="size" type="vec2" value="100.000000,96.000000" />
+    <property name="roof" type="float" value="48.000000" />
+    <property name="door" type="float" value="20.000000" />
+    <property name="doorHeight" type="float" value="35.000000" />
+  </shape>
+  <shape name="Bookmark" fillType="color" outlineShape="bookmark">
+    <property name="roundCorners" type="float" value="8.000000" />
+    <property name="size" type="vec2" value="60.000000,100.000000" />
+    <property name="notch" type="float" value="24.000000" />
+  </shape>
+  <shape name="Flag" fillType="color" outlineShape="flag">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="82.000000,100.000000" />
+    <property name="wave" type="float" value="100.000000" />
+  </shape>
+  <shape name="Crescent and Star" fillType="color" outlineShape="crescent-and-star">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="100.000000,97.000000" />
+  </shape>
+  <shape name="Sun" fillType="color" outlineShape="sun">
+    <property name="roundCorners" type="float" value="3.000000" />
+    <property name="size" type="vec2" value="100.000000,100.000000" />
+    <property name="rays" type="float" value="8.000000" />
+    <property name="rayLength" type="float" value="35.000000" />
+    <property name="disc" type="float" value="45.000000" />
+    <property name="rayWidth" type="float" value="22.000000" />
+    <property name="offsetAngle" type="float" value="0.000000" />
+  </shape>
+  <shape name="Leaf" fillType="color" outlineShape="leaf">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="91.000000,100.000000" />
+  </shape>
+  <shape name="Seal Burst" fillType="color" outlineShape="seal-burst">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="100.000000,100.000000" />
+    <property name="pointCount" type="float" value="12.000000" />
+    <property name="innerRadius" type="float" value="84.000000" />
+    <property name="offsetAngle" type="float" value="0.000000" />
+  </shape>
+  <shape name="Hexagon Outline" fillType="color" outlineShape="hexagon-outline">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="100.000000,100.000000" />
+    <property name="sideCount" type="float" value="6.000000" />
+    <property name="thickness" type="float" value="32.000000" />
+    <property name="offsetAngle" type="float" value="0.000000" />
+  </shape>
+  <shape name="Star Outline" fillType="color" outlineShape="star-outline">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="100.000000,100.000000" />
+    <property name="pointCount" type="float" value="5.000000" />
+    <property name="innerRadius" type="float" value="40.000000" />
+    <property name="thickness" type="float" value="44.000000" />
+    <property name="offsetAngle" type="float" value="0.000000" />
+  </shape>
+  <shape name="Chevron" fillType="color" outlineShape="chevron">
+    <property name="roundCorners" type="float" value="5.000000" />
+    <property name="size" type="vec2" value="58.000000,100.000000" />
+    <property name="thickness" type="float" value="34.000000" />
+  </shape>
+  <shape name="Double Arrow" fillType="color" outlineShape="double-arrow">
+    <property name="roundCorners" type="float" value="3.000000" />
+    <property name="size" type="vec2" value="100.000000,58.000000" />
+    <property name="shaft" type="float" value="38.000000" />
+    <property name="headLength" type="float" value="29.000000" />
+  </shape>
+  <shape name="Curved Arrow" fillType="color" outlineShape="curved-arrow">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="100.000000,75.000000" />
+    <property name="thickness" type="float" value="43.000000" />
+    <property name="sweep" type="float" value="180.000000" />
+    <property name="headSize" type="float" value="100.000000" />
+  </shape>
+  <shape name="Parallelogram" fillType="color" outlineShape="parallelogram">
+    <property name="roundCorners" type="float" value="8.000000" />
+    <property name="size" type="vec2" value="100.000000,62.000000" />
+    <property name="slant" type="float" value="25.000000" />
+  </shape>
+  <shape name="Trapezoid" fillType="color" outlineShape="trapezoid">
+    <property name="roundCorners" type="float" value="8.000000" />
+    <property name="size" type="vec2" value="100.000000,61.000000" />
+    <property name="topWidth" type="float" value="55.000000" />
+  </shape>
+  <shape name="Ticket" fillType="color" outlineShape="ticket">
+    <property name="roundCorners" type="float" value="10.000000" />
+    <property name="size" type="vec2" value="100.000000,60.000000" />
+    <property name="notch" type="float" value="30.000000" />
+    <property name="holes" type="float" value="5.000000" />
+  </shape>
+  <shape name="Tag" fillType="color" outlineShape="tag">
+    <property name="roundCorners" type="float" value="8.000000" />
+    <property name="size" type="vec2" value="100.000000,64.000000" />
+    <property name="point" type="float" value="28.000000" />
+    <property name="hole" type="float" value="22.000000" />
+  </shape>
+  <shape name="Crown" fillType="color" outlineShape="crown">
+    <property name="roundCorners" type="float" value="4.000000" />
+    <property name="size" type="vec2" value="100.000000,88.000000" />
+    <property name="pointCount" type="float" value="3.000000" />
+    <property name="depth" type="float" value="46.000000" />
+    <property name="balls" type="float" value="100.000000" />
+    <property name="jewels" type="bool" value="true" />
+  </shape>
+  <shape name="Eye" fillType="color" outlineShape="eye">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="100.000000,56.000000" />
+    <property name="iris" type="float" value="76.000000" />
+    <property name="pupil" type="float" value="45.000000" />
+  </shape>
+  <shape name="Umbrella" fillType="color" outlineShape="umbrella">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="99.000000,100.000000" />
+  </shape>
+  <shape name="Music Note" fillType="color" outlineShape="music-note">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="69.000000,100.000000" />
+  </shape>
+  <shape name="Droplet Pair" fillType="color" outlineShape="droplet-pair">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="100.000000,94.000000" />
+  </shape>
+  <shape name="Key" fillType="color" outlineShape="key">
+    <property name="roundCorners" type="float" value="2.000000" />
+    <property name="size" type="vec2" value="100.000000,42.000000" />
+  </shape>
+  <shape name="Location Pin" fillType="color" outlineShape="location-pin">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="65.000000,100.000000" />
+    <property name="hole" type="float" value="39.000000" />
+  </shape>
+  <shape name="Rounded Play" fillType="color" outlineShape="rounded-play">
+    <property name="roundCorners" type="float" value="24.000000" />
+    <property name="size" type="vec2" value="93.000000,100.000000" />
+  </shape>
+  <shape name="Pause" fillType="color" outlineShape="pause">
+    <property name="roundCorners" type="float" value="15.000000" />
+    <property name="size" type="vec2" value="84.000000,100.000000" />
+    <property name="gap" type="float" value="26.000000" />
+    <property name="bars" type="float" value="2.000000" />
+  </shape>
+  <shape name="Record" fillType="color" outlineShape="record">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="100.000000,100.000000" />
+    <property name="ring" type="float" value="16.000000" />
+    <property name="dot" type="float" value="60.000000" />
+  </shape>
+  <shape name="Gear" fillType="color" outlineShape="gear">
+    <property name="roundCorners" type="float" value="0.000000" />
+    <property name="size" type="vec2" value="100.000000,100.000000" />
+    <property name="teeth" type="float" value="8.000000" />
+    <property name="toothDepth" type="float" value="22.000000" />
+    <property name="toothWidth" type="float" value="40.000000" />
+    <property name="hole" type="float" value="30.000000" />
+    <property name="toothBase" type="float" value="62.000000" />
+  </shape>
+  <shape name="Phone" fillType="color" outlineShape="phone">
+    <property name="roundCorners" type="float" value="14.000000" />
+    <property name="size" type="vec2" value="56.000000,100.000000" />
+    <property name="border" type="float" value="7.000000" />
+    <property name="camera" type="bool" value="true" />
+    <property name="notch" type="bool" value="false" />
+    <property name="buttons" type="bool" value="false" />
+  </shape>
+  <shape name="Panel" fillType="color" outlineShape="panel">
+    <property name="roundCorners" type="float" value="10.000000" />
+    <property name="size" type="vec2" value="100.000000,70.000000" />
+    <property name="border" type="float" value="5.000000" />
+    <property name="header" type="float" value="15.000000" />
+    <property name="columns" type="float" value="1.000000" />
+    <property name="rows" type="float" value="1.000000" />
+  </shape>
+</shapes>

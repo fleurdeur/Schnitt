@@ -1,0 +1,33 @@
+package app.absentmotion
+
+import androidx.annotation.StringRes
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
+import app.absentmotion.export.Choice
+import app.absentmotion.i18n.UiText
+
+enum class Feature(@StringRes val label: Int, val inCompatible: Boolean) {
+    FlowHigh(R.string.feature_flow_high, inCompatible = false),
+    AiSmooth(R.string.export_interpolation_ai, inCompatible = false),
+    AiEnhance(R.string.feature_ai_enhance, inCompatible = false),
+    BestCutout(R.string.feature_best_cutout, inCompatible = false),
+}
+
+internal fun <T> stateReadableFromOpenSnapshots(value: T) = Snapshot.global { Snapshot.withMutableSnapshot { mutableStateOf(value) } }
+
+object Tier {
+    val compatible: Boolean = BuildConfig.COMPATIBLE
+    var openGl by stateReadableFromOpenSnapshots(false)
+
+    // Every phone gets every feature. The engine picks the best available
+    // backend, and features that prefer Vulkan fall back to CPU or OpenGL.
+    fun has(feature: Feature): Boolean = true
+
+    val leftOut: List<Feature> get() = Feature.entries.filterNot(::has)
+
+    fun reason(feature: Feature): UiText? = null
+
+    fun <T> choice(value: T, feature: Feature): Choice<T> = Choice(value, null, locked = false)
+}

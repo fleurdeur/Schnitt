@@ -1,0 +1,44 @@
+{
+ "id": "mattechoker",
+ "name": "Matte Choker",
+ "category": "key",
+ "since": "3.0.0",
+ "description": "Shrinks the opaque parts of the layer by eating into their edges.",
+ "params": [
+  {
+   "id": "blur",
+   "label": "Size",
+   "type": "float",
+   "default": 10,
+   "min": 0,
+   "max": 300,
+   "step": 0.1
+  },
+  {
+   "id": "amount",
+   "label": "Choke",
+   "type": "float",
+   "default": 0.75,
+   "min": 0.5,
+   "max": 1,
+   "step": 0.001,
+   "percent": true
+  },
+  {
+   "id": "softness",
+   "label": "Softness",
+   "type": "float",
+   "default": 0.1,
+   "min": 0.001,
+   "max": 0.5,
+   "step": 0.001
+  },
+  {
+   "id": "invert",
+   "label": "Invert",
+   "type": "switch",
+   "default": false
+  }
+ ],
+ "sksl": "uniform shader image;\nuniform float2 size;\nuniform float time;\nuniform shader blurred;\nuniform float blur;\nuniform float amount;\nuniform float softness;\nuniform float invert;\nhalf4 main(float2 coord) {\n    half4 src = image.eval(coord);\n    if (src.a <= 0.0 || blur <= 0.0) return src;\n    float b = float(blurred.eval(coord).a);\n    float keep = smoothstep(amount - softness * 0.5, amount + softness * 0.5, b);\n    return src * half(invert > 0.5 ? 1.0 - keep : keep);\n}\n"
+}

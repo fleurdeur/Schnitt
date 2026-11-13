@@ -1,0 +1,311 @@
+package app.absentmotion.library
+
+import app.absentmotion.model.withSlowestSpeeds
+import app.absentmotion.R
+import app.absentmotion.i18n.AppText
+import app.absentmotion.platform.Context
+import app.absentmotion.model.MediaDeclaration
+import app.absentmotion.model.Scene
+import app.absentmotion.model.XmlNode
+import app.absentmotion.model.mapMediaUris
+import app.absentmotion.model.mediaUris
+import app.absentmotion.model.withCopiedLayerIds
+import java.io.File
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+
+data class ProjectInfo(
+    val id: String,
+    val title: String,
+    val width: Int,
+    val height: Int,
+    val fps: Int,
+    val durationMs: Int,
+    val sizeBytes: Long,
+    val modified: Long,
+    val thumbnail: File?,
+    val isElement: Boolean,
+    val damaged: Boolean = false,
+)
+
+class ProjectStore(private val root: File) {
+    constructor(context: Context) : this(context.filesDir)
+
+    private val dir = File(root, "projects").apply { mkdirs() }
+
+    private val listed = ConcurrentHashMap<String, ProjectInfo>()
+
+    val versions = ProjectVersions(File(dir, "versions"))
+
+    private val index = File(root, "projects.index")
+    private var indexRead = false
+
+    @Synchronized private fun readIndex() {
+        if (indexRead) return
+        indexRead = true
+        runCatching {
+            val all = org.json.JSONObject(index.readText())
+            for (id in all.keys()) {
+                val a = all.getJSONArray(id)
+                listed.putIfAbsent(id, ProjectInfo(id, a.getString(0), a.getInt(1), a.getInt(2), a.getInt(3), a.getInt(4), a.getLong(5), a.getLong(6), null, a.getBoolean(7)))
+            }
+        }
+    }
+
+    private fun writeIndex(ids: Set<String>) {
+        listed.keys.retainAll(ids)
+        val all = org.json.JSONObject()
+        for (info in listed.values) if (!info.damaged) all.put(info.id, org.json.JSONArray(listOf(info.title, info.width, info.height, info.fps, info.durationMs, info.sizeBytes, info.modified, info.isElement)))
+        runCatching { writeAtomically(index, all.toString(), sync = false) }
+    }
+
+    fun list(includeDamaged: Boolean = false): List<ProjectInfo> {
+        readIndex()
+        val files = dir.listFiles { f -> f.extension == "xml" && safeSegment(f.nameWithoutExtension) }.orEmpty()
+        var parsed = false
+        val infos = files.mapNotNull { file -> info(file, includeDamaged) { parsed = true } }
+        if (parsed || listed.size != files.size) writeIndex(files.mapTo(HashSet()) { it.nameWithoutExtension })
+        return infos
+    }
+
+    private fun info(file: File, includeDamaged: Boolean, onParsed: () -> Unit): ProjectInfo? {
+        val id = file.nameWithoutExtension
+        val modified = file.savedTime()
+        val size = file.length()
+        val info = listed[id]?.takeIf { it.modified == modified && it.sizeBytes == size } ?: run {
+            onParsed()
+            val text = runCatching { file.readText() }.getOrNull()
+            val scene = text?.let(::projectScene)
+            if (scene == null) ProjectInfo(id, damagedTitle(text), 0, 0, 0, 0, size, modified, null, isElement = false, damaged = true)
+            else ProjectInfo(
+                id = id, title = scene.title, width = scene.width, height = scene.height,
+                fps = scene.fps, durationMs = scene.totalTime, sizeBytes = size, modified = modified,
+                thumbnail = null, isElement = scene.node["type"] == "element",
+            )
+        }.also { listed[id] = it }
+        return if (info.damaged && !includeDamaged) null else info.copy(thumbnail = thumbnailFile(id).takeIf { it.exists() })
+    }
+
+    private fun damagedTitle(text: String?): String =
+        text?.take(65_536)?.let { DamagedTitle.find(it)?.groupValues?.get(1) }
+            ?.replace("&quot;", "\"")?.replace("&lt;", "<")?.replace("&gt;", ">")?.replace("&apos;", "'")?.replace("&amp;", "&")
+            ?.takeIf { it.isNotBlank() } ?: AppText.get(R.string.library_damaged_project)
+
+    class DamagedVersion : java.io.IOException("The chosen version is damaged")
+
+    fun restore(id: String, version: ProjectVersions.Version) {
+        val chosen = version.file.readText()
+        if (projectScene(chosen) == null) throw DamagedVersion()
+        val picture = version.thumbnail.takeIf { it.exists() }?.readBytes()
+        text(id)?.let { if (projectScene(it) != null) versions.snapshot(id, it) else versions.keepDamaged(id, it) }
+        save(id, chosen)
+        if (picture != null) thumbnailFile(id).writeBytes(picture) else thumbnailFile(id).delete()
+        recoveryFile(id).delete()
+    }
+
+    private fun recoveryFile(id: String) = File(root, "recovery").child("$id.xml")
+
+    fun load(id: String): Scene? = read(id)?.let { withLinkedElements(it, id) }?.withSlowestSpeeds()
+
+    private fun read(id: String): Scene? = text(id)?.let(::projectScene)
+
+    private fun withLinkedElements(scene: Scene, id: String): Scene {
+        val media = ArrayList<MediaDeclaration>()
+        var inlined = 0
+        val byLink by lazy { projectIds().associateBy(::linkOf) }
+        fun follow(layers: List<XmlNode>, open: Set<String>): List<XmlNode> = layers.map { layer ->
+            val linked = layer["link"]?.let(byLink::get)?.takeIf { it !in open }
+            val element = linked?.let(::read)?.takeIf { it.isElement }?.withCopiedLayerIds()
+            when {
+                element != null -> {
+                    inlined += 1 + element.node.children.size
+                    check(inlined <= 100_000) { AppText.get(R.string.project_too_many_linked) }
+                    media += element.media
+                    val inner = element.node.copy(children = follow(element.node.children, open + linked))
+                    layer.copy(children = layer.children.map { if (it.name == "scene") inner else it })
+                }
+                layer.name == "embedScene" -> layer.copy(children = layer.children.map { if (it.name == "scene") it.copy(children = follow(it.children, open)) else it })
+                else -> layer
+            }
+        }
+        val followed = Scene(scene.node.copy(children = follow(scene.node.children, setOf(id))))
+        return media.fold(followed) { acc, record -> acc.withMedia(record) }
+    }
+
+    fun linkOf(id: String): String = runCatching { UUID.fromString(id).toString() }.getOrNull() ?: UUID.nameUUIDFromBytes(id.toByteArray()).toString()
+
+    fun idOfLink(link: String): String? = projectIds().firstOrNull { linkOf(it) == link }
+
+    private fun projectIds() = dir.listFiles { f -> f.extension == "xml" }.orEmpty().map { it.nameWithoutExtension }
+
+    fun linkedBy(id: String): List<String> {
+        val link = "link=\"${linkOf(id)}\""
+        return list().filter { it.id != id && text(it.id)?.contains(link) == true }.map { it.title }
+    }
+
+    fun save(id: String, scene: Scene) = save(id, scene.toXml())
+
+    @Synchronized
+    fun save(id: String, xml: String) = writeAtomically(sceneFile(id), xml)
+
+    fun text(id: String): String? = runCatching { sceneFile(id).readText() }.getOrNull()
+
+    fun exists(id: String): Boolean = runCatching { sceneFile(id).exists() }.getOrDefault(false)
+
+    fun newId(taken: Collection<String> = emptyList()): String {
+        var n = System.currentTimeMillis()
+        synchronized(reservedIds) {
+            while (sceneFile("p$n").exists() || "p$n" in taken || "p$n" in reservedIds) n++
+            reservedIds.add("p$n")
+        }
+        return "p$n"
+    }
+
+    fun create(scene: Scene): String = newId().also { save(it, scene) }
+
+    fun mediaDir(id: String) = File(root, "media").child(id)
+
+    fun createElement(scene: Scene): String {
+        val id = UUID.randomUUID().toString()
+        save(id, scene)
+        return id
+    }
+
+    fun duplicate(id: String): String? {
+        val source = load(id) ?: return null
+        val copy = newId()
+        var scene = source.withTitle(AppText.get(R.string.edit_layer_copy_name, source.title))
+        val from = mediaDir(id)
+        try {
+            if (from.isDirectory) {
+                val old = folderUri(from)
+                val new = folderUri(mediaDir(copy))
+                from.copyRecursively(mediaDir(copy))
+                scene = Scene(scene.node.mapMediaUris { if (it.startsWith(old)) new + it.substring(old.length) else it })
+            }
+            save(copy, scene)
+        } catch (e: Exception) {
+            mediaDir(copy).deleteRecursively()
+            sceneFile(copy).delete()
+            throw e
+        }
+        runCatching { thumbnailFile(id).takeIf { it.exists() }?.copyTo(thumbnailFile(copy), overwrite = true) }
+        return copy
+    }
+
+    fun delete(id: String, aiDir: File? = null) {
+        val own = listOfNotNull(text(id)) + versions.list(id).mapNotNull { runCatching { it.file.readText() }.getOrNull() }
+        val owners = (listOf(id) + own.flatMap { runCatching { Scene.parse(it).node.keptUris() }.getOrDefault(emptySet()) }.mapNotNull(::ownerOf)).distinct()
+        sceneFile(id).delete()
+        thumbnailFile(id).delete()
+        recoveryFile(id).delete()
+        versions.delete(id)
+        val targets = owners.filter { it == id || !sceneFile(it).exists() }
+        if (aiDir?.list().isNullOrEmpty() && targets.all { mediaDir(it).list().isNullOrEmpty() }) {
+            targets.forEach { mediaDir(it).delete() }
+            return
+        }
+        val projectFiles = dir.listFiles { f -> f.extension == "xml" }.orEmpty().toList()
+        val templateFiles = File(root, "templates").listFiles { f -> f.isDirectory }.orEmpty().map { File(it, "scene.xml") }.filter { it.exists() }
+        val folders = owners.map { folderUri(mediaDir(it)) }
+        val used = HashSet<String>()
+        val damaged = ArrayList<String>()
+        var unreadable = false
+        fun scan(text: String) {
+            val uris = runCatching { Scene.parse(text).node.keptUris() }.getOrNull()
+            if (uris != null) used += uris else damaged += text
+        }
+        fun scanFile(file: File): Boolean {
+            val text = try { file.readText() } catch (e: Exception) { return false } catch (e: OutOfMemoryError) { return false }
+            scan(text)
+            return true
+        }
+        for (file in projectFiles + templateFiles) if (!scanFile(file)) { unreadable = true; break }
+        if (!unreadable) {
+            val versionsAndRecovery = File(dir, "versions").listFiles { f -> f.isDirectory }.orEmpty().flatMap { it.listFiles { f -> f.extension == "xml" || f.extension == "damaged" }.orEmpty().toList() } +
+                File(root, "recovery").listFiles { f -> f.extension == "xml" }.orEmpty()
+            for (file in versionsAndRecovery) {
+                val text = try { file.readText() } catch (e: Exception) { unreadable = true; break } catch (e: OutOfMemoryError) { unreadable = true; break }
+                if (file.extension == "damaged" || folders.any(text::contains) || aiDir != null && text.contains("/ai/")) scan(text)
+            }
+        }
+        if (unreadable) return
+        fun mentioned(part: String) = damaged.any { it.contains(part) || it.contains(part.replace("&", "&amp;")) }
+        for (owner in targets) {
+            val folder = mediaDir(owner)
+            folder.listFiles()?.filter { f ->
+                val uri = f.toURI().toString()
+                !mentioned(uri) && if (f.isDirectory) used.none { it.startsWith(uri) } else uri !in used
+            }?.forEach { it.deleteRecursively() }
+            folder.delete()
+        }
+        aiDir?.listFiles()?.filter { f -> f.isFile && used.none { it.endsWith("/" + f.name) } && !mentioned("/" + f.name) }?.forEach { it.delete() }
+    }
+
+    fun inMediaFolder(uri: String): Boolean = ownerOf(uri) != null
+
+    private fun ownerOf(uri: String): String? {
+        val media = folderUri(File(root, "media"))
+        return uri.takeIf { it.startsWith(media) }?.removePrefix(media)?.substringBefore('/')?.takeIf(::safeSegment)
+    }
+
+    fun thumbnailFile(id: String) = dir.child("$id.png")
+
+    private fun folderUri(dir: File) = dir.toURI().toString().trimEnd('/') + "/"
+
+    private fun sceneFile(id: String) = dir.child("$id.xml")
+
+    private companion object {
+        val reservedIds = HashSet<String>()
+        val DamagedTitle = Regex("""<scene\b[^>]*?\btitle="([^"]*)"""")
+    }
+}
+
+internal fun projectScene(text: String): Scene? = runCatching { Scene.parse(text) }.getOrNull()?.takeIf { scene ->
+    scene.node.name == "scene" && (scene.node["width"]?.toIntOrNull() ?: 0) > 0 && (scene.node["height"]?.toIntOrNull() ?: 0) > 0
+}
+
+internal fun XmlNode.keptUris(): Set<String> = mediaUris() + buildSet {
+    fun walk(n: XmlNode) {
+        if (n.name == "ai") listOf("original", "result").forEach { key -> n[key]?.let { add(it) } }
+        n.children.forEach(::walk)
+    }
+    walk(this@keptUris)
+}
+
+internal val ProjectId = Regex("[A-Za-z0-9_-]{1,64}")
+
+internal fun safeSegment(name: String) = name.isNotEmpty() && name != "." && name != ".." && name.none { it == '/' || it == '\\' || it == '\u0000' }
+
+internal fun File.child(name: String): File {
+    require(safeSegment(name)) { "Unsafe file name" }
+    return File(this, name).also { require(it.canonicalFile.parentFile == canonicalFile) { "Unsafe file name" } }
+}
+
+private val atomicWrites = Any()
+
+internal fun writeAtomically(target: File, text: String, sync: Boolean = true) = synchronized(atomicWrites) {
+    target.parentFile?.mkdirs()
+    val temp = File(target.parentFile, target.name + ".tmp")
+    try {
+        java.io.FileOutputStream(temp).use { out ->
+            out.write(text.toByteArray())
+            if (sync) out.fd.sync()
+        }
+        java.nio.file.Files.move(temp.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE)
+    } catch (e: java.io.IOException) {
+        temp.delete()
+        throw e
+    }
+}
+
+private const val YEAR_2000_MS = 946_684_800_000L
+
+internal fun File.savedTime(now: Long = System.currentTimeMillis()): Long {
+    val time = lastModified()
+    if (time !in 1 until YEAR_2000_MS) return time
+    val repaired = time * 1000
+    if (repaired !in YEAR_2000_MS..now + 86_400_000L) return time
+    setLastModified(repaired)
+    return repaired
+}

@@ -1,0 +1,778 @@
+#include "scene.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <set>
+#include <unordered_map>
+
+#include "include/core/SkCanvas.h"
+#include "include/core/SkPaint.h"
+#include "include/core/SkPathBuilder.h"
+#include "include/pathops/SkPathOps.h"
+#include "include/utils/SkParsePath.h"
+#include "xml.h"
+#include "text.h"
+#include "drawing.h"
+#include "numbers.h"
+
+namespace am {
+
+struct LinkContext {
+    std::vector<Layer> layers;
+    std::unordered_map<int64_t, size_t> ids;
+};
+
+namespace {
+thread_local const LinkContext* gLinks = nullptr;
+thread_local const Anim* gLinkStack[64];
+thread_local int gLinkComponents[64];
+thread_local int gLinkDepth = 0;
+thread_local uint8_t gLinkSeen[256];
+thread_local bool gLinkCycle = false;
+thread_local int gLinkWork = 0;
+thread_local int gLinkPlacement = 0;
+thread_local int64_t gLinkPlacementOwner = 0;
+
+bool PlacementLink(const Anim& anim) {
+    if (gLinkPlacement == 0 || anim.linkRole == 18) return true;
+    if (gLinkPlacement == 4) return anim.linkRole == 4 || anim.linkRole == 14;
+    if (gLinkPlacement == 3) return anim.linkRole == 3 || anim.linkRole == 13;
+    if (gLinkPlacement == 1 && anim.linkOwner == gLinkPlacementOwner) return anim.linkRole == 1 || anim.linkRole == 2 || anim.linkRole == 11;
+    return true;
+}
+
+enum LinkSlot { kNoSlot, kLocation, kScale, kRotation, kOpacity, kPivot, kTilt, kSkew, kEffectSlot };
+
+int SlotOf(const std::string& kind, const std::string& property) {
+    if (kind == "effect") return kEffectSlot;
+    if (kind != "transform") return kNoSlot;
+    static const std::pair<const char*, int> names[] = {{"location", kLocation}, {"scale", kScale}, {"rotation", kRotation}, {"opacity", kOpacity},
+                                                        {"pivot", kPivot}, {"tilt", kTilt}, {"skew", kSkew}};
+    for (const auto& [name, slot] : names) if (property == name) return slot;
+    return kNoSlot;
+}
+
+const Anim* LinkAnim(const Layer& l, const ValueLink& link) {
+    switch (link.slot) {
+        case kEffectSlot: {
+            if (link.effect < 0 || link.effect >= (int)l.effects.size()) return nullptr;
+            const Property* p = l.effects[link.effect].prop(link.property.c_str());
+            return p ? &p->anim : nullptr;
+        }
+        case kLocation: return &l.location;
+        case kScale: return &l.scale;
+        case kRotation: return &l.rotation;
+        case kOpacity: return &l.opacity;
+        case kPivot: return &l.pivot;
+        case kTilt: return &l.tilt;
+        case kSkew: return &l.skew;
+        default: return nullptr;
+    }
+}
+
+[[gnu::noinline]] bool LinkedValue(const Anim& anim, int component, float t, float* value) {
+    const LinkContext* context = anim.linkContext ? anim.linkContext.get() : gLinks;
+    if (!context || !std::isfinite(t)) return false;
+    const ValueLink* link = nullptr;
+    for (const auto& l : anim.links) if (l.component == component) { link = &l; break; }
+    if (!link) return false;
+    if (gLinkDepth >= 64) { gLinkCycle = true; return false; }
+    if (gLinkDepth == 0) gLinkWork = 0;
+    if (++gLinkWork > 16384) { gLinkCycle = true; return false; }
+    uint8_t& seen = gLinkSeen[((uintptr_t)&anim >> 3 ^ (uintptr_t)&anim >> 11 ^ (uintptr_t)component) & 255];
+    if (seen) for (int n = 0; n < gLinkDepth; n++) {
+        if (gLinkStack[n] == &anim && gLinkComponents[n] == component) { gLinkCycle = true; return false; }
+    }
+    const auto found = context->ids.find(link->layer);
+    if (found == context->ids.end()) return false;
+    const Layer& source = context->layers[found->second];
+    const Anim* from = LinkAnim(source, *link);
+    if (!from && (link->slot != kEffectSlot || link->effect < 0 || link->effect >= (int)source.effects.size())) return false;
+    const bool root = gLinkDepth == 0;
+    if (root) gLinkCycle = false;
+    const LinkContext* previous = gLinks;
+    const int placement = gLinkPlacement;
+    const int64_t placementOwner = gLinkPlacementOwner;
+    gLinkPlacement = 0;
+    gLinks = context;
+    gLinkStack[gLinkDepth] = &anim;
+    gLinkComponents[gLinkDepth++] = component;
+    seen++;
+    const double time = anim.linkStart + (double)t * (anim.linkEnd - anim.linkStart) - link->delay * 1000.0;
+    const float at = source.localTime(time);
+    const int slot = link->slot;
+    const float fallback = slot == kScale || slot == kOpacity ? 1 : link->fallback;
+    const bool moves = slot == kLocation || slot == kScale || slot == kRotation;
+    const bool path = moves && FollowsPath(source);
+    const bool placed = moves && (source.parent || path);
+    float v = from && !placed ? from->get(link->sourceComponent, at, fallback) : fallback;
+    if (moves) {
+        Placement p{};
+        if (placed) {
+            gLinkPlacement = path ? 0 : slot == kLocation ? 1 : slot == kScale ? 3 : 4;
+            gLinkPlacementOwner = source.id;
+            p = EffectivePlacement(context->layers, source, time);
+            gLinkPlacement = 0;
+        } else {
+            p.scale = {1, 1};
+            if (slot == kLocation) {
+                if (source.effect("absent.randomdisplace")) {
+                    p.location = {source.location.get(0, at, 0), source.location.get(1, at, 0)};
+                    p.z = source.location.get(2, at, 0);
+                }
+                if (link->sourceComponent == 2) p.z = v;
+                else if (link->sourceComponent == 1) p.location.fY = v;
+                else p.location.fX = v;
+            } else if (slot == kScale) {
+                p.scale = {v, v};
+            } else p.rotation = v;
+            ApplyMotion(source, time, &p);
+        }
+        if (slot == kLocation) v = link->sourceComponent == 2 ? p.z : (link->sourceComponent == 1 ? p.location.fY : p.location.fX);
+        if (slot == kScale) v = link->sourceComponent == 1 ? p.scale.fY : p.scale.fX;
+        if (slot == kRotation) v = -p.rotation;
+    } else if (slot == kOpacity) {
+        v *= MotionOpacity(source, time);
+    }
+    --gLinkDepth;
+    seen--;
+    gLinks = previous;
+    gLinkPlacement = placement;
+    gLinkPlacementOwner = placementOwner;
+    *value = (v * link->multiply + link->add) * (anim.linkRole == 4 ? -1.0f : 1.0f);
+    return !gLinkCycle && std::isfinite(*value);
+}
+}
+
+float Anim::get(int i, float t, float fallback) const {
+    float linked;
+    if (!links.empty() && PlacementLink(*this) && LinkedValue(*this, i, t, &linked)) return linked;
+    auto at = [&](const std::vector<float>& v) { return i < (int)v.size() ? v[i] : fallback; };
+    if (keys.empty()) return value.empty() ? fallback : at(value);
+    if (!std::isfinite(t)) return at(keys.front().v);
+    if (hasLead && t < keys.front().t) {
+        if (t <= lead.t) return at(lead.v);
+        const float u = (t - lead.t) / (keys.front().t - lead.t);
+        return at(lead.v) + (at(keys.front().v) - at(lead.v)) * u;
+    }
+    if (t <= keys.front().t) return at(keys.front().v);
+    if (t >= keys.back().t) return at(keys.back().v);
+    auto next = std::upper_bound(keys.begin(), keys.end(), t,
+                                 [](float time, const Keyframe& k) { return time < k.t; });
+    const Keyframe& b = *next;
+    const Keyframe& a = *(next - 1);
+    const float u = Ease(b.easing, b.t > a.t ? (t - a.t) / (b.t - a.t) : 0.0f);
+    return at(a.v) + (at(b.v) - at(a.v)) * u;
+}
+
+bool PropertyNumbers(const Layer& layer, int effect, const std::string& name, double timeMs, float values[3]) {
+    ValueLink ref;
+    ref.kind = effect < 0 ? "transform" : "effect";
+    ref.effect = effect;
+    ref.property = name;
+    ref.slot = SlotOf(ref.kind, ref.property);
+    const Anim* anim = LinkAnim(layer, ref);
+    if (!anim) return false;
+    const float t = layer.localTime(timeMs);
+    for (int i = 0; i < 3; i++) values[i] = anim->get(i, t, name == "scale" || name == "opacity" ? 1 : 0);
+    return true;
+}
+
+bool Anim::steady(float from, float to) const {
+    if (!links.empty()) return false;
+    if (keys.empty()) return true;
+    if (!std::isfinite(from) || !std::isfinite(to) || from > to) return false;
+    const auto same = [](const std::vector<float>& a, const std::vector<float>& b) {
+        return a.size() == b.size() && (a.empty() || std::memcmp(a.data(), b.data(), a.size() * sizeof(float)) == 0);
+    };
+    for (size_t k = 1; k < keys.size(); k++) {
+        if (!(keys[k - 1].t <= keys[k].t)) return false;
+    }
+    size_t first = 0, last = keys.size() - 1;
+    if (from > keys.front().t) {
+        while (first + 1 < keys.size() && keys[first + 1].t <= from) first++;
+    }
+    if (to <= keys.front().t) last = 0;
+    while (last > first && keys[last - 1].t > to) last--;
+    for (size_t k = first + 1; k <= last; k++) {
+        if (!same(keys[k].v, keys[first].v)) return false;
+    }
+    return !hasLead || from >= keys.front().t || same(lead.v, keys.front().v);
+}
+
+const Property* Layer::prop(const char* propName) const {
+    for (const auto& p : props) {
+        if (p.name == propName) return &p;
+    }
+    return nullptr;
+}
+
+const LayerEffect* Layer::effect(const char* id) const {
+    for (const auto& e : effects) {
+        if (!e.hidden && e.id == id) return &e;
+    }
+    return nullptr;
+}
+
+const Property* LayerEffect::prop(const char* propName) const {
+    for (const auto& p : props) {
+        if (p.name == propName) return &p;
+    }
+    return nullptr;
+}
+
+float LayerEffect::value(const char* propName, float t, float fallback) const {
+    const Property* p = this->prop(propName);
+    return p ? p->anim.get(0, t, fallback) : fallback;
+}
+
+float Layer::value(const char* propName, int i, float t, float fallback) const {
+    const Property* p = this->prop(propName);
+    return p ? p->anim.get(i, t, fallback) : fallback;
+}
+
+const Layer* Scene::layer(int64_t id) const {
+    for (const auto& l : layers) {
+        if (l.id == id) return &l;
+    }
+    return nullptr;
+}
+
+namespace {
+
+std::vector<float> ParseValue(const char* s) {
+    std::vector<float> out;
+    if (!s) return out;
+    if (!strcmp(s, "true") || !strcmp(s, "false")) return {*s == 't' ? 1.0f : 0.0f};
+    if (*s == '#') {
+        const uint32_t argb = (uint32_t)strtoul(s + 1, nullptr, 16);
+        for (int shift = 24; shift >= 0; shift -= 8) out.push_back(((argb >> shift) & 0xff) / 255.0f);
+        return out;
+    }
+    while (*s) {
+        char* end = nullptr;
+        const float f = strtof(s, &end);
+        if (end == s) break;
+        out.push_back(f);
+        s = end;
+        while (*s == ',' || *s == ' ') s++;
+    }
+    return out;
+}
+
+Anim ParseAnim(const XmlNode* node) {
+    Anim a;
+    if (!node) return a;
+    a.value = ParseValue(node->attr("value"));
+    for (const auto& c : node->children) {
+        if (c->name != "valueLink" || a.links.size() >= 3) continue;
+        ValueLink link;
+        auto number = [&](const char* key, float fallback) {
+            const char* text = c->attr(key);
+            const float v = text ? strtof(text, nullptr) : fallback;
+            return std::isfinite(v) ? v : fallback;
+        };
+        const char* id = c->attr("layer");
+        link.layer = id ? strtoll(id, nullptr, 10) : 0;
+        link.component = (int)std::clamp(number("component", 0), 0.0f, 2.0f);
+        link.sourceComponent = (int)std::clamp(number("sourceComponent", 0), 0.0f, 2.0f);
+        link.effect = (int)std::clamp(number("effect", -1), -1.0f, 10000.0f);
+        link.kind = c->attr("kind") ? c->attr("kind") : "transform";
+        link.property = c->attr("property") ? c->attr("property") : "";
+        link.slot = SlotOf(link.kind, link.property);
+        link.multiply = std::clamp(number("multiply", 1), -100000.0f, 100000.0f);
+        link.add = std::clamp(number("add", 0), -1000000.0f, 1000000.0f);
+        link.delay = std::clamp(number("delay", 0), -3600.0f, 3600.0f);
+        link.fallback = number("fallback", 0);
+        a.links.push_back(std::move(link));
+    }
+    for (const auto& c : node->children) {
+        if (c->name != "kf") continue;
+        const char* t = c->attr("t");
+        const float time = t ? strtof(t, nullptr) : 0.0f;
+        if (std::isfinite(time)) a.keys.push_back({time, ParseValue(c->attr("v")), ParseEasing(c->attr("e"))});
+    }
+    std::stable_sort(a.keys.begin(), a.keys.end(), [](const Keyframe& x, const Keyframe& y) { return x.t < y.t; });
+    return a;
+}
+
+PathKnot ParseKnot(const XmlNode& n) {
+    PathKnot k;
+    k.p = ParseAnim(n.child("p"));
+    if (const XmlNode* in = n.child("in")) { k.in = ParseAnim(in); k.hasIn = true; }
+    if (const XmlNode* out = n.child("out")) { k.out = ParseAnim(out); k.hasOut = true; }
+    return k;
+}
+
+SkPath KnotsPath(const PathContour& c, float t) {
+    SkPathBuilder b;
+    const int n = (int)c.knots.size();
+    if (n == 0) return b.detach();
+    auto at = [&](const PathKnot& k) { return SkPoint{k.p.get(0, t, 0), k.p.get(1, t, 0)}; };
+    b.moveTo(at(c.knots[0]));
+    for (int i = 0; i + 1 < n + (c.closed ? 1 : 0); i++) {
+        const PathKnot& a = c.knots[i];
+        const PathKnot& next = c.knots[(i + 1) % n];
+        const SkPoint pa = at(a), pb = at(next);
+        if (!a.hasOut && !next.hasIn) {
+            b.lineTo(pb);
+        } else {
+            const SkPoint c1 = a.hasOut ? SkPoint{pa.fX + a.out.get(0, t, 0), pa.fY + a.out.get(1, t, 0)} : pa;
+            const SkPoint c2 = next.hasIn ? SkPoint{pb.fX + next.in.get(0, t, 0), pb.fY + next.in.get(1, t, 0)} : pb;
+            b.cubicTo(c1, c2, pb);
+        }
+    }
+    if (c.closed) b.close();
+    return b.detach();
+}
+
+bool Keyed(const PathKnot& k) { return !k.p.keys.empty() || !k.in.keys.empty() || !k.out.keys.empty(); }
+
+SkPath Combine(const std::vector<PathContour>& contours, float t, bool rebuild) {
+    SkPath result;
+    SkPathBuilder open;
+    bool first = true;
+    for (const PathContour& c : contours) {
+        SkPath part = rebuild && !c.knots.empty() ? KnotsPath(c, t) : c.path;
+        if (c.evenOdd) part.setFillType(SkPathFillType::kEvenOdd);
+        if (contours.size() > 1 && !part.isLastContourClosed()) {
+            open.addPath(part);
+        } else if (first) {
+            result = part;
+            first = false;
+        } else if (auto combined = Op(result, part, c.exclude ? kXOR_SkPathOp : kUnion_SkPathOp)) {
+            result = *combined;
+        }
+    }
+    if (open.isEmpty()) return result;
+    SkPathBuilder all(result);
+    all.addPath(open.detach());
+    return all.detach();
+}
+
+void ParseOutline(const XmlNode& path, Layer* layer) {
+    const char* rule = path.attr("fillRule");
+    const bool evenOdd = rule && !strcmp(rule, "evenodd");
+    auto add = [&](const XmlNode& n) {
+        PathContour c;
+        c.evenOdd = evenOdd;
+        const char* d = n.attr("d");
+        const char* closed = n.attr("closed");
+        const char* exclude = n.attr("exclude");
+        c.exclude = exclude && !strcmp(exclude, "true");
+        c.closed = closed && !strcmp(closed, "true");
+        bool knotted = false;
+        for (const auto& k : n.children) {
+            if (k->name != "knot") continue;
+            knotted = true;
+            c.knots.push_back(ParseKnot(*k));
+            layer->keyedPoints |= Keyed(c.knots.back());
+        }
+        if (knotted) {
+            c.path = KnotsPath(c, 0);
+        } else if (d) {
+            auto contour = SkParsePath::FromSVGString(d);
+            if (!contour) return;
+            c.path = *contour;
+        } else {
+            return;
+        }
+        if (evenOdd) c.path.setFillType(SkPathFillType::kEvenOdd);
+        layer->contours.push_back(std::move(c));
+    };
+    add(path);
+    for (const auto& c : path.children) {
+        if (c->name == "contour") add(*c);
+    }
+    layer->outline = Combine(layer->contours, 0, false);
+}
+
+void LeadIn(Anim* location, float frame) {
+    const auto& k = location->keys;
+    if (k.size() < 2 || !(k[0].t > 0 && k[0].t < frame) || !(k[1].t > k[0].t)) return;
+    const float back = 0.75f * k[0].t / (k[1].t - k[0].t);
+    location->lead = {0.0f, k[0].v, k[0].easing};
+    for (size_t i = 0; i < k[0].v.size() && i < k[1].v.size(); ++i) location->lead.v[i] -= back * (k[1].v[i] - k[0].v[i]);
+    location->hasLead = true;
+}
+
+int IntAttr(const XmlNode& n, const char* key, int fallback) {
+    const char* v = n.attr(key);
+    return v ? (int)strtol(v, nullptr, 10) : fallback;
+}
+
+int FpsAttr(const XmlNode& n) {
+    const char* v = n.attr("fps");
+    if (!v || !*v) return 30;
+    char* end = nullptr;
+    const long long fps = strtoll(v, &end, 10);
+    return *end == 0 && fps > 0 && fps <= INT32_MAX ? (int)fps : 30;
+}
+
+std::string StrAttr(const XmlNode& n, const char* key) {
+    const char* v = n.attr(key);
+    return v ? v : "";
+}
+
+}
+
+Anim ParseAnimNode(const XmlNode* node) {
+    CNumbers();
+    return ParseAnim(node);
+}
+
+namespace {
+
+void LinkAnims(Layer& l, const std::function<void(Anim&)>& visit) {
+    int role = 1;
+    for (Anim* a : {&l.location, &l.pivot, &l.scale, &l.rotation, &l.skew, &l.opacity, &l.tilt}) {
+        a->linkRole = role++;
+        a->linkOwner = l.id;
+        visit(*a);
+    }
+    for (auto& e : l.effects) for (auto& p : e.props) {
+        p.anim.linkRole = e.id == "absent.spin" || e.id == "absent.swing" ? 14 : e.id == "absent.pulsesize" ? 13 : e.id == "absent.timequant" ? 18 : 11;
+        p.anim.linkOwner = l.id;
+        visit(p.anim);
+    }
+    l.steps.linkRole = 18;
+    l.steps.linkOwner = l.id;
+    visit(l.steps);
+}
+
+void BindLinks(std::vector<Layer>& layers) {
+    bool linked = false;
+    for (auto& l : layers) {
+        if (l.children) BindLinks(*l.children);
+        LinkAnims(l, [&](Anim& a) {
+            a.linkStart = l.startTime;
+            a.linkEnd = l.endTime;
+            linked |= !a.links.empty();
+        });
+    }
+    if (!linked) return;
+    auto context = std::make_shared<LinkContext>();
+    context->layers = layers;
+    for (size_t i = 0; i < layers.size(); i++) context->ids.emplace(layers[i].id, i);
+    for (auto& l : layers) LinkAnims(l, [&](Anim& a) { if (!a.links.empty()) a.linkContext = context; });
+}
+
+bool ParseLayer(const XmlNode& n, int fps, Layer* out);
+
+void ParseCamera(const XmlNode& n, Camera* c) {
+    c->orthographic = StrAttr(n, "type") == "orthographic";
+    c->fov = ParseAnim(n.child("fov"));
+    for (const auto& k : n.children) {
+        const bool on = StrAttr(*k, "enabled") != "false";
+        if (k->name == "focus-blur") {
+            c->focusBlur = on;
+            c->focusStrength = ParseAnim(k->child("strength"));
+            c->focusDepth = ParseAnim(k->child("depth-of-field"));
+            c->focusDistance = ParseAnim(k->child("distance"));
+        } else if (k->name == "fog") {
+            c->fog = on;
+            c->fogColor = ParseAnim(k->child("color"));
+            c->fogNear = ParseAnim(k->child("near-z"));
+            c->fogFar = ParseAnim(k->child("far-z"));
+        }
+    }
+}
+
+void ParseGroup(const XmlNode& scene, int fps, Layer* group) {
+    group->innerWidth = std::clamp(IntAttr(scene, "width", 1080), 1, 8192);
+    group->innerHeight = std::clamp(IntAttr(scene, "height", 1080), 1, 8192);
+    const char* bg = scene.attr("bgcolor");
+    group->innerBackground = bg && *bg == '#' ? (uint32_t)strtoul(bg + 1, nullptr, 16) : 0;
+    Retiming& r = group->retiming;
+    r.length = IntAttr(scene, "totalTime", 0);
+    r.fps = FpsAttr(scene);
+    r.method = scene.attr("retime") ? scene.attr("retime") : "off";
+    r.in = IntAttr(scene, "retimeIn", 0);
+    r.out = IntAttr(scene, "retimeOut", 0);
+    r.hostFps = fps;
+    group->fixedPrecompose = StrAttr(scene, "precompose") == "fixedResolution";
+    const int innerFps = FpsAttr(scene);
+    thread_local int depth = 0;
+    if (depth >= 64) return;
+    struct Nest {
+        Nest() { depth++; }
+        ~Nest() { depth--; }
+    } nest;
+    group->children = std::make_shared<std::vector<Layer>>();
+    for (const auto& n : scene.children) {
+        Layer l;
+        if (ParseLayer(*n, innerFps, &l)) group->children->push_back(std::move(l));
+    }
+}
+
+std::string OutlineMark(const char* d) {
+    uint32_t h = 2166136261u;
+    for (const unsigned char* c = reinterpret_cast<const unsigned char*>(d); *c; c++) h = (h ^ *c) * 16777619u;
+    char out[9];
+    snprintf(out, sizeof out, "%08x", h);
+    return out;
+}
+
+bool ParseLayer(const XmlNode& node, int fps, Layer* out) {
+    const XmlNode* n = &node;
+    if (n->name != "shape" && n->name != "text" && n->name != "embedScene" && n->name != "nullobj" && n->name != "drawing" && n->name != "camera" &&
+        n->name != "model" && n->name != "light") return false;
+    Layer& l = *out;
+    l.kind = n->name;
+    if (l.kind == "light") l.lightType = StrAttr(*n, "type");
+    if (l.kind == "text") l.text = ParseText(*n);
+    if (l.kind == "embedScene") {
+        if (const XmlNode* inner = n->child("scene")) ParseGroup(*inner, fps, &l);
+        const float fallbackSpeed = n->attr("speed") ? strtof(n->attr("speed"), nullptr) : 1;
+        const float speed = ParseAnim(n->child("speedMap")).get(0, 0, fallbackSpeed);
+        if (speed > 0 && std::isfinite(speed)) l.retiming.speed = speed;
+        l.retiming.cut = std::max(0, IntAttr(*n, "inTime", 0));
+        l.retiming.clock = IntAttr(*n, "retimeLength", -1);
+        l.frame = ParseAnim(n->child("frame"));
+    }
+    const char* id = n->attr("id");
+    l.id = id ? strtoll(id, nullptr, 10) : 0;
+    const char* noise = n->attr("noiseId");
+    l.noiseId = noise ? strtoll(noise, nullptr, 10) : 0;
+    l.label = StrAttr(*n, "label");
+    l.shape = StrAttr(*n, "s");
+    l.outlineShape = StrAttr(*n, "outlineShape");
+    l.fillType = StrAttr(*n, "fillType");
+    l.mediaUri = StrAttr(*n, "fillImage");
+    if (l.mediaUri.empty()) l.mediaUri = StrAttr(*n, "fillVideo");
+    if (l.kind == "model") l.mediaUri = (StrAttr(*n, "pose") == "skin" ? "skin:" : "") + StrAttr(*n, "src");
+    l.video = l.fillType == "media" && StrAttr(*n, "fillImage").empty() && !l.mediaUri.empty();
+    l.mediaFillMode = StrAttr(*n, "mediaFillMode");
+    l.startTime = IntAttr(*n, "startTime", 0);
+    l.endTime = std::max(l.startTime, IntAttr(*n, "endTime", 0));
+    l.hidden = StrAttr(*n, "hidden") == "true";
+    l.force3d = StrAttr(*n, "threeD") == "true";
+    l.mixPieces = StrAttr(*n, "mixPieces") != "false";
+    if (const XmlNode* t = n->child("transform")) {
+        l.location = ParseAnim(t->child("location"));
+        if (l.endTime > l.startTime) LeadIn(&l.location, 1000.0f / fps / (l.endTime - l.startTime));
+        l.pivot = ParseAnim(t->child("pivot"));
+        l.scale = ParseAnim(t->child("scale"));
+        l.rotation = ParseAnim(t->child("rotation"));
+        l.tilt = ParseAnim(t->child("tilt"));
+        l.skew = ParseAnim(t->child("skew"));
+        l.opacity = ParseAnim(t->child("opacity"));
+    }
+    l.fillColor = ParseAnim(n->child("fillColor"));
+    if (l.kind == "camera") ParseCamera(*n, &l.camera);
+    if (const XmlNode* path = n->child("path")) {
+        ParseOutline(*path, &l);
+        const char* d = path->attr("d");
+        l.outlineEdited = !l.outlineShape.empty() && (!d || StrAttr(*n, "outlineMark") != OutlineMark(d));
+    }
+    if (l.kind == "drawing") ParseStrokes(*n, &l);
+    if (const XmlNode* stroke = n->child("path-stroke")) {
+        l.stroke.present = true;
+        l.stroke.direction = StrAttr(*stroke, "direction");
+        const char* endSize = stroke->attr("end-size");
+        l.stroke.endSize = endSize ? strtof(endSize, nullptr) : 1.0f;
+        l.stroke.color = ParseAnim(stroke->child("color"));
+        l.stroke.size = ParseAnim(stroke->child("size"));
+    }
+    for (const auto& c : n->children) {
+        if (c->name == "effect") {
+            LayerEffect effect;
+            effect.id = StrAttr(*c, "id");
+            effect.hidden = StrAttr(*c, "hidden") == "true";
+            effect.locallyApplied = StrAttr(*c, "locallyApplied") == "true";
+            effect.toChildren = StrAttr(*c, "applyToChildren") == "true";
+            for (const auto& p : c->children) if (p->name == "property")
+                effect.props.push_back({StrAttr(*p, "name"), StrAttr(*p, "type"), ParseAnim(p.get()), StrAttr(*p, "value")});
+            l.effects.push_back(std::move(effect));
+        }
+        if (c->name != "property") continue;
+        l.props.push_back({StrAttr(*c, "name"), StrAttr(*c, "type"), ParseAnim(c.get())});
+    }
+    ParseSteps(&l);
+    ParseStyle(*n, &l);
+    return true;
+}
+
+}
+
+bool ParseScene(const std::string& xml, Scene* scene, std::string* error) {
+    CNumbers();
+    auto root = ParseXml(xml, error);
+    if (!root) return false;
+    if (root->name != "scene") {
+        if (error) *error = "root element is <" + root->name + ">, expected <scene>";
+        return false;
+    }
+    Scene next;
+    next.width = IntAttr(*root, "width", 0);
+    next.height = IntAttr(*root, "height", 0);
+    next.fps = FpsAttr(*root);
+    next.totalTime = IntAttr(*root, "totalTime", 0);
+    next.depthOrder = StrAttr(*root, "depthOrder") == "true";
+    next.pieceOrder = StrAttr(*root, "depthSort") == "piece";
+    const char* bg = root->attr("bgcolor");
+    next.bgColor = bg && *bg == '#' ? (uint32_t)strtoul(bg + 1, nullptr, 16) : 0;
+    if (next.width <= 0 || next.height <= 0) {
+        if (error) *error = "scene has no size";
+        return false;
+    }
+    for (const auto& n : root->children) {
+        if (n->name == "media") {
+            next.mediaOrientation[StrAttr(*n, "uri")] = IntAttr(*n, "orientation", 0);
+            continue;
+        }
+        if (n->name == "bookmark") {
+            next.beats.push_back(IntAttr(*n, "t", 0) / 1000.0);
+            continue;
+        }
+        Layer l;
+        if (ParseLayer(*n, next.fps, &l)) next.layers.push_back(std::move(l));
+    }
+    BindLinks(next.layers);
+    std::sort(next.beats.begin(), next.beats.end());
+    next.beats.erase(std::unique(next.beats.begin(), next.beats.end()), next.beats.end());
+    *scene = std::move(next);
+    return true;
+}
+
+const Layer* ActiveCamera(const std::vector<Layer>& layers, double timeMs) {
+    const Layer* active = nullptr;
+    const Layer* lowest = nullptr;
+    for (const Layer& layer : layers) {
+        if (layer.kind != "camera" || layer.hidden) continue;
+        if (!lowest) lowest = &layer;
+        if (layer.activeAt(timeMs)) active = &layer;
+    }
+    return active ? active : lowest;
+}
+
+static double PickedTime(const Retiming& r, float frame) {
+    const double fps = r.fps > 0 ? r.fps : 30;
+    const double count = std::floor(std::max(0, r.length) * fps / 1000 + 1e-9) + 1;
+    const double f = std::isfinite(frame) ? std::floor(frame + 1e-4) : 0;
+    return std::floor((2 * (f - count * std::floor(f / count)) + 1) * 500 / fps);
+}
+
+double NestedTime(const Layer& group, double timeMs) {
+    if (!group.frame.empty()) {
+        const int fps = std::max(1, group.retiming.hostFps);
+        const long long ms = (long long)std::floor(group.steppedMs(timeMs));
+        const double at = (4.0 * (((ms + 1) * fps + 999) / 1000 - 1) + 3) * 250 / fps;
+        const float t = group.endTime > group.startTime ? (float)((at - group.startTime) / (group.endTime - group.startTime)) : 0.0f;
+        return PickedTime(group.retiming, group.frame.get(0, t, 0));
+    }
+    return RetimedTime(group.retiming, group.startTime, group.endTime, group.steppedMs(timeMs));
+}
+
+namespace {
+
+double ToLastFrameMiddle(double length, double fps) {
+    if (!(fps > 0)) fps = 30;
+    const double lastFrame = std::floor(length * fps / 1000 + 1e-9);
+    return std::floor((2 * lastFrame + 1) * 500 / fps);
+}
+
+}
+
+double RetimedTime(const Retiming& r, int startTime, int endTime, double at) {
+    const double origin = (double)startTime - r.cut;
+    const double local = at - origin;
+    if (r.method == "off") return local * r.speed;
+    const double sceneEnd = ToLastFrameMiddle(std::max(0, r.length), r.fps);
+    if (r.method == "blank") return local < sceneEnd ? std::round(local) : -1;
+    const double layerEnd = ToLastFrameMiddle(r.clock >= 0 ? r.clock : endTime - origin, r.hostFps);
+    const double in = std::clamp((double)r.in, 0.0, sceneEnd);
+    const double out = r.out > 0 ? std::clamp((double)r.out, in, sceneEnd) : sceneEnd;
+    const double outroStart = layerEnd - (sceneEnd - out);
+    double t;
+    if (local >= outroStart) {
+        t = out + (local - outroStart);
+    } else if (local < in) {
+        t = local;
+    } else {
+        const double into = local - in, room = outroStart - in, middle = out - in;
+        if (r.method == "stretch") {
+            t = in + into * middle / room;
+        } else if (r.method == "loop") {
+            t = in + (middle > 0 ? std::fmod(into, middle) : 0);
+        } else if (r.method == "loop-stretch" && middle > 0) {
+            const double each = room / std::max(1.0, std::round(room / middle));
+            t = in + std::fmod(into, each) * middle / each;
+        } else {
+            t = in + std::min(into, middle);
+        }
+    }
+    return std::round(t);
+}
+
+SkPath OutlineAt(const Layer& layer, float t) {
+    return layer.keyedPoints ? Combine(layer.contours, t, true) : layer.outline;
+}
+
+SkMatrix LayerMatrix(const Layer& l, float t) {
+    SkMatrix m = SkMatrix::Translate(l.location.get(0, t, 0), l.location.get(1, t, 0));
+    m.preRotate(l.rotation.get(0, t, 0));
+    m.preSkew(tanf(l.skew.get(0, t, 0)), tanf(l.skew.get(1, t, 0)));
+    m.preScale(l.scale.get(0, t, 1), l.scale.get(1, t, 1));
+    m.preTranslate(-l.pivot.get(0, t, 0), -l.pivot.get(1, t, 0));
+    return m;
+}
+
+SkRect MediaRect(const Layer& layer, const SkRect& bounds, int width, int height) {
+    if (layer.mediaFillMode == "stretch") return bounds;
+    const float sx = bounds.width() / width, sy = bounds.height() / height;
+    const float scale = layer.mediaFillMode == "fit" ? std::min(sx, sy) : std::max(sx, sy);
+    const float w = width * scale, h = height * scale;
+    return SkRect::MakeXYWH(bounds.centerX() - w / 2, bounds.centerY() - h / 2, w, h);
+}
+
+void DrawMedia(SkCanvas* canvas, const Layer& layer, const SkPath& path, float opacity,
+               const MediaPictures& pictures) {
+    auto image = pictures(layer.mediaUri, layer.id);
+    if (!image) return;
+    const SkRect bounds = path.getBounds();
+    if (bounds.isEmpty()) return;
+    const SkRect dst = MediaRect(layer, bounds, image->width(), image->height());
+    SkPaint paint;
+    paint.setAntiAlias(true);
+    paint.setAlphaf(std::clamp(opacity, 0.0f, 1.0f));
+    canvas->save();
+    canvas->clipPath(path, true);
+    const float density = canvas->getTotalMatrix().getMinScale() * dst.width() / std::max(image->width(), 1);
+    const bool minified = density > 0 && density < 0.5f && (image->hasMipmaps() || !image->isTextureBacked());
+    canvas->drawImageRect(image, dst, minified ? SkSamplingOptions(SkFilterMode::kLinear, SkMipmapMode::kLinear) : SkSamplingOptions(SkFilterMode::kLinear), &paint);
+    canvas->restore();
+}
+
+static void ClipSceneToPixels(SkCanvas* canvas, float width, float height) {
+    const SkRect area = SkRect::MakeWH(width, height);
+    const SkMatrix matrix = canvas->getTotalMatrix();
+    if (!matrix.isScaleTranslate()) {
+        canvas->clipRect(area, true);
+        return;
+    }
+    const SkIRect snapped = matrix.mapRect(area).round();
+    if (snapped.isEmpty()) {
+        canvas->clipRect(area, true);
+        return;
+    }
+    canvas->resetMatrix();
+    canvas->clipRect(SkRect::Make(snapped), false);
+    canvas->setMatrix(matrix);
+}
+
+void DrawScene(SkCanvas* canvas, const Scene& scene, double timeMs, const MediaPictures& pictures,
+               const LayerEffects* effects) {
+    canvas->save();
+    ClipSceneToPixels(canvas, scene.width, scene.height);
+    canvas->drawColor(scene.bgColor);
+    SetLayerEffects(effects, &scene);
+    DrawLayerList(canvas, scene, scene.layers, timeMs, pictures);
+    SetLayerEffects(nullptr, nullptr);
+    canvas->restore();
+}
+
+}

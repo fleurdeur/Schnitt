@@ -1,0 +1,682 @@
+package app.absentmotion.ui.home
+
+import app.absentmotion.media.MODEL_HIGH_DETAIL_BUDGET
+import app.absentmotion.media.MODEL_TRIANGLE_BUDGET
+import app.absentmotion.media.triangles
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.captionBar
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import app.absentmotion.platform.readAtMost
+import app.absentmotion.export.formatBytes
+import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.collapse
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.expand
+import androidx.compose.ui.semantics.semantics
+import app.absentmotion.ui.editor.ChromeIcons
+import app.absentmotion.ui.theme.Motion
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.text.style.TextOverflow
+import app.absentmotion.platform.Context
+import app.absentmotion.platform.LocalContext
+import app.absentmotion.platform.Toast
+import app.absentmotion.platform.Uri
+import app.absentmotion.platform.rememberDocumentPicker
+import app.absentmotion.ui.theme.ThemeError
+import app.absentmotion.ui.theme.Themes
+import app.absentmotion.i18n.text
+import app.absentmotion.i18n.txt
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.absentmotion.ai.CaptionModel
+import app.absentmotion.media.VideoProxies
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import app.absentmotion.library.AppSettings
+import app.absentmotion.library.PreviewQuality
+import app.absentmotion.ui.theme.Am
+import app.absentmotion.ui.editor.panels.ThinSwitch
+import app.absentmotion.R
+import app.absentmotion.i18n.currentLanguage
+import app.absentmotion.ui.onboarding.LanguageDialog
+import androidx.compose.ui.res.stringResource
+
+private val PanelColor get() = Am.HomePanel
+private val OpenColor get() = androidx.compose.ui.graphics.lerp(Am.HomePanel, Am.HomeInk, 0.06f)
+private val PanelShape = RoundedCornerShape(7.dp)
+private val DividerColor get() = Am.HomeLine
+private val ListLineColor get() = Am.NavyLine
+private val ChosenRow get() = Am.NavyHi
+internal val CardGap = 10.dp
+private const val DESK = app.absentmotion.platform.PlatformFeatures.desktop
+
+@Composable
+fun SettingsDrawer(settings: AppSettings, drawer: androidx.compose.material3.DrawerState, onRestored: () -> Unit = {}) {
+    var about by remember { mutableStateOf(false) }
+    var help by remember { mutableStateOf(false) }
+    var crashLogs by remember { mutableStateOf(false) }
+    var language by remember { mutableStateOf(false) }
+    var demoNote by remember { mutableStateOf(false) }
+    var whatsNew by remember { mutableStateOf(false) }
+    ModalDrawerSheet(
+        drawer, Modifier.width(280.dp), drawerShape = RectangleShape, drawerContainerColor = Am.HomeDrawer,
+        windowInsets = WindowInsets(0),
+    ) {
+        Column(Modifier.fillMaxSize().background(Am.Card).windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.captionBar)).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 8.dp)) {
+            Text(
+                stringResource(R.string.settings), Modifier.fillMaxWidth().heightIn(min = 50.dp).wrapContentHeight(Alignment.CenterVertically).padding(start = 11.dp),
+                color = Am.HomeInk, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+            )
+            AppCard(settings) { whatsNew = true }
+            Spacer(Modifier.height(CardGap))
+            Category(R.string.settings_group_editor, HomeIcons.Pencil) { EditorSettings(settings) }
+            Category(R.string.settings_group_playback, HomeIcons.ProjectsTabOff) { PlaybackSettings(settings) }
+            Category(R.string.settings_group_projects, HomeIcons.Folder) { ProjectsSettings(settings) { demoNote = it } }
+            Category(R.string.settings_group_backup, ChromeIcons.SavePreset) {
+                BackupRows(settings, onRestored)
+            }
+            LinkRow(stringResource(R.string.settings_language), currentLanguage(LocalContext.current).nativeName) { language = true }
+            Spacer(Modifier.height(CardGap))
+            LinkRow(stringResource(R.string.settings_help)) { help = true }
+            Spacer(Modifier.height(CardGap))
+            app.absentmotion.ui.tutorial.TutorialRows(settings)
+            Spacer(Modifier.height(CardGap))
+            LinkRow(stringResource(R.string.settings_about)) { about = true }
+            Spacer(Modifier.height(CardGap))
+            LinkRow(stringResource(R.string.crash_logs)) { crashLogs = true }
+        }
+    }
+    if (language) LanguageDialog { language = false }
+    if (help) HelpScreen { help = false }
+    if (about) AboutScreen(settings) { about = false }
+    if (crashLogs) CrashLogsScreen { crashLogs = false }
+    if (whatsNew) CurrentWhatsNew(settings) { whatsNew = false }
+    if (demoNote) AlertDialog(
+        onDismissRequest = { demoNote = false },
+        title = { Text(stringResource(R.string.demo_mode_is_on), color = Am.Navy) },
+        text = { Text(stringResource(R.string.the_media_picker_lists_only_albums), color = Am.Navy) },
+        confirmButton = { TextButton({ demoNote = false }) { Text(stringResource(R.string.ok), color = Am.Navy) } },
+        containerColor = Am.Card,
+    )
+}
+
+@Composable
+internal fun EditorSettings(settings: AppSettings) {
+    ThemeRow(settings)
+    DurationRow(settings)
+    if (!DESK) SwitchRow(stringResource(R.string.settings_vibration), settings.vibration, enabled = true) { settings.vibration = it }
+    SwitchRow(stringResource(R.string.settings_transition_in_preview), settings.transitionInPreview, enabled = true) { settings.transitionInPreview = it }
+    Divider(10.dp)
+    ChoicesBlock(R.string.settings_emoji) {
+        Choices(listOf(R.string.settings_emoji_system, R.string.settings_emoji_android), if (settings.androidEmoji) 1 else 0) { settings.androidEmoji = it == 1 }
+    }
+}
+
+@Composable
+internal fun PlaybackSettings(settings: AppSettings) {
+    ChoicesBlock(R.string.preview_quality) {
+        Choices(PreviewQuality.entries.map { it.label }, settings.previewQuality.ordinal) { settings.previewQuality = PreviewQuality.entries[it] }
+    }
+    Divider(10.dp)
+    SwitchRow(stringResource(R.string.settings_background_preview), settings.backgroundPreview, enabled = true) { settings.backgroundPreview = it }
+    Divider(10.dp)
+    SwitchRow(stringResource(R.string.settings_model_detail), settings.highDetailModels, enabled = true) { settings.highDetailModels = it }
+    Text(stringResource(R.string.settings_model_detail_note, triangles(MODEL_HIGH_DETAIL_BUDGET), triangles(MODEL_TRIANGLE_BUDGET)), Modifier.padding(horizontal = 10.dp),
+        color = Am.HomeMid, fontSize = 12.sp, lineHeight = 16.sp)
+    Divider(10.dp)
+    if (!DESK) {
+        val now = stringResource(R.string.settings_graphics_note, if (app.absentmotion.Tier.openGl) "OpenGL" else "Vulkan")
+        ChoicesBlock(R.string.settings_graphics, note = {
+            Text(if (settings.openGl) now else now + " " + stringResource(R.string.settings_graphics_hint), Modifier.padding(horizontal = 10.dp),
+                color = Am.HomeMid, fontSize = 12.sp, lineHeight = 16.sp)
+        }) {
+            Choices(listOf(R.string.settings_graphics_auto, R.string.settings_graphics_opengl), if (settings.openGl) 1 else 0) { settings.openGl = it == 1 }
+        }
+        Divider(10.dp)
+    }
+    ChoicesBlock(R.string.playback_resampling) {
+        Choices(listOf(R.string.settings_level_low, R.string.settings_level_high, R.string.settings_level_ultra), settings.audioResampling) { settings.audioResampling = it }
+    }
+    Divider(10.dp)
+    SwitchRow(stringResource(R.string.settings_preview_copies), settings.previewCopies, enabled = true) { settings.previewCopies = it }
+    PreviewCopiesRow()
+}
+
+@Composable
+internal fun ProjectsSettings(settings: AppSettings, onDemoMode: (Boolean) -> Unit) {
+    if (!DESK) SwitchRow(stringResource(R.string.settings_open_xml), settings.xmlUpload, enabled = true) { settings.xmlUpload = it }
+    SwitchRow(stringResource(R.string.settings_keep_media_copies), settings.keepMediaCopies, enabled = true) { settings.keepMediaCopies = it }
+    BundlesFolderRows(settings)
+    if (settings.demoModeShown) SwitchRow(stringResource(R.string.settings_demo_mode), settings.demoMode, enabled = true) { settings.demoMode = it; onDemoMode(it) }
+    CaptionModelRow()
+    CutoutRows()
+    AiModelRows()
+    DownloaderRow()
+    AiGpuRow()
+}
+
+@Composable
+private fun Category(@StringRes name: Int, icon: ImageVector, content: @Composable () -> Unit) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    val turn by animateFloatAsState(if (open) 180f else 0f, Motion.enter())
+    Column(Modifier.padding(horizontal = 6.dp).fillMaxWidth().clip(PanelShape).background(PanelColor)) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable { open = !open }
+                .semantics { if (open) collapse { open = false; true } else expand { open = true; true } }
+                .padding(start = 13.dp, end = 7.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(icon, null, Modifier.size(20.dp), tint = Am.HomeInk)
+            Spacer(Modifier.width(10.dp))
+            Text(stringResource(name), Modifier.weight(1f), color = Am.HomeInk, fontSize = 13.sp)
+            Icon(HomeIcons.ChevronDown, null, Modifier.size(24.dp).rotate(turn), tint = Am.HomeMid)
+        }
+        AnimatedVisibility(
+            open,
+            enter = expandVertically(Motion.enter()) + fadeIn(Motion.enter()),
+            exit = shrinkVertically(Motion.exit()) + fadeOut(Motion.exit()),
+        ) {
+            Column(Modifier.fillMaxWidth().background(OpenColor).padding(top = 4.dp, bottom = 4.dp)) {
+                content()
+            }
+        }
+    }
+    Spacer(Modifier.height(CardGap))
+}
+
+@Composable
+private fun ChoicesBlock(@StringRes label: Int, note: (@Composable () -> Unit)? = null, choices: @Composable () -> Unit) {
+    if (DESK) {
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+            if (maxWidth < 560.dp) Column(Modifier.fillMaxWidth().padding(horizontal = 5.dp, vertical = 8.dp)) {
+                Text(stringResource(label), Modifier.padding(start = 10.dp, bottom = 8.dp), color = Am.HomeInk, fontSize = 14.sp, lineHeight = 18.sp)
+                choices()
+            } else Row(Modifier.fillMaxWidth().padding(horizontal = 5.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(label), Modifier.weight(1f).padding(start = 10.dp), color = Am.HomeInk, fontSize = 14.sp, lineHeight = 18.sp)
+                Box(Modifier.width(320.dp)) { choices() }
+            }
+        }
+        if (note != null) Box(Modifier.padding(start = 5.dp, end = 5.dp, bottom = 8.dp)) { note() }
+        return
+    }
+    Spacer(Modifier.height(10.dp))
+    Text(stringResource(label), Modifier.padding(start = 10.dp), color = Am.HomeMid, fontSize = 13.sp, lineHeight = 18.sp)
+    Spacer(Modifier.height(10.dp))
+    choices()
+    if (note != null) {
+        Spacer(Modifier.height(8.dp))
+        note()
+    }
+    Spacer(Modifier.height(10.dp))
+}
+
+@Composable
+private fun PreviewCopiesRow() {
+    val context = LocalContext.current
+    val made by VideoProxies.revision.collectAsState()
+    var bytes by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(made) { bytes = withContext(Dispatchers.IO) { VideoProxies.bytes(context) } }
+    var ask by remember { mutableStateOf(false) }
+    ActionRow(stringResource(R.string.settings_clear_preview_copies), formatBytes(bytes), chevron = false) { ask = true }
+    if (ask) AlertDialog(
+        onDismissRequest = { ask = false },
+        title = { Text(stringResource(R.string.settings_clear_preview_title), color = Am.Navy) },
+        text = { Text(stringResource(R.string.settings_clear_preview_text), color = Am.Navy) },
+        confirmButton = { TextButton({ ask = false; VideoProxies.clear(context) }) { Text(stringResource(R.string.settings_clear_preview_copies), color = Am.Navy) } },
+        dismissButton = { TextButton({ ask = false }) { Text(stringResource(R.string.cancel), color = Am.Navy) } },
+        containerColor = Am.Card,
+    )
+}
+
+@Composable
+private fun CaptionModelRow() {
+    val context = LocalContext.current
+    var bytes by remember { mutableLongStateOf(CaptionModel.storedBytes(context)) }
+    val downloaded = bytes > 0L
+    if (!downloaded) return
+    var ask by remember { mutableStateOf(false) }
+    ActionRow(stringResource(R.string.remove_caption_model), formatBytes(bytes), chevron = false) { ask = true }
+    if (ask) AlertDialog(
+        onDismissRequest = { ask = false },
+        title = { Text(stringResource(R.string.settings_delete_model_title, stringResource(R.string.caption_model)), color = Am.Navy) },
+        text = { Text(stringResource(R.string.settings_delete_model_text), color = Am.Navy) },
+        confirmButton = { TextButton({ ask = false; CaptionModel.remove(context); bytes = CaptionModel.storedBytes(context) }) { Text(stringResource(R.string.delete), color = Am.Navy) } },
+        dismissButton = { TextButton({ ask = false }) { Text(stringResource(R.string.cancel), color = Am.Navy) } },
+        containerColor = Am.Card,
+    )
+}
+
+@Composable
+private fun BundlesFolderRows(settings: AppSettings) {
+    val context = LocalContext.current
+    val pick = rememberBundleFolderPicker(settings)
+    val folder = settings.bundlesFolder
+    val view = folderView(folder)
+    ActionRow(stringResource(R.string.settings_bundles_folder), if (folder == null) defaultBundles() else view?.label.orEmpty(), chevron = true) { pick() }
+    if (view?.reachable == false) Text(stringResource(R.string.bundle_folder_lost, defaultBundles()), Modifier.padding(start = 15.dp, end = 15.dp, bottom = 6.dp), color = Am.HomeAccent, fontSize = 12.sp, lineHeight = 16.sp)
+    if (folder != null) ActionRow(stringResource(R.string.settings_bundles_default), "", chevron = false) {
+        app.absentmotion.platform.forgetFolder(context, folder)
+        settings.bundlesFolder = null
+    }
+}
+
+@Composable
+internal fun defaultBundles(): String {
+    val context = LocalContext.current
+    return remember { app.absentmotion.export.MediaStoreExport(context).location("Documents/${app.absentmotion.export.AppFolder}") }
+}
+
+internal class FolderView(val label: String, val reachable: Boolean)
+
+@Composable
+internal fun folderView(folder: String?): FolderView? {
+    val context = LocalContext.current
+    var tick by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) { tick++ }
+    var view by remember(folder) { mutableStateOf<FolderView?>(null) }
+    androidx.compose.runtime.LaunchedEffect(folder, tick) {
+        view = folder?.let {
+            withContext(Dispatchers.IO) { FolderView(app.absentmotion.platform.folderLabel(context, it), app.absentmotion.platform.folderReachable(context, it)) }
+        }
+    }
+    return view
+}
+
+@Composable
+internal fun rememberBundleFolderPicker(settings: AppSettings): () -> Unit {
+    val context = LocalContext.current
+    return app.absentmotion.platform.rememberFolderPicker(settings.bundlesFolder) { picked ->
+        settings.bundlesFolder?.takeIf { it != picked }?.let { app.absentmotion.platform.forgetFolder(context, it) }
+        settings.bundlesFolder = picked
+    }
+}
+
+@Composable
+private fun DownloaderRow() {
+    val context = LocalContext.current
+    var present by remember { mutableStateOf(app.absentmotion.platform.videoDownloader().installed(context)) }
+    var bytes by remember { mutableLongStateOf(-1L) }
+    androidx.compose.runtime.LaunchedEffect(present) { if (present) bytes = withContext(Dispatchers.IO) { app.absentmotion.platform.videoDownloader().storedBytes(context) } }
+    if (!present) return
+    var ask by remember { mutableStateOf(false) }
+    val name = stringResource(R.string.downloader_engine_name)
+    ActionRow(stringResource(R.string.ai_delete_model, name), if (bytes > 0L) formatBytes(bytes) else "", chevron = false) { ask = true }
+    if (ask) AlertDialog(
+        onDismissRequest = { ask = false },
+        title = { Text(stringResource(R.string.settings_delete_model_title, name), color = Am.Navy) },
+        text = { Text(stringResource(R.string.settings_delete_model_text), color = Am.Navy) },
+        confirmButton = {
+            TextButton({
+                ask = false
+                app.absentmotion.platform.videoDownloader().remove(context)
+                present = false
+            }) { Text(stringResource(R.string.delete), color = Am.Navy) }
+        },
+        dismissButton = { TextButton({ ask = false }) { Text(stringResource(R.string.cancel), color = Am.Navy) } },
+        containerColor = Am.Card,
+    )
+}
+
+@Composable
+private fun AiModelRows() {
+    val context = LocalContext.current
+    var models by remember { mutableStateOf(app.absentmotion.ai.AiModel.downloaded(context) - app.absentmotion.ai.AiModel.Cutout) }
+    var askFor by remember { mutableStateOf<app.absentmotion.ai.AiModel?>(null) }
+    for (model in models) {
+        ActionRow(stringResource(R.string.ai_delete_model, stringResource(model.title)), formatBytes(model.onDisk(context)), chevron = false) {
+            askFor = model
+        }
+    }
+    askFor?.let { target ->
+        AlertDialog(
+            onDismissRequest = { askFor = null },
+            title = { Text(stringResource(R.string.settings_delete_model_title, stringResource(target.title)), color = Am.Navy) },
+            text = { Text(stringResource(R.string.settings_delete_model_text), color = Am.Navy) },
+            confirmButton = {
+                TextButton({
+                    askFor = null
+                    target.delete(context)
+                    models = app.absentmotion.ai.AiModel.downloaded(context) - app.absentmotion.ai.AiModel.Cutout
+                }) { Text(stringResource(R.string.delete), color = Am.Navy) }
+            },
+            dismissButton = { TextButton({ askFor = null }) { Text(stringResource(R.string.cancel), color = Am.Navy) } },
+            containerColor = Am.Card,
+        )
+    }
+}
+
+@Composable
+private fun CutoutRows() {
+    if (!app.absentmotion.ai.BestCutout.offered) return
+    val context = LocalContext.current
+    val model = app.absentmotion.ai.AiModel.Cutout
+    val choice = remember { app.absentmotion.ai.CutoutChoice.of(context) }
+    var chosen by remember { mutableStateOf(choice.saved) }
+    var bytes by remember { mutableLongStateOf(model.onDisk(context)) }
+    val qualities = app.absentmotion.ai.CutoutQuality.entries
+    Divider(10.dp)
+    ChoicesBlock(R.string.settings_cutout_quality) {
+        Column(Modifier.selectableGroup()) {
+            for (quality in qualities) OptionRow(stringResource(quality.title), quality == chosen) { choice.choose(quality); chosen = quality }
+        }
+    }
+    Divider(10.dp)
+    var ask by remember { mutableStateOf(false) }
+    if (bytes > 0L) ActionRow(stringResource(R.string.ai_delete_model, stringResource(model.title)), formatBytes(bytes), chevron = false) {
+        ask = true
+    }
+    if (ask) AlertDialog(
+        onDismissRequest = { ask = false },
+        title = { Text(stringResource(R.string.settings_delete_model_title, stringResource(model.title)), color = Am.Navy) },
+        text = { Text(stringResource(R.string.settings_delete_model_text), color = Am.Navy) },
+        confirmButton = {
+            TextButton({
+                ask = false
+                model.delete(context)
+                bytes = model.onDisk(context)
+                choice.choose(app.absentmotion.ai.CutoutQuality.Standard)
+                chosen = app.absentmotion.ai.CutoutQuality.Standard
+            }) { Text(stringResource(R.string.delete), color = Am.Navy) }
+        },
+        dismissButton = { TextButton({ ask = false }) { Text(stringResource(R.string.cancel), color = Am.Navy) } },
+        containerColor = Am.Card,
+    )
+}
+
+@Composable
+private fun AiGpuRow() {
+    if (!app.absentmotion.Tier.has(app.absentmotion.Feature.AiSmooth) && !app.absentmotion.Tier.has(app.absentmotion.Feature.AiEnhance)) return
+    val context = LocalContext.current
+    var state by remember { mutableStateOf<Pair<Boolean, Boolean>?>(null) }
+    var loaded by remember { mutableStateOf(false) }
+    var ask by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        state = withContext(Dispatchers.Default) {
+            if (app.absentmotion.ai.AiNative.gpu?.software == false) app.absentmotion.ai.AiDevice.gpuOn(context) to app.absentmotion.ai.AiDevice.gpuRisky(context) else null
+        }
+        loaded = true
+    }
+    val current = state
+    if (current == null) {
+        if (!loaded) Spacer(Modifier.height(44.dp))
+        return
+    }
+    val (on, risky) = current
+    fun choose(value: Boolean) {
+        app.absentmotion.ai.AiDevice.setGpu(context, value)
+        state = value to risky
+    }
+    SwitchRow(stringResource(R.string.settings_ai_gpu), on, enabled = true) { if (it && risky) ask = true else choose(it) }
+    if (ask) AlertDialog(
+        onDismissRequest = { ask = false },
+        title = { Text(stringResource(R.string.settings_ai_gpu), color = Am.Navy) },
+        text = { Text(stringResource(R.string.ai_gpu_warning), color = Am.Navy) },
+        confirmButton = { TextButton({ ask = false; choose(true) }) { Text(stringResource(R.string.audiofx_turn_on), color = Am.Navy) } },
+        dismissButton = { TextButton({ ask = false }) { Text(stringResource(R.string.cancel), color = Am.Navy) } },
+        containerColor = Am.Card,
+    )
+}
+
+@Composable
+internal fun Divider(inset: androidx.compose.ui.unit.Dp) {
+    Box(Modifier.padding(horizontal = inset).fillMaxWidth().height(1.dp).background(DividerColor))
+}
+
+@Composable
+private fun AppCard(settings: AppSettings, onWhatsNew: () -> Unit) {
+    val context = LocalContext.current
+    val version = app.absentmotion.platform.appVersion().trim()
+    val notes = remember { WhatsNewNotes.currentName(context) != null }
+    Column(Modifier.padding(horizontal = 6.dp).fillMaxWidth().clip(PanelShape).background(PanelColor).padding(start = 12.dp, end = 10.dp, top = 10.dp, bottom = 12.dp)) {
+        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+            Column(Modifier.widthIn(max = 180.dp).padding(end = 8.dp)) {
+                Text("Schnitt", color = Am.HomeInk, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                if (version.isNotEmpty()) Text(stringResource(R.string.about_version, version), color = Am.HomeMid, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (notes) Pill(stringResource(R.string.settings_whats_new), Am.Navy, Am.OnNavy, pad = 12.dp, onClick = onWhatsNew)
+        }
+    }
+}
+
+@Composable
+private fun Pill(label: String, fill: Color, ink: Color, modifier: Modifier = Modifier, pad: androidx.compose.ui.unit.Dp = 14.dp, busy: Boolean = false, onClick: (() -> Unit)? = null) {
+    Box(
+        Modifier.heightIn(min = 38.dp).clip(RoundedCornerShape(50)).background(fill).then(modifier)
+            .then(if (onClick != null) Modifier.deskPress(19.dp).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick) else Modifier)
+            .padding(horizontal = pad, vertical = 6.dp),
+        Alignment.Center,
+    ) {
+        Text(label, Modifier.alpha(if (busy) 0f else 1f), color = ink, fontSize = 13.sp, lineHeight = 16.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        if (busy) CircularProgressIndicator(Modifier.size(16.dp), color = ink, strokeWidth = 2.dp)
+    }
+}
+
+@Composable
+internal fun UpdateSettings(settings: AppSettings) {
+    val context = LocalContext.current
+    SwitchRow(stringResource(R.string.update_check_on_open), settings.autoUpdateCheck, enabled = true) { settings.chooseUpdates(it) }
+    Divider(10.dp)
+    ActionRow(stringResource(R.string.update_check_now), busy = Updates.checking) { Updates.check(context, settings, manual = true) }
+    val version = app.absentmotion.platform.appVersion().trim()
+    if (version.isNotEmpty()) {
+        val spoken = stringResource(R.string.about_version, version)
+        Text(
+            "V $version", Modifier.fillMaxWidth().padding(start = 15.dp, end = 15.dp, bottom = 8.dp).semantics { contentDescription = spoken },
+            color = Am.HomeMid, fontSize = if (DESK) 13.sp else 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+internal fun LinkRow(label: String, value: String? = null, onClick: () -> Unit) {
+    Box(Modifier.padding(horizontal = 6.dp).fillMaxWidth().clip(PanelShape).background(PanelColor)) {
+        ActionRow(label, value, chevron = true, onClick = onClick)
+    }
+}
+
+@Composable
+internal fun ActionRow(label: String, value: String? = null, chevron: Boolean = true, busy: Boolean = false, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 44.dp).deskPress().clickable(onClick = onClick).padding(start = 15.dp, end = if (chevron) 7.dp else 15.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, Modifier.weight(1f), color = Am.HomeInk, fontSize = if (DESK) 14.sp else 13.sp)
+        if (value != null) Text(value, color = Am.HomeMid, fontSize = if (DESK) 14.sp else 13.sp, maxLines = 1)
+        if (busy) Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(Modifier.size(16.dp), color = Am.HomeMid, strokeWidth = 2.dp)
+        } else if (chevron) Icon(HomeIcons.ChevronRight, null, Modifier.size(24.dp), tint = Am.HomeMid)
+    }
+}
+
+@Composable
+internal fun SwitchRow(label: String, checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 44.dp).alpha(if (enabled) 1f else 0.35f).deskPress()
+            .toggleable(value = checked, enabled = enabled, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange).padding(horizontal = 15.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, Modifier.weight(1f), color = Am.HomeInk, fontSize = if (DESK) 14.sp else 12.sp, fontWeight = if (DESK) FontWeight.Normal else FontWeight.Bold)
+        ThinSwitch(checked, Modifier.clearAndSetSemantics {}, enabled = enabled, offTrack = Am.SwitchOff, onTrack = Am.HomeAccent.copy(alpha = 0.5f), onThumb = Am.HomeAccent, onChange = onChange)
+    }
+}
+
+@Composable
+internal fun RefSwitch(checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) =
+    ThinSwitch(checked, enabled = enabled, offTrack = Am.SwitchOff, onTrack = Am.HomeAccent.copy(alpha = 0.5f), onThumb = Am.HomeAccent, onChange = onChange)
+
+@Composable
+private fun DurationRow(settings: AppSettings) {
+    var open by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(10.dp)
+    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.new_layer_length), Modifier.weight(1f), color = Am.HomeInk, fontSize = if (DESK) 14.sp else 12.sp, fontWeight = if (DESK) FontWeight.Normal else FontWeight.Bold)
+        Box(Modifier.size(90.dp, if (DESK) 34.dp else 37.dp)) {
+            Row(
+                Modifier.fillMaxSize().clip(shape).background(Am.Card).deskPress(10.dp).clickable { open = true }.padding(start = 10.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("${settings.defaultLayerDuration}s", Modifier.weight(1f), color = Am.Navy, fontSize = 16.sp)
+                Icon(HomeIcons.ChevronDown, null, Modifier.size(24.dp), tint = Am.Navy)
+            }
+            RefMenu(open, { open = false }, Am.Navy, shape, Modifier.width(90.dp), maxHeight = 327.dp) {
+                AppSettings.LAYER_DURATIONS.forEachIndexed { i, seconds ->
+                    val chosen = seconds == settings.defaultLayerDuration
+                    Box(
+                        Modifier.fillMaxWidth().heightIn(min = 40.dp).background(if (chosen) ChosenRow else Color.Transparent)
+                            .clickable { settings.defaultLayerDuration = seconds; open = false }.padding(start = 14.dp),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        Text("${seconds}s", color = Am.OnNavy, fontSize = 16.sp)
+                    }
+                    if (i < AppSettings.LAYER_DURATIONS.lastIndex) Box(Modifier.fillMaxWidth().height(1.dp).background(ListLineColor))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeRow(settings: AppSettings) {
+    val context = LocalContext.current
+    var open by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(10.dp)
+    val scope = rememberCoroutineScope()
+    val picker = rememberDocumentPicker { uri ->
+        if (uri != null) {
+            scope.launch {
+                try {
+                    val text = withContext(Dispatchers.IO) { readThemeText(context, uri) }
+                    settings.importTheme(text)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    val message = (e as? ThemeError)?.text?.resolve(context) ?: context.getString(R.string.settings_theme_read_failed)
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.theme_select), Modifier.weight(1f).padding(end = 8.dp), color = Am.HomeInk, fontSize = if (DESK) 14.sp else 12.sp, fontWeight = if (DESK) FontWeight.Normal else FontWeight.Bold)
+        Box(Modifier.size(if (DESK) 190.dp else 150.dp, if (DESK) 34.dp else 37.dp)) {
+            Row(
+                Modifier.fillMaxSize().clip(shape).background(Am.Card).deskPress(10.dp).clickable { open = true }.padding(start = 10.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(settings.themeLabel.text(), Modifier.weight(1f), color = Am.Navy, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Icon(HomeIcons.ChevronDown, null, Modifier.size(24.dp), tint = Am.Navy)
+            }
+            RefMenu(open, { open = false }, Am.Navy, shape, Modifier.width(210.dp), maxHeight = 327.dp) {
+                for ((id, label) in settings.themes) ThemeItem(label.text(), id == settings.theme) { open = false; if (id != settings.theme) app.absentmotion.ui.theme.ThemeFade.change { settings.theme = id } }
+                Box(Modifier.fillMaxWidth().height(1.dp).background(ListLineColor))
+                ThemeItem(stringResource(R.string.settings_import_theme), false) { open = false; picker.launch() }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeItem(label: String, chosen: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.fillMaxWidth().heightIn(min = 40.dp).background(if (chosen) ChosenRow else Color.Transparent).deskPress().clickable(onClick = onClick).padding(horizontal = 14.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) { Text(label, color = Am.OnNavy, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+}
+
+private fun readThemeText(context: Context, uri: Uri): String {
+    val stream: java.io.InputStream? = try { context.contentResolver.openInputStream(uri) } catch (e: Exception) { null }
+    val bytes = stream?.use { it.readAtMost(Themes.MAX_BYTES + 1) } ?: throw ThemeError(txt(R.string.settings_theme_open_failed))
+    if (bytes.size > Themes.MAX_BYTES) throw ThemeError(txt(R.string.settings_theme_not_theme_file))
+    return String(bytes, Charsets.UTF_8)
+}
+
+@Composable
+private fun OptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 44.dp).deskPress().selectable(selected, role = androidx.compose.ui.semantics.Role.RadioButton, onClick = onClick).padding(horizontal = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected, null, colors = RadioButtonDefaults.colors(selectedColor = Am.HomeAccent, unselectedColor = Am.HomeMid))
+        Text(label, Modifier.padding(start = 6.dp), color = Am.HomeInk, fontSize = if (DESK) 14.sp else 13.sp)
+    }
+}
+
+@Composable
+private fun Choices(labels: List<Int>, chosen: Int, onPick: (Int) -> Unit) {
+    val shape = RoundedCornerShape(6.dp)
+    Row(Modifier.padding(horizontal = 10.dp).fillMaxWidth().height(if (DESK) 34.dp else 38.dp).background(Am.Card, shape).padding(3.dp)) {
+        for ((index, label) in labels.withIndex()) {
+            val selected = index == chosen
+            Box(
+                Modifier.weight(1f).fillMaxHeight().clip(shape).background(if (selected) Am.Navy else Color.Transparent).then(if (selected) Modifier else Modifier.deskPress(6.dp)).clickable { onPick(index) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(stringResource(label).uppercase(androidx.compose.ui.platform.LocalConfiguration.current.locales[0]), Modifier.padding(horizontal = 2.dp), color = if (selected) Am.OnNavyAccent else Am.Navy,
+                    fontWeight = FontWeight.Medium, maxLines = 1, autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(9.sp, 14.sp))
+            }
+        }
+    }
+}

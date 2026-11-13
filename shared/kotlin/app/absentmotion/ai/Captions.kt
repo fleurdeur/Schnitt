@@ -1,0 +1,416 @@
+package app.absentmotion.ai
+
+import app.absentmotion.R
+import app.absentmotion.i18n.AppText
+import app.absentmotion.platform.Context
+import app.absentmotion.platform.captionTextHeight
+import app.absentmotion.platform.loadCaptionLibrary
+import app.absentmotion.audio.OfflineMix
+import app.absentmotion.audio.Resampler
+import app.absentmotion.audio.SincBank
+import app.absentmotion.audio.soundUri
+import app.absentmotion.editor.EditorState
+import app.absentmotion.editor.MultiSelect
+import app.absentmotion.export.AudioMix
+import app.absentmotion.export.ExportAudio
+import app.absentmotion.fonts.FontLibrary
+import app.absentmotion.fonts.FontName
+import app.absentmotion.model.Layer
+import app.absentmotion.model.Scene
+import app.absentmotion.model.StyleColors
+import app.absentmotion.model.XmlNode
+import app.absentmotion.model.borders
+import app.absentmotion.model.formatColor
+import app.absentmotion.model.formatFloats
+import app.absentmotion.model.withBorderAdded
+import app.absentmotion.model.withContent
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import app.absentmotion.platform.drain
+import java.io.Closeable
+import java.io.File
+import java.io.InputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.security.DigestInputStream
+import java.security.MessageDigest
+import java.util.function.IntConsumer
+import kotlin.coroutines.coroutineContext
+import kotlin.math.min
+import kotlin.math.roundToInt
+
+data class Word(val text: String, val startMs: Int, val endMs: Int)
+
+data class Chunk(val text: String, val startMs: Int, val endMs: Int)
+
+enum class CaptionPosition { Top, Middle, Bottom }
+
+data class CaptionStyle(
+    val font: String = FontName.Default.xml, val sizePercent: Int = 100, val color: Int = StyleColors.White,
+    val outline: Boolean = true, val position: CaptionPosition = CaptionPosition.Bottom, val maxWords: Int = 4,
+    val english: Boolean = false, val highPrecision: Boolean = false,
+    val outlineColor: Int = StyleColors.Black, val outlineThickness: Int = 6,
+)
+
+private const val MAX_CAPTION_MS = 3000
+private const val PAUSE_MS = 500
+private const val SENTENCE_ENDS = ".?!…。？！"
+
+fun chunkWords(words: List<Word>, maxWords: Int): List<Chunk> {
+    val chunks = mutableListOf<Chunk>()
+    var current = mutableListOf<Word>()
+    fun flush() {
+        if (current.isEmpty()) return
+        val start = current.first().startMs
+        chunks += Chunk(current.joinToString(" ") { it.text }, start, min(current.last().endMs, start + MAX_CAPTION_MS))
+        current = mutableListOf()
+    }
+    for (word in words) {
+        val last = current.lastOrNull()
+        if (last != null && (current.size >= maxWords || word.endMs - current.first().startMs > MAX_CAPTION_MS ||
+                word.startMs - last.endMs > PAUSE_MS || SENTENCE_ENDS.any { last.text.endsWith(it) })) flush()
+        current += word
+    }
+    flush()
+    return chunks
+}
+
+fun captionSize(width: Int, height: Int, percent: Int): Float = 0.06f * min(width, height) / 3f * percent / 100f
+
+fun captionWrap(width: Int): Int = (width * 0.85f).roundToInt()
+
+fun captionY(width: Int, height: Int, position: CaptionPosition, textHeight: Float): Float {
+    val line = height * when (position) {
+        CaptionPosition.Top -> 0.18f
+        CaptionPosition.Middle -> 0.5f
+        CaptionPosition.Bottom -> if (width > height) 0.85f else 0.82f
+    }
+    val reach = textHeight / 2 + height * 0.04f
+    return if (2 * reach >= height) height / 2f else line.coerceIn(reach, height - reach)
+}
+
+internal fun Scene.captionLayers(
+    chunks: List<Chunk>, style: CaptionStyle,
+    name: (Int) -> String = { AppText.get(R.string.caption_layer_name, "$it") },
+    measure: (text: String, size: Float) -> Float,
+): List<Layer> {
+    val head = name(0).substringBefore('0')
+    val tail = name(0).substringAfter('0')
+    val first = 1 + (layers.mapNotNull { l ->
+        l.label.takeIf { it.length > head.length + tail.length && it.startsWith(head) && it.endsWith(tail) }
+            ?.let { it.substring(head.length, it.length - tail.length).toIntOrNull() }
+    }.maxOrNull() ?: 0)
+    val wrap = captionWrap(width)
+    val starts = chunks.map { frameAt(it.startMs) }
+    return chunks.mapIndexed { i, chunk ->
+        val lastFrame = maxOf(starts[i], min(frameAt(chunk.endMs - 1), (starts.getOrNull(i + 1) ?: Int.MAX_VALUE) - 1))
+        var size = captionSize(width, height, style.sizePercent)
+        var tall = measure(chunk.text, size)
+        while (tall > height * 0.9f && size > 1f) { size *= 0.9f; tall = measure(chunk.text, size) }
+        val layer = Layer(XmlNode("text", linkedMapOf("id" to "${Layer.newId()}", "label" to name(first + i),
+            "startTime" to "${frameStart(starts[i])}", "endTime" to "${frameEnd(lastFrame)}",
+            "fillType" to "color", "mediaFillMode" to "fill", "size" to formatFloats(floatArrayOf(size)),
+            "font" to style.font, "wrapWidth" to "$wrap", "align" to "center")))
+            .withTransform("location", width / 2f, captionY(width, height, style.position, tall), 0f)
+            .withFill("color", style.color).withContent(chunk.text)
+        if (!style.outline) layer else layer.withBorderAdded().let {
+            val border = it.borders.last()
+            it.withValue(border.colorRef, formatColor(style.outlineColor)).withValue(border.sizeRef, style.outlineThickness.coerceIn(0, 50).toString())
+        }
+    }
+}
+
+internal fun EditorState.addCaptions(chunks: List<Chunk>, style: CaptionStyle, fonts: FontLibrary) {
+    val wrap = captionWrap(scene.width)
+    val layers = scene.captionLayers(chunks, style) { text, size -> captionTextHeight(fonts, text, style.font, size, wrap) }
+    edit { s -> layers.fold(s) { acc, layer -> acc.add(layer) } }
+    selectedId = null
+    MultiSelect.ids = layers.map { it.id }.toSet()
+    MultiSelect.active = true
+    frame = scene.frameAt(layers.first().startTime)
+    addOpen = false
+}
+
+internal suspend fun recogniseCaptions(
+    context: Context, scene: Scene, layerId: Long?, style: CaptionStyle, progress: (Float, String) -> Unit,
+): List<Chunk> {
+    val input = scene.captionInput(layerId)
+    val source = input.scene
+    val startMs = input.startMs
+    val endMs = input.endMs
+    val mix = withContext(Dispatchers.IO) { OfflineMix.of(context, source, Resampler.ULTRA) } ?: error(AppText.get(R.string.ai_no_sound_to_caption))
+    val windows = captionWindows(startMs, endMs)
+    val words = ArrayList<Word>()
+    try {
+        withContext(Dispatchers.IO) { CaptionModel.verify(context, style.highPrecision) }
+        windows.forEachIndexed { k, (keepFrom, keepTo) ->
+            fun step(local: Float, label: Int) = progress((k + local) / windows.size, AppText.get(label))
+            val from = maxOf(startMs, keepFrom - CAPTION_OVERLAP_MS)
+            val pcm = withContext(Dispatchers.IO) { speechPcm(mix, from, keepTo) { step(0.15f * it, R.string.ai_reading_audio) } }
+            words += Whisper.transcribe(CaptionModel.file(context, style.highPrecision), pcm, style.english) { step(0.15f + 0.85f * it / 100f, R.string.ai_recognising_speech) }
+                .filter { it.startMs + from >= keepFrom && (it.startMs + from < keepTo || k == windows.lastIndex) }
+                .map { Word(it.text, min(it.startMs + from, endMs - 1), min(it.endMs + from, endMs)) }
+        }
+    } finally {
+        (mix as? Closeable)?.close()
+    }
+    return chunkWords(words, style.maxWords).ifEmpty { error(AppText.get(R.string.ai_no_speech)) }
+}
+
+internal data class CaptionInput(val scene: Scene, val startMs: Int, val endMs: Int)
+
+internal fun Scene.captionInput(layerId: Long?): CaptionInput {
+    if (layerId == null) return CaptionInput(this, 0, totalTime + 1)
+    val layer = layer(layerId)?.takeIf { it.soundUri != null }
+        ?: error(AppText.get(R.string.ai_no_sound_to_caption))
+    val source = Scene(node.copy(children = node.children.filter { it.name !in Scene.LAYER_TAGS } +
+        layer.node.with("hidden", null).let { it.copy(children = it.children.filterNot { c -> c.name == "gain" }) }))
+    return CaptionInput(source, layer.startTime, layer.endTime + 1)
+}
+
+internal const val CAPTION_WINDOW_MS = 600_000
+internal const val CAPTION_OVERLAP_MS = 2_000
+
+internal fun captionWindows(startMs: Int, endMs: Int, windowMs: Int = CAPTION_WINDOW_MS): List<Pair<Int, Int>> =
+    (startMs until maxOf(endMs, startMs + 1) step windowMs).map { it to minOf(endMs, it + windowMs) }
+
+internal const val SPEECH_RATE = 16000
+private const val SPEECH_CHUNK = SPEECH_RATE
+
+internal suspend fun speechPcm(mix: AudioMix, startMs: Int, endMs: Int, progress: (Float) -> Unit): FloatArray {
+    val out = FloatArray(speechSamples(startMs, endMs))
+    var at = 0
+    speechChunks(mix, startMs, endMs, progress) { chunk, count ->
+        System.arraycopy(chunk, 0, out, at, count)
+        at += count
+    }
+    return out
+}
+
+private fun speechSamples(startMs: Int, endMs: Int) = maxOf(SPEECH_RATE, ((endMs - startMs) * (SPEECH_RATE / 1000L)).toInt())
+
+internal suspend fun speechChunks(mix: AudioMix, startMs: Int, endMs: Int, progress: (Float) -> Unit, sink: (FloatArray, Int) -> Unit) {
+    val rate = ExportAudio.SAMPLE_RATE
+    val step = rate / SPEECH_RATE.toDouble()
+    val taps = Resampler.TAPS
+    val total = speechSamples(startMs, endMs)
+    val chunk = FloatArray(SPEECH_CHUNK)
+    var held = 0
+    val block = 4096
+    val window = FloatArray((block + 4 * taps) * 2)
+    var base = -2L * taps
+    var filled = 2 * taps
+    val first = Math.round(startMs / 1000.0 * rate)
+    var fetched = 0L
+    val pair = FloatArray(2)
+    val sinc = SincBank()
+    fun us(frame: Long) = Math.round(frame * 1e6 / rate)
+    var i = 0
+    while (i < total) {
+        coroutineContext.ensureActive()
+        val keep = ((i * step).toLong() - taps - base).toInt().coerceIn(0, filled)
+        System.arraycopy(window, 2 * keep, window, 0, 2 * (filled - keep))
+        base += keep
+        filled -= keep
+        val pcm = mix(us(first + fetched), us(first + fetched + block))
+        for (k in pcm.indices) window[2 * filled + k] = pcm[k] / 32768f
+        filled += pcm.size / 2
+        fetched += pcm.size / 2
+        while (i < total) {
+            val position = i * step
+            val j = position.toLong()
+            if (j + taps >= base + filled) break
+            Resampler.sample(window, (j - base).toInt(), (position - j).toFloat(), Resampler.ULTRA, step, pair, sinc)
+            chunk[held++] = (pair[0] + pair[1]) / 2
+            i++
+            if (held == chunk.size) { sink(chunk, held); held = 0 }
+        }
+        progress(i.toFloat() / total)
+    }
+    if (held > 0) sink(chunk, held)
+}
+
+internal data class RawWord(val text: String, val t0: Int, val t1: Int, val dtw: Int)
+
+internal data class SpeechEdges(val onsets: List<Int>, val offsets: List<Int>)
+
+internal fun speechEdges(pcm: FloatArray, rate: Int, frameMs: Int = 10, pauseMs: Int = 250): SpeechEdges {
+    val frame = (rate * frameMs / 1000).coerceAtLeast(1)
+    val levels = FloatArray(pcm.size / frame) { f ->
+        var sum = 0.0
+        for (i in f * frame until (f + 1) * frame) sum += pcm[i] * pcm[i]
+        kotlin.math.sqrt(sum / frame).toFloat()
+    }
+    if (levels.isEmpty()) return SpeechEdges(emptyList(), emptyList())
+    val loud = levels.sorted()[(levels.size * 0.95).toInt().coerceAtMost(levels.size - 1)]
+    if (loud <= 1e-4f) return SpeechEdges(emptyList(), emptyList())
+    val quiet = loud * 0.08f
+    val needed = pauseMs / frameMs
+    val onsets = ArrayList<Int>()
+    val offsets = ArrayList<Int>()
+    var silent = needed
+    var lastLoud = -1
+    for ((f, level) in levels.withIndex()) {
+        if (level < quiet) {
+            silent++
+            if (silent == needed && lastLoud >= 0) offsets += (lastLoud + 1) * frameMs
+        } else {
+            if (silent >= needed) onsets += f * frameMs
+            silent = 0
+            lastLoud = f
+        }
+    }
+    return SpeechEdges(onsets, offsets)
+}
+
+internal fun alignWords(raw: List<RawWord>, edges: SpeechEdges): List<Word> {
+    if (raw.isEmpty()) return emptyList()
+    val starts = IntArray(raw.size) { i -> raw[i].let { if (it.dtw >= 0) maxOf(0, it.dtw - DTW_LEAD_MS) else it.t0 } }
+    for (i in 1 until starts.size) starts[i] = maxOf(starts[i], starts[i - 1] + MIN_WORD_GAP_MS)
+    for (onset in edges.onsets) {
+        val quietFrom = edges.offsets.lastOrNull { it < onset } ?: Int.MIN_VALUE
+        val best = starts.indices.filter { starts[it] in maxOf(onset - SNAP_BEFORE_MS, quietFrom)..onset + SNAP_AFTER_MS }
+            .minByOrNull { kotlin.math.abs(starts[it] - onset - SNAP_CENTER_MS) } ?: continue
+        val after = if (best > 0) starts[best - 1] + MIN_WORD_GAP_MS else 0
+        val before = if (best < starts.lastIndex) starts[best + 1] - MIN_WORD_GAP_MS else Int.MAX_VALUE
+        if (onset in after..before) starts[best] = onset
+    }
+    return raw.indices.map { i ->
+        val start = starts[i]
+        val next = starts.getOrNull(i + 1)
+        val pause = edges.offsets.firstOrNull { it > start && (next == null || it <= next) }
+        val end = when {
+            pause != null -> pause
+            next != null -> next
+            else -> start + maxOf(LAST_WORD_MS, raw[i].t1 - raw[i].t0)
+        }
+        Word(raw[i].text, start, maxOf(end, start + 1))
+    }
+}
+
+private const val DTW_LEAD_MS = 180
+private const val MIN_WORD_GAP_MS = 40
+private const val SNAP_BEFORE_MS = 300
+private const val SNAP_AFTER_MS = 750
+private const val SNAP_CENTER_MS = 30
+private const val LAST_WORD_MS = 300
+
+internal object Whisper {
+    init { loadCaptionLibrary() }
+    private external fun nativeOpen(path: String): Long
+    private external fun nativeCancel(handle: Long)
+    private external fun nativeClose(handle: Long)
+    private external fun nativeRun(handle: Long, pcm: FloatArray, english: Boolean, listener: IntConsumer): ByteArray?
+
+    suspend fun transcribe(model: File, pcm: FloatArray, english: Boolean, progress: (Int) -> Unit): List<Word> = withContext(Dispatchers.Default) {
+        val handle = nativeOpen(model.path)
+        check(handle != 0L) { AppText.get(R.string.ai_caption_model_load_failed) }
+        try {
+            val stop = launch(start = CoroutineStart.UNDISPATCHED) { try { awaitCancellation() } finally { nativeCancel(handle) } }
+            val text = try { nativeRun(handle, pcm, english) { progress(it) } } finally { withContext(NonCancellable) { stop.cancelAndJoin() } }
+            ensureActive()
+            val raw = checkNotNull(text) { AppText.get(R.string.ai_speech_failed) }.toString(Charsets.UTF_8).lineSequence().mapNotNull { line ->
+                val parts = line.split('\t', limit = 4)
+                val word = parts.getOrNull(3)?.trim().orEmpty()
+                if (word.isEmpty()) null else RawWord(word, parts[0].toInt(), parts[1].toInt(), parts[2].toLongOrNull()?.toInt() ?: -1)
+            }.toList()
+            alignWords(raw, speechEdges(pcm, SPEECH_RATE))
+        } finally {
+            nativeClose(handle)
+        }
+    }
+}
+
+internal object CaptionModel {
+    const val NAME = app.absentmotion.platform.CAPTION_MODEL_NAME
+
+    const val BYTES = app.absentmotion.platform.CAPTION_MODEL_BYTES
+    const val SHA256 = "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898"
+    private const val RELEASE = "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1"
+    private const val PRECISE_NAME = "ggml-base-q8_0.bin"
+    private const val PRECISE_BYTES = 81_768_585L
+    private const val PRECISE_SHA256 = "c577b9a86e7e048a0b7eada054f4dd79a56bbfa911fbdacf900ac5b567cbb7d9"
+
+    fun name(highPrecision: Boolean) = if (highPrecision) PRECISE_NAME else NAME
+    fun bytes(highPrecision: Boolean) = if (highPrecision) PRECISE_BYTES else BYTES
+    private fun hash(highPrecision: Boolean) = if (highPrecision) PRECISE_SHA256 else SHA256
+
+    fun file(context: Context, highPrecision: Boolean = false) = File(context.filesDir, "models/${name(highPrecision)}")
+    fun installed(context: Context, highPrecision: Boolean = false) = file(context, highPrecision).length() == bytes(highPrecision)
+    fun storedBytes(context: Context) = file(context).length() + file(context, true).length()
+    fun remove(context: Context) { file(context).delete(); file(context, true).delete() }
+
+    fun verify(context: Context, highPrecision: Boolean = false) {
+        val file = file(context, highPrecision)
+        val known = context.getSharedPreferences("ai_models", Context.MODE_PRIVATE)
+        val stamp = "${file.length()}:${file.lastModified()}"
+        if (known.getString(file.path, null) == stamp) return
+        val intact = file.length() == bytes(highPrecision) && file.inputStream().use(::sha256) == hash(highPrecision)
+        if (!intact) file.delete()
+        check(intact) { AppText.get(R.string.ai_caption_model_load_failed) }
+        known.edit().putString(file.path, stamp).apply()
+    }
+
+    suspend fun download(context: Context, highPrecision: Boolean = false, progress: (Float) -> Unit) = withContext(Dispatchers.IO) {
+        val target = file(context, highPrecision)
+        val part = File(target.path + ".part")
+        try {
+            check(target.parentFile!!.let { it.isDirectory || it.mkdirs() }) { AppText.get(R.string.ai_cannot_create_model_storage) }
+            val connection = URL("$RELEASE/${name(highPrecision)}").openConnection() as HttpURLConnection
+            try {
+                connection.connectTimeout = 15_000
+                connection.readTimeout = 30_000
+                check(connection.responseCode == HttpURLConnection.HTTP_OK) { AppText.get(R.string.ai_download_failed_http, connection.responseCode.toString()) }
+                connection.inputStream.use { input -> receive(input, part, target, bytes(highPrecision), hash(highPrecision), { ensureActive() }, progress) }
+            } finally {
+                connection.disconnect()
+            }
+        } finally {
+            part.delete()
+        }
+    }
+
+    internal fun receive(input: InputStream, part: File, target: File, bytes: Long, sha256: String, active: () -> Unit, progress: (Float) -> Unit,
+                         append: Boolean = false, wrong: Int = R.string.ai_download_not_model) {
+        val digest = MessageDigest.getInstance("SHA-256")
+        if (append) part.inputStream().use { DigestInputStream(it, digest).drain() }
+        val digesting = DigestInputStream(input, digest)
+        var overflow = false
+        java.io.FileOutputStream(part, append).use { output ->
+            val buffer = ByteArray(64 * 1024)
+            var done = if (append) part.length() else 0L
+            while (true) {
+                active()
+                val count = digesting.read(buffer)
+                if (count < 0) break
+                output.write(buffer, 0, count)
+                done += count
+                if (done > bytes) { overflow = true; break }
+                progress(done.toFloat() / bytes)
+            }
+        }
+        if (overflow) {
+            part.delete()
+            check(false) { AppText.get(wrong) }
+        }
+        check(part.length() == bytes) { AppText.get(R.string.ai_download_incomplete) }
+        val intact = hex(digest.digest()) == sha256
+        if (!intact) part.delete()
+        check(intact) { AppText.get(wrong) }
+        check(part.renameTo(target)) { AppText.get(R.string.ai_cannot_save_model) }
+    }
+
+    internal fun sha256(input: InputStream): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        DigestInputStream(input, digest).drain()
+        return hex(digest.digest())
+    }
+
+    private fun hex(bytes: ByteArray) = bytes.joinToString("") { "%02x".format(it) }
+}

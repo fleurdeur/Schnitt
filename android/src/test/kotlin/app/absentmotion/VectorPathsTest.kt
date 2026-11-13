@@ -1,0 +1,194 @@
+package app.absentmotion
+
+import app.absentmotion.editor.canToggleClosed
+import app.absentmotion.editor.dragged
+import app.absentmotion.model.Contour
+import app.absentmotion.model.Handle
+import app.absentmotion.model.Knot
+import app.absentmotion.model.Layer
+import app.absentmotion.model.Pt
+import app.absentmotion.model.XmlNode
+import app.absentmotion.model.contours
+import app.absentmotion.model.hit
+import app.absentmotion.model.parseSvgPath
+import app.absentmotion.model.signedArea
+import app.absentmotion.model.toSvg
+import app.absentmotion.model.withContours
+import app.absentmotion.model.withHoles
+import app.absentmotion.model.withPointMoved
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class VectorPathsTest {
+    private fun roundTrips(c: Contour, times: Int = 5): List<Contour> =
+        generateSequence(c) { parseSvgPath(it.toSvg()).single() }.drop(1).take(times).toList()
+
+    @Test fun closedPathStartingWithACurveAndEndingWithAStraightLineKeepsItsPoints() {
+        val c = Contour(listOf(Knot(Pt(0f, 0f), outHandle = Pt(10f, 0f)), Knot(Pt(20f, 0f)), Knot(Pt(20f, 20f))), closed = true)
+        assertEquals("M 0 0C 10 0, 20 0, 20 0L 20 20L 0 0Z", c.toSvg())
+        roundTrips(c).forEach { assertEquals(c, it) }
+    }
+
+    @Test fun closingAPathWhoseFirstPointOnlyHasAnOutHandleAddsNoPoint() {
+        assertEquals(3, parseSvgPath("M 0 0C 10 0, 40 40, 50 50L 100 0L 0 0Z").single().knots.size)
+        val twoPoints = Contour(listOf(Knot(Pt(0f, 0f), outHandle = Pt(5f, 5f)), Knot(Pt(10f, 0f))), closed = true)
+        roundTrips(twoPoints).forEach { assertEquals(twoPoints, it) }
+    }
+
+    @Test fun aCurvedClosingSegmentStillMovesItsHandleToTheFirstPoint() {
+        val c = Contour(listOf(Knot(Pt(0f, 0f), Pt(-10f, 5f), Pt(10f, 0f)), Knot(Pt(20f, 0f)), Knot(Pt(20f, 20f))), closed = true)
+        roundTrips(c).forEach { assertEquals(c, it) }
+    }
+
+    @Test fun aOnePointContourKeepsItsHandles() {
+        val layer = Layer(XmlNode("shape", mapOf("id" to "1")))
+        val pulled = listOf(Contour(listOf(Knot(Pt(3f, 4f), Pt(-7f, 4f), Pt(13f, 4f))), closed = false))
+        assertEquals(pulled, layer.withContours(pulled).contours)
+        val sharp = listOf(Contour(listOf(Knot(Pt(3f, 4f))), closed = false))
+        assertEquals(sharp, layer.withContours(sharp).contours)
+    }
+
+    @Test fun relativeCommandsAreOffsetFromTheCurrentPoint() {
+        assertEquals(Pt(110f, 100f), parseSvgPath("M 100 100 l 10 0").single().knots[1].p)
+        assertEquals(Pt(10f, 0f), parseSvgPath("M 100 100 L 10 0").single().knots[1].p)
+        val (a, b) = parseSvgPath("m 10 10 20 0 h 5 v 5 c 0 3, 3 6, 6 6 z m 1 1 l 2 0")
+        assertEquals(listOf(Pt(10f, 10f), Pt(30f, 10f), Pt(35f, 10f), Pt(35f, 15f), Pt(41f, 21f)), a.knots.map { it.p })
+        assertEquals(Pt(35f, 18f), a.knots[3].outHandle)
+        assertEquals(Pt(38f, 21f), a.knots[4].inHandle)
+        assertEquals(true, a.closed)
+        assertEquals(listOf(Pt(11f, 11f), Pt(13f, 11f)), b.knots.map { it.p })
+    }
+
+    @Test fun aClosedTwoPointPathCanBeOpenedAndClosedAgainWithoutLosingItsCurves() {
+        val layer = Layer(XmlNode("shape", mapOf("id" to "1")))
+        val lens = Contour(listOf(Knot(Pt(0f, 0f), Pt(0f, 20f), Pt(0f, -20f)), Knot(Pt(40f, 0f), Pt(40f, -20f), Pt(40f, 20f))), closed = true)
+        assertTrue(lens.canToggleClosed)
+        assertTrue(lens.copy(closed = false).canToggleClosed)
+        val opened = layer.withContours(listOf(lens.copy(closed = false))).contours!!
+        assertEquals(listOf(lens.copy(closed = false)), opened)
+        assertEquals(listOf(lens), layer.withContours(opened.map { it.copy(closed = true) }).contours)
+        assertEquals(listOf(lens), layer.withContours(listOf(lens)).contours)
+        val plain = listOf(Contour(listOf(Knot(Pt(0f, 0f), outHandle = Pt(5f, 5f)), Knot(Pt(10f, 0f))), closed = false))
+        assertEquals("M 0 0C 5 5, 10 0, 10 0", layer.withContours(plain).node.child("path")!!["d"])
+    }
+
+    private fun near(expected: Pt, actual: Pt?) {
+        assertEquals(expected.x, actual!!.x, 1e-3f)
+        assertEquals(expected.y, actual.y, 1e-3f)
+    }
+
+    @Test fun smoothCurvesReflectThePreviousControlPointLikeTheEngine() {
+        val s = parseSvgPath("M 0 0 C 0 10 10 10 10 0 S 20 -10 20 0 s 5 5 10 0").single().knots
+        assertEquals(listOf(Pt(0f, 0f), Pt(10f, 0f), Pt(20f, 0f), Pt(30f, 0f)), s.map { it.p })
+        assertEquals(Pt(10f, -10f), s[1].outHandle)
+        assertEquals(Pt(20f, 10f), s[2].outHandle)
+        assertEquals(Pt(25f, 5f), s[3].inHandle)
+        val t = parseSvgPath("M 0 0 Q 10 10 20 0 T 40 0 t 20 0").single().knots
+        near(Pt(26.667f, -6.667f), t[1].outHandle)
+        near(Pt(33.333f, -6.667f), t[2].inHandle)
+        near(Pt(53.333f, 6.667f), t[3].inHandle)
+        val plain = parseSvgPath("M 0 0 Q 10 20 20 0 S 30 10 40 0 T 60 0").single().knots
+        assertEquals(null, plain[1].outHandle)
+        near(Pt(46.667f, 0f), plain[3].inHandle)
+    }
+
+    @Test fun arcsBecomeTheSamePointsTheEngineShows() {
+        val half = parseSvgPath("M 0 0 A 50 50 0 0 1 100 0").single().knots
+        assertEquals(5, half.size)
+        near(Pt(14.645f, -35.355f), half[1].p)
+        near(Pt(50f, -50f), half[2].p)
+        assertEquals(Pt(100f, 0f), half[4].p)
+        near(Pt(0f, -13.807f), half[0].outHandle)
+        assertEquals(parseSvgPath("M 0 0 a 50 50 0 1 1 50 0"), parseSvgPath("M0 0a50 50 0 1150 0"))
+        assertEquals(7, parseSvgPath("M 0 0 a 50 50 0 1 1 50 0").single().knots.size)
+        val tilted = parseSvgPath("M 10 20 A 30 15 30 0 1 70 60").single().knots
+        assertEquals(5, tilted.size)
+        near(Pt(27.989f, 16.482f), tilted[1].p)
+        near(Pt(70.416f, 44.766f), tilted[3].p)
+        assertEquals(listOf(Knot(Pt(0f, 0f)), Knot(Pt(10f, 10f))), parseSvgPath("M 0 0 A 0 10 0 0 1 10 10").single().knots)
+        assertEquals(8, parseSvgPath("M 0 0 A 40 40 0 0 1 40 40 A 40 40 0 0 1 0 80 A 40 40 0 0 1 -40 40 A 40 40 0 0 1 0 0 Z").single().knots.size)
+    }
+
+    @Test fun aSegmentAfterCloseStartsFromTheClosedContoursStart() {
+        val (a, b) = parseSvgPath("M 10 10 L 20 10 Z L 30 30")
+        assertEquals(true, a.closed)
+        assertEquals(listOf(Pt(10f, 10f), Pt(30f, 30f)), b.knots.map { it.p })
+    }
+
+    @Test fun theAreaOfACurvedContourFollowsItsCurves() {
+        val square = parseSvgPath("M0 0H10V10H0Z").single()
+        assertEquals(100.0, square.signedArea(), 1e-6)
+        assertEquals(-100.0, parseSvgPath("M0 0V10H10V0Z").single().signedArea(), 1e-6)
+        val lens = parseSvgPath("M0 0C0 20 20 20 20 0C20 -20 0 -20 0 0Z").single()
+        assertEquals(2, lens.knots.size)
+        assertEquals(-480.0, lens.signedArea(), 5.0)
+        assertEquals(0.0, Contour(listOf(Knot(Pt(1f, 1f))), closed = true).signedArea(), 0.0)
+    }
+
+    @Test fun holesAreInferredFromTheWindingOfLaterContours() {
+        val same = parseSvgPath("M0 0H10V10H0Z M2 2H4V4H2Z").withHoles()
+        assertEquals(listOf(false, false), same.map { it.exclude })
+        val opposite = parseSvgPath("M0 0H10V10H0Z M2 2V4H4V2Z").withHoles()
+        assertEquals(listOf(false, true), opposite.map { it.exclude })
+        assertEquals(listOf(false, true), same.withHoles(evenOdd = true).map { it.exclude })
+        assertEquals(1, parseSvgPath("M0 0H10V10H0Z").withHoles().size)
+    }
+
+    @Test fun editingAMultiSubpathShapeKeepsItsHolesAndRule() {
+        val layer = Layer(XmlNode("shape", mapOf("id" to "1"), listOf(XmlNode("path", mapOf("d" to "M0 0H10V10H0Z M2 2V4H4V2Z M6 6H8V8H6Z", "fillRule" to "evenodd")))))
+        assertEquals(listOf(false, true, true), layer.contours!!.map { it.exclude })
+        val edited = layer.withContours(layer.contours!!)
+        assertEquals("evenodd", edited.node.child("path")!!["fillRule"])
+        assertEquals(listOf(false, true, true), edited.contours!!.map { it.exclude })
+    }
+
+    @Test fun editingAPointOfALineIconKeepsEveryOpenStroke() {
+        val icon = Layer(XmlNode("shape", mapOf("id" to "1"), listOf(XmlNode("path", mapOf("d" to "M3 12H21 M12 3V21 M5 5C9 1 15 1 19 5 M2 2H6V6H2Z")))))
+        val before = icon.contours!!
+        assertEquals(listOf(false, false, false, true), before.map { it.closed })
+        val moved = before.mapIndexed { i, c -> if (i == 1) c.copy(knots = c.knots.mapIndexed { k, knot -> if (k == 0) knot.movedBy(Pt(0f, 1f)) else knot }) else c }
+        val after = icon.withContours(moved).contours!!
+        assertEquals(before.map { it.closed }, after.map { it.closed })
+        assertEquals(moved.map { c -> c.knots.map { it.p } }, after.map { c -> c.knots.map { it.p } })
+        assertEquals(4, icon.withContours(moved).node.child("path")!!.children.count { it.name == "contour" })
+    }
+
+    @Test fun pathNumbersMatchFormattedText() {
+        fun old(v: Float) = String.format(java.util.Locale.US, "%.4f", v).trimEnd('0').trimEnd('.').let { if (it == "-0" || it.isEmpty()) "0" else it }
+        val random = java.util.Random(7)
+        val values = listOf(0f, -0f, 1f, -1f, 100f, 0.5f, -0.03125f, 0.03125f, 0.00005f, -0.00004f, 1234.5678f, 99999.99f, 1e-6f) +
+            List(200_000) { (random.nextFloat() - 0.5f) * listOf(1f, 10f, 1000f, 100000f)[it % 4] }
+        for (v in values) assertEquals("$v", old(v), app.absentmotion.model.num(v))
+    }
+
+    private val house = parseSvgPath("M -2.99 -94.57 C -1 -96.41 1 -96.41 2.99 -94.57 L 98.73 -6.5 C 100.73 -4.66 100.37 -3.74 97.66 -3.74 L 81.38 -3.74 L 81.38 95.95 L 20.35 95.95 L 20.35 28.81 L -20.35 28.81 L -20.35 95.95 L -81.38 95.95 L -81.38 -3.74 L -97.66 -3.74 C -100.37 -3.74 -100.73 -4.66 -98.73 -6.5 Z").single()
+
+    @Test fun movingTheFirstPointOfAClosedPathCarriesItsOutHandleAndTheClosingSegment() {
+        val moved = house.withPointMoved(0, Pt(200f, 380f))
+        val d = moved.toSvg()
+        assertTrue(d, d.startsWith("M 197.01 285.43C 199 283.59, 1 -96.41, 2.99 -94.57L 98.73 -6.5"))
+        assertTrue(d, d.endsWith("C -100.37 -3.74, -100.73 -4.66, -98.73 -6.5L 197.01 285.43Z"))
+        assertEquals(house.knots.drop(1), moved.knots.drop(1))
+        assertEquals(d, parseSvgPath(d).single().toSvg())
+    }
+
+    @Test fun aHandleHiddenUnderItsPointDoesNotStealTheTouch() {
+        val roof = listOf(house)
+        assertEquals(Triple(0, 0, Handle.Main), roof.hit(Pt(-2.99f, -94.57f), 24f, 0 to 0))
+        assertEquals(Triple(0, 0, Handle.Main), roof.hit(Pt(-1f, -96.41f), 24f, 0 to 0))
+        val apart = listOf(Contour(listOf(Knot(Pt(0f, 0f), outHandle = Pt(30f, 0f)), Knot(Pt(100f, 0f))), closed = false))
+        assertEquals(Triple(0, 0, Handle.Out), apart.hit(Pt(28f, 0f), 24f, 0 to 0))
+    }
+
+    @Test fun aDragMovesThePointOneToOneOnScreenInPlainAndMirroredViews() {
+        fun check(toScene: (Pt) -> Pt, toLayer: (Pt) -> Pt) {
+            val start = Pt(-2.99f, -94.57f)
+            val shown = (toScene(start.dragged(Pt(30f, -12f), 0.5f, toScene, toLayer)) - toScene(start)) * 0.5f
+            assertEquals(30f, shown.x, 1e-3f)
+            assertEquals(-12f, shown.y, 1e-3f)
+        }
+        check({ Pt(540f + 2f * it.x, 540f + 2f * it.y) }, { Pt((it.x - 540f) / 2f, (it.y - 540f) / 2f) })
+        check({ Pt(540f - it.x, 540f + it.y) }, { Pt(540f - it.x, it.y - 540f) })
+    }
+}

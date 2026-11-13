@@ -1,0 +1,418 @@
+package app.absentmotion.model
+
+import java.util.Locale
+import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.roundToInt
+import kotlin.random.Random
+
+@JvmInline
+value class Scene(val node: XmlNode) {
+    val title: String get() = node["title"] ?: ""
+    val fromAlight: Boolean get() = node["amver"] != null || node["am"]?.startsWith("com.alightcreative") == true
+    val width: Int get() = node["width"]?.toIntOrNull() ?: 1080
+    val height: Int get() = node["height"]?.toIntOrNull() ?: 1080
+    val fps: Int get() = node["fps"]?.toIntOrNull()?.takeIf { it > 0 } ?: 30
+    val bgColor: Int get() = parseColor(node["bgcolor"]) ?: 0
+    val totalTime: Int get() = node["totalTime"]?.toIntOrNull() ?: 0
+    val depthOrder: Boolean get() = node["depthOrder"] == "true"
+    val pieceOrder: Boolean get() = node["depthSort"] == "piece"
+
+    val isElement: Boolean get() = node["type"] == "element"
+
+    val precompose: String get() = node["precompose"] ?: "dynamicResolution"
+
+    val retime: String get() = node["retime"] ?: "off"
+
+    val retimeIn: Int get() = node["retimeIn"]?.toIntOrNull() ?: 0
+    val retimeOut: Int get() = node["retimeOut"]?.toIntOrNull() ?: 0
+
+    val layers: List<Layer> get() = node.children.filter { it.name in LAYER_TAGS }.map { Layer(it) }
+
+    val media: List<MediaDeclaration> get() = node.children.filter { it.name == "media" }.map(::MediaDeclaration)
+
+    fun media(uri: String): MediaDeclaration? = media.firstOrNull { it.uri == uri }
+    fun isMissing(uri: String): Boolean = media(uri)?.node?.get("missing") == "true"
+
+    val bookmarks: List<Int> get() = node.children.filter { it.name == "bookmark" }.mapNotNull { it["t"]?.toIntOrNull() }.sorted()
+
+    fun withBookmarkToggled(frame: Int): Scene {
+        val here = { n: XmlNode -> n.name == "bookmark" && n["t"]?.toIntOrNull()?.let { frameAt(it) == frame } == true }
+        return if (node.children.any(here)) Scene(node.copy(children = node.children.filterNot(here)))
+        else withBookmarks(listOf(frameStart(frame)))
+    }
+
+    fun withBookmarks(times: List<Int>): Scene {
+        val have = bookmarks.toHashSet()
+        val added = times.distinct().filter { it !in have }.sorted().map { XmlNode("bookmark", mapOf("t" to "$it")) }
+        if (added.isEmpty()) return this
+        val kept = node.children.filter { it.name != "bookmark" }
+        val all = (node.children.filter { it.name == "bookmark" } + added).sortedBy { it["t"]?.toIntOrNull() ?: 0 }
+        val index = kept.indexOfFirst { it.name in LAYER_TAGS }.let { if (it < 0) kept.size else it }
+        return Scene(node.copy(children = kept.take(index) + all + kept.drop(index)))
+    }
+
+    fun withMedia(media: MediaDeclaration): Scene {
+        if (this.media(media.uri) != null) return this
+        val index = node.children.indexOfFirst { it.name == "bookmark" || it.name in LAYER_TAGS }.let { if (it < 0) node.children.size else it }
+        return Scene(node.copy(children = node.children.toMutableList().also { it.add(index, media.node) }))
+    }
+
+    fun layer(id: Long): Layer? = node.children.firstOrNull { it.name in LAYER_TAGS && (it["id"]?.toLongOrNull() ?: 0L) == id }?.let { Layer(it) }
+
+    fun layerAt(id: Long, timeMs: Int): Layer? = layer(id)?.at(timeMs, fps)
+
+    fun frameStart(frame: Int): Int = (frame * 1000L / fps).toInt()
+    fun frameAt(timeMs: Int): Int = frameOfMs(timeMs.toLong(), fps).toInt()
+    fun frameTime(frame: Int): Int = ((2 * frame + 1) * 500L / fps).toInt()
+    fun frameEnd(frame: Int): Int = frameStart(frame + 1) - 1
+    fun endTimeFor(frame: Int, durationMs: Int): Int = frameEnd(frameAt(frameStart(frame) + durationMs.coerceAtLeast(1) - 1))
+    fun firstShownFrame(start: Int): Int = frameAt(start).let { if (frameTime(it) < start) it + 1 else it }
+    fun lastShownFrame(end: Int): Int = frameAt(end).let { if (frameTime(it) > end) it - 1 else it }
+    fun showsAnyFrame(start: Int, end: Int): Boolean = firstShownFrame(start) <= lastShownFrame(end)
+    val lastFrame: Int get() = frameAt(totalTime)
+
+    fun drawnFrames(start: Int, end: Int): Int = (frameAt(end) - frameAt(start - 1)).coerceAtLeast(0)
+
+    fun movedClip(layer: Layer, start: Int, keepEnd: Boolean = false): Layer {
+        val moved = layer.movedTo(start)
+        val count = drawnFrames(layer.startTime, layer.endTime)
+        if (count == 0 || minOf(start, layer.startTime) < 0 || drawnFrames(moved.startTime, moved.endTime) == count) return moved
+        val from = if (keepEnd) frameStart(frameAt(moved.endTime) - count + 1) else start
+        val to = if (keepEnd) moved.endTime else frameStart(frameAt(start - 1) + 1 + count) - 1
+        return if (from < 0) moved else moved.copy(node = moved.node.with("startTime", "$from").with("endTime", "$to"))
+    }
+
+    fun withTitle(title: String) = Scene(node.with("title", title))
+    fun withDepthOrder(on: Boolean) = Scene(node.with("depthOrder", on.toString()))
+    fun withPieceOrder(on: Boolean) = Scene(node.with("depthSort", if (on) "piece" else null))
+    fun mixing(layer: Layer): Boolean = depthOrder && pieceOrder && layer.mixesPieces
+    fun withMixing(id: Long, on: Boolean): Scene =
+        (if (on) withDepthOrder(true).withPieceOrder(true) else this).update(id) { it.withMixPieces(on) }
+
+    fun withSettings(width: Int, height: Int, fps: Int, bgColor: Int) = Scene(
+        node.with("width", "$width").with("height", "$height")
+            .with("exportWidth", "$width").with("exportHeight", "$height")
+            .with("fps", "$fps").with("bgcolor", formatColor(bgColor)),
+    )
+
+    fun update(id: Long, timeMs: Int? = null, change: (Layer) -> Layer): Scene = withChildren(
+        node.children.map {
+            if (it.name !in LAYER_TAGS || Layer(it).id != id) it
+            else change(if (timeMs == null) Layer(it) else Layer(it).at(timeMs, fps)).node
+        },
+    )
+
+    fun updateAll(ids: Set<Long>, timeMs: Int? = null, change: (Layer) -> Layer): Scene = withChildren(
+        node.children.map {
+            if (it.name !in LAYER_TAGS || Layer(it).id !in ids) it
+            else change(if (timeMs == null) Layer(it) else Layer(it).at(timeMs, fps)).node
+        },
+    )
+
+    fun add(layer: Layer, media: List<MediaDeclaration> = emptyList()): Scene {
+        var next = media.fold(this) { scene, record -> scene.withMedia(record) }
+        layer.node.mediaUris().forEach { uri ->
+            next = next.withMedia(MediaDeclaration(XmlNode("media", mapOf("uri" to uri))))
+        }
+        val unique = if (this.layer(layer.id) == null) layer else layer.withId(generateSequence { Layer.newId() }.first { this.layer(it) == null })
+        return next.withChildren(next.node.children + unique.node)
+    }
+
+    fun remove(id: Long): Scene = withChildren(node.children.filterNot { it.name in LAYER_TAGS && Layer(it).id == id }.map { it.withoutValueLinks(setOf(id)) })
+
+    fun reorder(id: Long, index: Int): Scene = move(id, index).let { moved ->
+        if (moved.layer(id)?.node?.get("pathLayer") == null) moved else moved.update(id) { it.copy(node = it.node.with("pathLayer", null)) }
+    }
+
+    fun move(id: Long, index: Int): Scene {
+        val moving = layer(id) ?: return this
+        val others = layers.filterNot { it.id == id }.toMutableList()
+        others.add(index.coerceIn(0, others.size), moving)
+        return withLayers(others)
+    }
+
+    internal fun withLayers(list: List<Layer>): Scene = withChildren(node.children.filterNot { it.name in LAYER_TAGS } + list.map { it.node })
+
+    fun addAbove(layer: Layer, below: Long): Scene {
+        val list = layers
+        val index = list.indexOfFirst { it.id == below }
+        if (index < 0) return add(layer)
+        var end = index + 1
+        if (!list.isMask(index)) while (end < list.size && list[end].leansOnBelow) end++
+        return add(layer).move(layer.id, end)
+    }
+
+    fun withCopiesAbove(copies: Map<Long, Layer>): Scene {
+        val list = layers
+        val out = ArrayList<Layer>(list.size + copies.size)
+        var i = 0
+        while (i < list.size) {
+            var end = i
+            while (end < list.size && list[end].id in copies && list.isMask(end)) end++
+            if (end == i && list[i].id in copies) {
+                end = i + 1
+                while (end < list.size && (list[end].id in copies || list[end].leansOnBelow)) end++
+            }
+            if (end == i) {
+                out += list[i++]
+                continue
+            }
+            val block = list.subList(i, end)
+            out += block
+            out += block.filter { it.id in copies }.map { copies.getValue(it.id) }
+            i = end
+        }
+        return withLayers(out)
+    }
+
+    private fun withChildren(children: List<XmlNode>): Scene {
+        val end = children.filter { it.name in LAYER_TAGS }.maxOfOrNull { Layer(it).endTime } ?: 0
+        val before = identitySet(node.children)
+        val after = identitySet(children)
+        val dropped = node.children.filterNot { it in after }.flatMapTo(HashSet()) { it.mediaUris() }
+        if (dropped.isNotEmpty()) dropped -= children.filterNot { it in before }.flatMapTo(HashSet()) { it.mediaUris() }
+        val removed = if (dropped.isEmpty()) dropped else dropped - node.copy(children = children).mediaUris()
+        return Scene(node.copy(children = children.filterNot { it.name == "media" && it["uri"] in removed }).with("totalTime", "$end"))
+    }
+
+    private fun identitySet(nodes: List<XmlNode>): Set<XmlNode> = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<XmlNode, Boolean>(nodes.size * 2)).apply { addAll(nodes) }
+
+    fun toXml(): String = node.with("modifiedTime", "${System.currentTimeMillis()}").toXml()
+
+    companion object {
+        val LAYER_TAGS = setOf("shape", "text", "drawing", "embedScene", "camera", "audio", "nullobj", "model", "light")
+
+        fun parse(xml: String) = Scene(XmlNode.parse(xml).withoutAnyValueLinks())
+
+        fun create(title: String, width: Int, height: Int, fps: Int, bgColor: Int) = Scene(
+            XmlNode(
+                "scene",
+                linkedMapOf(
+                    "title" to title, "width" to "$width", "height" to "$height",
+                    "exportWidth" to "$width", "exportHeight" to "$height", "precompose" to "dynamicResolution",
+                    "bgcolor" to formatColor(bgColor), "totalTime" to "0", "fps" to "$fps", "depthOrder" to "true",
+                    "amver" to "1002592", "ffver" to "106",
+                    "am" to "app.absentmotion", "amplatform" to "android", "retime" to "freeze", "retimeAdaptFPS" to "false",
+                ),
+            ),
+        )
+    }
+}
+
+enum class LabelColour(val id: String, val start: Int, val end: Int) {
+    Ruby("+ruby", 0xFFE0314B.toInt(), 0xFF9E1B32.toInt()), Red("+red", 0xFFFF6B5E.toInt(), 0xFFD93A2E.toInt()),
+    Orange("+orange", 0xFFFFA64D.toInt(), 0xFFE07A1F.toInt()), Yellow("+yellow", 0xFFFFD84D.toInt(), 0xFFE8B80C.toInt()),
+    Green("+green", 0xFF5FD38D.toInt(), 0xFF2E9E5B.toInt()), Blue("+blue", 0xFF4FB3F6.toInt(), 0xFF2480D6.toInt()),
+    DarkBlue("+darkblue", 0xFF3D5AE0.toInt(), 0xFF1F2F8F.toInt()), Purple("+purple", 0xFFA46BF0.toInt(), 0xFF6F3BC4.toInt()),
+    Magenta("+magenta", 0xFFEC5FC2.toInt(), 0xFFB5278F.toInt()), Gray("+gray", 0xFFD4D7DD.toInt(), 0xFF9096A0.toInt()),
+    Black("+black", 0xFF5B6070.toInt(), 0xFF2A2D38.toInt()),
+}
+
+private val FOLLOWS_BELOW = setOf("absent.movealongpath", "absent.repeatalongpath")
+
+internal fun frameOfMs(timeMs: Long, fps: Int): Long = ((timeMs + 1) * fps + 999) / 1000 - 1
+
+internal fun List<Layer>.isMask(index: Int): Boolean = index > 0 && this[index].node["clippingMask"] == "true"
+
+internal fun XmlNode.followsBelow(text: Boolean): Boolean = this["hidden"] != "true" && (this["id"] in FOLLOWS_BELOW ||
+    (text && this["id"] == "absent.textpath" && effectProperty("shape")?.let { p -> (listOfNotNull(p["value"]) + p.keyframes.map { it.v }).any { it.finiteFloat()?.roundToInt() == 2 } } == true))
+
+internal val Layer.leansOnBelow: Boolean
+    get() = node["clippingMask"] == "true" || effects.any { it.followsBelow(kind == "text") }
+
+fun Scene.pinnedPath(layer: Layer): Layer {
+    if (layer.node["pathLayer"] != null || layer.effects.none { it.followsBelow(layer.kind == "text") }) return layer
+    val list = layers
+    val below = list.getOrNull(list.indexOfFirst { it.id == layer.id } - 1) ?: return layer
+    return layer.copy(node = layer.node.with("pathLayer", "${below.id}"))
+}
+
+fun Layer.withPinnedClock(): Layer =
+    if (nested == null || node["retimeLength"] != null) this else copy(node = node.with("retimeLength", "${endTime - startTime + nestedCut}"))
+
+data class Layer(val node: XmlNode, val t: Float = 0f, val snap: ClosedFloatingPointRange<Float> = t..t, val displayNumbers: Map<PropRef, FloatArray> = emptyMap()) {
+    val mediaFill: MediaFill? get() {
+        if (fillType != "media") return null
+        val uri = node["fillImage"] ?: node["fillVideo"] ?: return null
+        return MediaFill(uri, node["fillImage"] == null,
+            MediaFillMode.entries.firstOrNull { it.xml == node["mediaFillMode"] } ?: MediaFillMode.Fill,
+            node["inTime"]?.toIntOrNull() ?: 0, node["outTime"]?.toIntOrNull() ?: Int.MAX_VALUE,
+            node["speed"]?.finiteFloat() ?: 1f)
+    }
+
+    val id: Long get() = node["id"]?.toLongOrNull() ?: 0
+    val kind: String get() = node.name
+
+    val link: String? get() = node["link"]
+
+    val nested: Scene? get() = if (kind == "embedScene") node.child("scene")?.let(::Scene) else null
+    val label: String get() = node["label"] ?: if (kind == "text") content else ""
+    val shape: String get() = node["s"] ?: ""
+    val startTime: Int get() = node["startTime"]?.toIntOrNull() ?: 0
+    val endTime: Int get() = maxOf(startTime, node["endTime"]?.toIntOrNull() ?: 0)
+    val hidden: Boolean get() = node["hidden"] == "true"
+    val mixesPieces: Boolean get() = node["mixPieces"] != "false"
+    fun withMixPieces(on: Boolean) = copy(node = node.with("mixPieces", if (on) null else "false"))
+    val fillType: String get() = node["fillType"] ?: "none"
+    val fillColor: Int get() = parseColor(element(PropRef.FillColor)?.valueAt(t)) ?: 0xFFFFFFFF.toInt()
+
+    val location: FloatArray get() = transform("location", 0f, 0f, 0f)
+    val pivot: FloatArray get() = transform("pivot", 0f, 0f, 0f)
+    val scale: FloatArray get() = transform("scale", 1f, 1f)
+    val opacity: Float get() = transform("opacity", 1f)[0]
+
+    val rotation: Float get() = -transform("rotation", 0f)[0]
+
+    val skew: FloatArray get() = transform("skew", 0f, 0f).let { floatArrayOf(Math.toDegrees(it[0].toDouble()).toFloat(), Math.toDegrees(it[1].toDouble()).toFloat()) }
+
+    val tilt: FloatArray get() = transform("tilt", 0f, 0f)
+
+    fun transform(name: String, vararg defaults: Float): FloatArray =
+        displayNumbers[PropRef(PropRef.Kind.Transform, name)]?.copyOf(defaults.size) ?: floats(node.child("transform")?.child(name)?.valueAt(t), defaults)
+
+    fun propText(name: String): String? = element(PropRef.shape(name))?.valueAt(t)
+
+    fun prop(name: String): FloatArray? = propText(name)?.let { floats(it, FloatArray(0)) }
+
+    fun activeAt(timeMs: Int): Boolean = !hidden && timeMs in startTime..endTime
+
+    fun at(timeMs: Int, fps: Int): Layer {
+        val length = (endTime - startTime).coerceAtLeast(1).toFloat()
+        val frame = frameOfMs(timeMs.toLong(), fps)
+        fun edge(f: Long) = (f * 1000 / fps - startTime - 0.5f) / length
+        return copy(t = (timeMs - startTime) / length, snap = edge(frame)..edge(frame + 1))
+    }
+
+    fun timeOf(time: Float): Int = (startTime + time * (endTime - startTime)).roundToInt()
+
+    fun withLabel(label: String) = copy(node = node.with("label", label))
+
+    val labelColour: LabelColour? get() = LabelColour.entries.firstOrNull { it.id == node["tag"] }
+
+    fun withLabelColour(colour: LabelColour?) = copy(node = node.with("tag", colour?.id))
+    fun withHidden(hidden: Boolean) = copy(node = node.with("hidden", if (hidden) "true" else null))
+    fun withId(id: Long) = copy(node = node.with("id", "$id"))
+
+    fun withTimes(startTime: Int, endTime: Int) = copy(
+        node = node.retimed(this.startTime, this.endTime, startTime, endTime).with("startTime", "$startTime").with("endTime", "$endTime"),
+    )
+
+    fun movedTo(startTime: Int) = copy(node = node.with("startTime", "$startTime").with("endTime", "${startTime + endTime - this.startTime}"))
+
+    fun withFill(type: String, color: Int? = null): Layer =
+        copy(node = node.with("fillType", type)).let { if (color == null) it else it.withValue(PropRef.FillColor, formatColor(color)) }
+
+    fun withTransform(name: String, vararg values: Float) = withValue(PropRef(PropRef.Kind.Transform, name), formatFloats(values))
+
+    fun withRotation(degrees: Float) = withTransform("rotation", -degrees)
+
+    fun withSkew(x: Float, y: Float) = withTransform("skew", Math.toRadians(x.toDouble()).toFloat(), Math.toRadians(y.toDouble()).toFloat())
+
+    fun withTilt(x: Float, y: Float) = withTransform("tilt", x, y)
+
+    val scaleLinked: Boolean get() = node["scaleLinked"] != "false"
+
+    fun withScaleLinked(linked: Boolean) = copy(node = node.with("scaleLinked", if (linked) null else "false"))
+
+    fun withProp(name: String, type: String, value: String): Layer {
+        val ref = PropRef.shape(name)
+        return if (element(ref) != null) withValue(ref, value)
+        else copy(node = node.copy(children = node.children + XmlNode("property", linkedMapOf("name" to name, "type" to type, "value" to value))))
+    }
+
+    fun withProp(name: String, type: String, vararg values: Float): Layer = withProp(name, type, formatFloats(values))
+
+    fun element(ref: PropRef): XmlNode? = when (ref.kind) {
+        PropRef.Kind.Effect -> effects.getOrNull(ref.effectIndex)?.effectProperty(ref.name)
+        PropRef.Kind.Transform -> node.child("transform")?.child(ref.name)
+        PropRef.Kind.Child -> node.path(ref.name)
+        PropRef.Kind.Property -> node.children.firstOrNull { it.name == "property" && it["name"] == ref.name }
+    }
+
+    internal fun withElement(ref: PropRef, element: XmlNode): Layer = copy(
+        node = when (ref.kind) {
+            PropRef.Kind.Effect -> withEffect(ref.effectIndex) { effect ->
+                val old = effect.effectProperty(ref.name)
+                val value = element.with("name", ref.name).copy(name = "property")
+                effect.copy(children = if (old == null) effect.children + value else effect.children.map { if (it === old) value else it })
+            }.node
+            PropRef.Kind.Transform -> node.withChild("transform", (node.child("transform") ?: XmlNode("transform")).withChild(ref.name, element))
+            PropRef.Kind.Child -> node.withPath(ref.name, element)
+            PropRef.Kind.Property -> node.copy(children = node.children.map { if (it.name == "property" && it["name"] == ref.name) element else it })
+        },
+    )
+
+    fun withValue(ref: PropRef, value: String): Layer =
+        withElement(ref, (element(ref) ?: XmlNode(ref.name)).withValueAt(t, value, snap))
+
+    fun keyframes(ref: PropRef): List<Keyframe> = element(ref)?.keyframes ?: emptyList()
+
+    fun onKeyframe(ref: PropRef): Boolean = (element(ref)?.keyframeAt(snap) ?: -1) >= 0
+
+    fun withKeyframeToggled(ref: PropRef, fallback: String): Layer {
+        val element = element(ref) ?: XmlNode(ref.name, mapOf("value" to fallback))
+        return withElement(ref, element.withKeyframeToggled(t, snap))
+    }
+
+    fun easing(ref: PropRef): Easing? {
+        val element = element(ref) ?: return null
+        val index = element.stretchAt(snap)
+        return if (index < 0) null else Easing.parse(element.keyframes[index].e)
+    }
+
+    fun stretchProgress(ref: PropRef): Float? {
+        val element = element(ref) ?: return null
+        val index = element.stretchAt(snap)
+        if (index < 0) return null
+        val keys = element.keyframes
+        return (t - keys[index - 1].t) / (keys[index].t - keys[index - 1].t)
+    }
+
+    fun withEasing(ref: PropRef, easing: Easing): Layer {
+        val element = element(ref) ?: return this
+        val index = element.stretchAt(snap)
+        if (index < 0) return this
+        val text = easing.takeUnless { it.isLinear }?.toString()
+        return withElement(ref, element.withKeyframes(element.keyframes.toMutableList().also { it[index] = it[index].copy(e = text) }))
+    }
+
+    fun withEasingEverywhere(ref: PropRef, easing: Easing): Layer {
+        val element = element(ref) ?: return this
+        val text = easing.takeUnless { it.isLinear }?.toString()
+        return withElement(ref, element.withKeyframes(element.keyframes.mapIndexed { i, k -> if (i == 0) k else k.copy(e = text) }))
+    }
+
+    fun keyframeTimes(scope: KeyScope? = null): List<Int> {
+        val out = sortedSetOf<Int>()
+        fun walk(n: XmlNode) {
+            if (n.name == "speedMap") {
+                if (scope?.ref != SpeedRef) return
+                val timing = VideoTiming(this)
+                n.keyframes.forEach { out.add(startTime + timing.localMs(it.t.toDouble() / 1_000_000).roundToInt()) }
+            } else if (n.name == "kf") n["t"]?.finiteFloat()?.let { out.add(timeOf(it)) }
+            else if (n.name != "scene") n.children.forEach(::walk)
+        }
+        walk(if (scope == null) node else scopeNode(scope) ?: return emptyList())
+        return out.toList()
+    }
+
+    private fun scopeNode(scope: KeyScope): XmlNode? = if (scope.ref != null) element(scope.ref) else effects.getOrNull(scope.effectIndex)
+
+    companion object {
+        private val nextId = AtomicLong(Random.nextLong(ID_SPAN))
+        private const val ID_SPAN = 89_999_999L
+
+        fun newId(): Long = 10_000_000 + Math.floorMod(nextId.getAndIncrement(), ID_SPAN)
+    }
+}
+
+internal fun floats(text: String?, defaults: FloatArray): FloatArray {
+    val parsed = text?.split(',')?.map { it.trim().finiteFloat() }?.dropLastWhile { it == null } ?: emptyList()
+    return FloatArray(maxOf(parsed.size, defaults.size)) { parsed.getOrNull(it) ?: defaults.getOrElse(it) { 0f } }
+}
+
+fun formatFloats(values: FloatArray): String = values.joinToString(",") { String.format(Locale.US, "%.6f", if (it.isFinite()) it else 0f) }
+
+fun parseColor(text: String?): Int? = text?.removePrefix("#")?.takeIf { it.length == 8 }?.toLongOrNull(16)?.toInt()
+
+fun formatColor(argb: Int): String = String.format(Locale.US, "#%08x", argb)

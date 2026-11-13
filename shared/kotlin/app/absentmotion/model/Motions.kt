@@ -1,0 +1,363 @@
+package app.absentmotion.model
+
+import androidx.annotation.StringRes
+import app.absentmotion.R
+import app.absentmotion.i18n.UiText
+import app.absentmotion.i18n.txt
+import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+
+enum class MotionSlot(val xml: String, val attr: String) { In("in", "genIn"), Out("out", "genOut"), Loop("loop", "genLoop") }
+
+data class MotionRecord(val transition: Boolean, val id: String, val ms: Int, val extend: Int = 0, val shift: Int = 0, val partner: Long = 0) {
+    override fun toString(): String = if (transition) "t $id $ms $extend $shift $partner" else "a $id $ms"
+
+    companion object {
+        fun parse(text: String?): MotionRecord? {
+            val p = text?.trim()?.split(Regex("\\s+")) ?: return null
+            val ms = p.getOrNull(2)?.toIntOrNull() ?: return null
+            return when (p[0]) {
+                "a" -> MotionRecord(false, p[1], ms)
+                "t" -> MotionRecord(true, p[1], ms, p.getOrNull(3)?.toIntOrNull() ?: 0, p.getOrNull(4)?.toIntOrNull() ?: 0, p.getOrNull(5)?.toLongOrNull() ?: 0)
+                else -> null
+            }
+        }
+    }
+}
+
+fun Layer.motion(slot: MotionSlot): MotionRecord? = MotionRecord.parse(node[slot.attr])
+
+class Look(val prop: String, val away: (rest: FloatArray, w: Float, h: Float, sign: Float) -> FloatArray)
+
+class Fx(val id: String, val keyed: Map<String, Pair<Float, Float>>, val fixed: Map<String, String> = emptyMap())
+
+class Motion(val id: String, @StringRes val label: Int, val ease: Easing, val looks: List<Look> = emptyList(), val fx: List<Fx> = emptyList()) {
+    fun curve(inSide: Boolean): Easing = if (inSide) ease else ease.reversed() ?: ease
+}
+
+enum class Dir(val x: Float, val y: Float) { Left(-1f, 0f), Right(1f, 0f), Up(0f, -1f), Down(0f, 1f) }
+
+private val EaseOut = Easing("cubicBezier", listOf(0.22f, 1f, 0.36f, 1f))
+internal val EaseInOut = Easing("cubicBezier", listOf(0.42f, 0f, 0.58f, 1f))
+private val Overshoot = Easing("cubicBezier", listOf(0.34f, 1.56f, 0.64f, 1f))
+private val Whip = Easing("cubicBezier", listOf(0.8f, 0f, 0.2f, 1f))
+private val Bouncy = Easing("bounce", listOf(0.4f, 0.5f))
+
+val Fade = Look("opacity") { _, _, _, _ -> floatArrayOf(0f) }
+fun slide(dir: Dir) = Look("location") { r, w, h, s -> r.copyOf().also { it[0] += s * dir.x * w; it[1] += s * dir.y * h } }
+fun scaled(inK: Float, outK: Float) = Look("scale") { r, _, _, s -> FloatArray(r.size) { r[it] * if (s < 0) inK else outK } }
+fun turn(degrees: Float) = Look("rotation") { r, _, _, s -> floatArrayOf(r[0] + s * degrees) }
+private val Drop = Look("location") { r, _, h, _ -> r.copyOf().also { it[1] -= 0.6f * h } }
+
+private fun number(v: Float) = formatFloats(floatArrayOf(v))
+private fun overlay(color: String) = Fx("absent.solid", mapOf("amount" to (0f to 1f)), mapOf("color" to color, "blend" to number(0f)))
+private val BlurFx = Fx("absent.blur", mapOf("strength" to (0f to 60f)))
+private val ZoomBlurFx = Fx("absent.radialblur", mapOf("amount" to (0f to 0.3f)))
+
+object Animations {
+    val InOut: List<Motion> = listOf(
+        Motion("fade", R.string.motion_fade, EaseOut, listOf(Fade)),
+        Motion("slide-left", R.string.motion_slide_left, EaseOut, listOf(slide(Dir.Left))),
+        Motion("slide-right", R.string.motion_slide_right, EaseOut, listOf(slide(Dir.Right))),
+        Motion("slide-up", R.string.motion_slide_up, EaseOut, listOf(slide(Dir.Up))),
+        Motion("slide-down", R.string.motion_slide_down, EaseOut, listOf(slide(Dir.Down))),
+        Motion("zoom-in", R.string.motion_zoom_in, EaseOut, listOf(scaled(0.4f, 1.8f), Fade)),
+        Motion("zoom-out", R.string.motion_zoom_out, EaseOut, listOf(scaled(1.8f, 0.4f), Fade)),
+        Motion("pop", R.string.motion_pop, Overshoot, listOf(scaled(0.01f, 0.01f))),
+        Motion("bounce", R.string.motion_bounce, Bouncy, listOf(Drop)),
+        Motion("spin", R.string.motion_spin, EaseOut, listOf(turn(360f), scaled(0.3f, 0.3f), Fade)),
+        Motion("blur", R.string.motion_blur, EaseOut, listOf(Fade), listOf(BlurFx)),
+    )
+
+    val Loops: List<Pair<String, Int>> = listOf(
+        "pulse" to R.string.motion_pulse, "wobble" to R.string.motion_wobble, "float" to R.string.motion_float, "rotate" to R.string.motion_rotate,
+    )
+
+    fun find(id: String?): Motion? = InOut.firstOrNull { it.id == id }
+
+    fun loop(id: String, ms: Int, h: Float): Fx? {
+        val hz = 1000f / ms
+        return when (id) {
+            "pulse" -> Fx("absent.pulsesize", emptyMap(), mapOf("shrink" to number(0.92f), "grow" to number(1.08f), "frequency" to number(hz)))
+            "wobble" -> Fx("absent.swing", emptyMap(), mapOf("angle1" to number(-6f), "angle2" to number(6f), "frequency" to number(hz)))
+            "float" -> Fx("absent.oscillate", emptyMap(), mapOf("angle" to number(90f), "magnitude" to number(0.02f * h), "frequency" to number(hz)))
+            "rotate" -> Fx("absent.spin", emptyMap(), mapOf("rpm" to number(60f * hz)))
+            else -> null
+        }
+    }
+}
+
+enum class TransitionKind(val id: String, @StringRes val label: Int, val overlap: Boolean, val dir: Dir = Dir.Left) {
+    CrossDissolve("cross-dissolve", R.string.transition_cross_dissolve, true), DipBlack("dip-black", R.string.transition_dip_black, false),
+    DipWhite("dip-white", R.string.transition_dip_white, false),
+    SlideLeft("slide-left", R.string.motion_slide_left, true, Dir.Left), SlideRight("slide-right", R.string.motion_slide_right, true, Dir.Right),
+    SlideUp("slide-up", R.string.motion_slide_up, true, Dir.Up), SlideDown("slide-down", R.string.motion_slide_down, true, Dir.Down),
+    PushLeft("push-left", R.string.transition_push_left, true, Dir.Left), PushRight("push-right", R.string.transition_push_right, true, Dir.Right),
+    PushUp("push-up", R.string.transition_push_up, true, Dir.Up), PushDown("push-down", R.string.transition_push_down, true, Dir.Down),
+    WipeRight("wipe-right", R.string.transition_wipe_right, true, Dir.Right), WipeLeft("wipe-left", R.string.transition_wipe_left, true, Dir.Left),
+    WipeUp("wipe-up", R.string.transition_wipe_up, true, Dir.Up), WipeDown("wipe-down", R.string.transition_wipe_down, true, Dir.Down),
+    ClockWipe("clock-wipe", R.string.transition_clock_wipe, true),
+    ZoomIn("zoom-in", R.string.motion_zoom_in, true), ZoomOut("zoom-out", R.string.motion_zoom_out, true), Spin("spin", R.string.motion_spin, true),
+    Blur("blur", R.string.motion_blur, true), Glow("glow", R.string.transition_glow, true), Swirl("swirl", R.string.transition_swirl, false),
+    WhipPan("whip-pan", R.string.transition_whip_pan, true), Glitch("glitch", R.string.transition_glitch, false), Flash("flash", R.string.transition_flash, false),
+    Shake("shake", R.string.transition_shake, false), Pixelate("pixelate", R.string.transition_pixelate, false),
+    NoiseDissolve("noise-dissolve", R.string.transition_noise_dissolve, true);
+
+    fun sides(bOnTop: Boolean, bothFade: Boolean): Pair<Motion, Motion> {
+        val fadeA = if (!bOnTop || bothFade) listOf(Fade) else emptyList()
+        val fadeB = if (bOnTop || bothFade) listOf(Fade) else emptyList()
+        fun pair(ease: Easing, a: List<Look>, b: List<Look> = a, fx: List<Fx> = emptyList()) =
+            Motion(id, label, ease, a, fx) to Motion(id, label, ease, b, fx)
+        return when (this) {
+            CrossDissolve -> pair(EaseInOut, fadeA, fadeB)
+            DipBlack -> pair(EaseInOut, emptyList(), fx = listOf(overlay(formatColor(0xFF000000.toInt()))))
+            DipWhite -> pair(EaseInOut, emptyList(), fx = listOf(overlay(formatColor(0xFFFFFFFF.toInt()))))
+            SlideLeft, SlideRight, SlideUp, SlideDown ->
+                if (bOnTop) pair(EaseInOut, emptyList(), listOf(slide(dir))) else pair(EaseInOut, listOf(slide(dir)), emptyList())
+            PushLeft, PushRight, PushUp, PushDown -> pair(EaseInOut, listOf(slide(dir)),
+                fx = listOf(Fx("absent.directionalblur", mapOf("blurLength" to (0f to 60f)), mapOf("angle" to number(if (dir.x != 0f) 0f else 90f)))))
+            ZoomIn -> pair(EaseInOut, listOf(scaled(0.5f, 2f)) + fadeA, listOf(scaled(0.5f, 2f)) + fadeB, listOf(ZoomBlurFx))
+            ZoomOut -> pair(EaseInOut, listOf(scaled(2f, 0.5f)) + fadeA, listOf(scaled(2f, 0.5f)) + fadeB, listOf(ZoomBlurFx))
+            Spin -> pair(EaseInOut, listOf(turn(180f), scaled(0.5f, 0.5f)) + fadeA, listOf(turn(180f), scaled(0.5f, 0.5f)) + fadeB,
+                listOf(Fx("absent.spinblur", mapOf("sweep" to (0f to 25f)))))
+            WipeRight, WipeLeft, WipeUp, WipeDown -> {
+                fun wipe(angle: Float) = Fx("absent.wipe", mapOf("start" to (0f to 1f)), mapOf("angle" to number(angle), "feather" to number(30f)))
+                topOnly(bOnTop, wipe(wipeAngle(dir)), wipe((wipeAngle(dir) + 180f) % 360f))
+            }
+            ClockWipe -> {
+                fun clock(direction: Float) = Fx("absent.radialwipe", mapOf("progress" to (0f to 360f)),
+                    mapOf("direction" to number(direction), "start" to number(0f), "count" to number(1f), "feather" to number(3f)))
+                topOnly(bOnTop, clock(0f), clock(1f))
+            }
+            NoiseDissolve -> {
+                val dissolve = Fx("absent.dissolve", mapOf("progress" to (0f to 1f)), mapOf("grain" to number(4f), "seed" to number(1f)))
+                topOnly(bOnTop, dissolve, dissolve)
+            }
+            Glow -> pair(EaseInOut, fadeA, fadeB, listOf(Fx("absent.lightglow", mapOf("intensity" to (0f to 6f)), mapOf("threshold" to number(0.25f), "blur" to number(120f)))))
+            Swirl -> pair(EaseInOut, emptyList(), fx = listOf(Fx("absent.twirl", mapOf("strength" to (0f to 0.5f)), mapOf("radius" to number(1.5f)))))
+            Pixelate -> pair(EaseInOut, emptyList(), fx = listOf(Fx("absent.pixelate", mapOf("blockSize" to (1f to 60f)))))
+            Blur -> pair(EaseInOut, fadeA, fadeB, listOf(BlurFx))
+            WhipPan -> pair(Whip, listOf(slide(dir)), fx = listOf(Fx("absent.smear", mapOf("length" to (0f to 300f)), mapOf("angle" to number(0f)))))
+            Glitch -> pair(EaseOut, emptyList(), fx = listOf(Fx("absent.glitch", mapOf("intensity" to (0f to 1f))), Fx("absent.rgbsplit", mapOf("strength" to (0f to 0.3f)))))
+            Flash -> pair(EaseOut, emptyList(), fx = listOf(Fx("absent.exposure", mapOf("stops" to (0f to 4f)))))
+            Shake -> pair(EaseOut, emptyList(), fx = listOf(Fx("absent.autoshake", mapOf("magnitude" to (0f to 48f)), mapOf("frequency" to number(14f)))))
+        }
+    }
+
+    private fun topOnly(bOnTop: Boolean, out: Fx, into: Fx): Pair<Motion, Motion> =
+        if (bOnTop) Motion(id, label, EaseInOut) to Motion(id, label, EaseInOut, fx = listOf(into))
+        else Motion(id, label, EaseInOut, fx = listOf(out)) to Motion(id, label, EaseInOut)
+
+    companion object {
+        fun of(id: String?): TransitionKind? = entries.firstOrNull { it.id == id }
+    }
+}
+
+internal fun wipeAngle(dir: Dir): Float = when (dir) { Dir.Right -> 0f; Dir.Down -> 90f; Dir.Left -> 180f; Dir.Up -> 270f }
+
+const val MOTION_MIN_MS = 100
+const val MOTION_MAX_MS = 2000
+const val LOOP_MIN_MS = 200
+const val LOOP_MAX_MS = 4000
+
+private const val EDGE = 1e-4f
+private val Rest = mapOf("opacity" to floatArrayOf(1f), "location" to floatArrayOf(0f, 0f, 0f), "scale" to floatArrayOf(1f, 1f), "rotation" to floatArrayOf(0f))
+private val NotVisual = setOf("audio", "camera", "nullobj", "light")
+
+val Layer.canAnimate: Boolean get() = kind !in NotVisual
+
+private val Layer.length: Int get() = endTime - startTime
+
+fun Scene.mediaLengthMs(layer: Layer): Int =
+    (layer.mediaFill?.uri ?: layer.node["src"])?.let { media(it)?.duration }?.takeIf { it > 0 }?.let { (it / 1000).toInt() } ?: Int.MAX_VALUE
+
+private fun Fx.node(slot: MotionSlot, t0: Float, t1: Float, ease: String?, inSide: Boolean): XmlNode = XmlNode(
+    "effect", linkedMapOf("id" to id, "hidden" to "false", "gen" to slot.xml),
+    fixed.map { (name, value) -> XmlNode("property", linkedMapOf("name" to name, "type" to if (value.startsWith("#")) "color" else "float", "value" to value)) } +
+        keyed.map { (name, range) ->
+            val (first, second) = if (inSide) range.second to range.first else range
+            XmlNode("property", linkedMapOf("name" to name, "type" to "float"))
+                .withKeyframes(listOf(Keyframe(t0, number(first)), Keyframe(t1, number(second), ease)))
+        },
+)
+
+private fun Layer.withSide(m: Motion, slot: MotionSlot, inSide: Boolean, from: Int, to: Int, w: Float, h: Float): Layer {
+    val span = length.coerceAtLeast(1).toFloat()
+    val t0 = ((from - startTime) / span).coerceIn(0f, 1f)
+    val t1 = ((to - startTime) / span).coerceIn(t0, 1f)
+    val ease = m.curve(inSide).takeUnless { it.isLinear }?.toString()
+    val sign = if (inSide) -1f else 1f
+    var n = node
+    for (look in m.looks) {
+        val transform = n.child("transform") ?: XmlNode("transform")
+        val element = transform.child(look.prop) ?: XmlNode(look.prop)
+        val rest = floats(element.valueAt(if (inSide) t1 else t0), Rest.getValue(look.prop))
+        val away = look.away(rest, w, h, sign)
+        val (first, second) = if (inSide) away to rest else rest to away
+        val kept = element.keyframes.filter { it.gen != null || it.t < t0 - EDGE || it.t > t1 + EDGE }
+        val keys = kept + Keyframe(t0, formatFloats(first), gen = slot.xml) + Keyframe(t1, formatFloats(second), ease, slot.xml)
+        n = n.withChild("transform", transform.withChild(look.prop, element.withKeyframes(keys)))
+    }
+    for (fx in m.fx) n = n.copy(children = n.children + fx.node(slot, t0, t1, ease, inSide))
+    return copy(node = n)
+}
+
+private fun XmlNode.withoutKeys(slot: String): XmlNode {
+    val keys = keyframes
+    val removed = keys.filter { it.gen == slot }
+    if (removed.isEmpty()) return this
+    val kept = keys.filter { it.gen != slot }
+    if (kept.isNotEmpty()) return withKeyframes(kept)
+    val rest = if (slot == MotionSlot.Out.xml) removed.first() else removed.last()
+    return copy(children = children.filterNot { it.name == "kf" }).with("value", rest.v)
+}
+
+internal fun Layer.withoutMotionMarks(slot: MotionSlot): Layer {
+    val transform = node.child("transform")
+    var n = node.copy(children = node.children.filterNot { it.name == "effect" && it["gen"] == slot.xml }).with(slot.attr, null)
+    if (transform != null) n = n.withChild("transform", transform.copy(children = transform.children.map { it.withoutKeys(slot.xml) }))
+    return copy(node = n)
+}
+
+fun Layer.withoutMotion(slot: MotionSlot): Layer {
+    val record = motion(slot)
+    var l = withoutMotionMarks(slot)
+    if (record?.transition != true) return l
+    if (slot == MotionSlot.Out && record.extend in 1 until l.length) l = l.trimmedTo(l.startTime, l.endTime - record.extend)
+    if (slot == MotionSlot.In) {
+        if (record.shift > 0) l = l.movedTo(l.startTime + record.shift)
+        if (record.extend in 1 until l.length) l = l.trimmedTo(l.startTime + record.extend, l.endTime)
+    }
+    return l
+}
+
+fun Scene.withoutMotion(id: Long, slot: MotionSlot): Scene {
+    val record = layer(id)?.motion(slot)
+    var s = update(id) { it.withoutMotion(slot) }
+    if (record != null && record.transition && slot != MotionSlot.Loop) {
+        val other = if (slot == MotionSlot.In) MotionSlot.Out else MotionSlot.In
+        val back = s.layer(record.partner)?.motion(other)
+        if (back?.transition == true && back.partner == id) s = s.update(record.partner) { it.withoutMotion(other) }
+    }
+    return s
+}
+
+fun Scene.withAnimation(id: Long, slot: MotionSlot, motionId: String?, ms: Int): Scene {
+    val s = withoutMotion(id, slot)
+    val layer = s.layer(id) ?: return this
+    if (motionId == null || !layer.canAnimate) return s
+    if (slot == MotionSlot.Loop) {
+        val d = ms.coerceIn(LOOP_MIN_MS, LOOP_MAX_MS)
+        val fx = Animations.loop(motionId, d, height.toFloat()) ?: return s
+        return s.update(id) { it.copy(node = it.node.copy(children = it.node.children + fx.node(slot, 0f, 1f, null, true))
+            .with(slot.attr, MotionRecord(false, motionId, d).toString())) }
+    }
+    val motion = Animations.find(motionId) ?: return s
+    val d = ms.coerceIn(MOTION_MIN_MS, MOTION_MAX_MS)
+    val span = min(d, layer.length)
+    val (from, to) = if (slot == MotionSlot.In) layer.startTime to layer.startTime + span else layer.endTime - span to layer.endTime
+    return s.update(id) {
+        val done = it.withSide(motion, slot, slot == MotionSlot.In, from, to, width.toFloat(), height.toFloat())
+        done.copy(node = done.node.with(slot.attr, MotionRecord(false, motionId, d).toString()))
+    }
+}
+
+fun Scene.withEdgeMotions(before: Layer, after: Layer): Layer {
+    var l = after
+    for (slot in listOf(MotionSlot.In, MotionSlot.Out)) {
+        val record = before.motion(slot)?.takeIf { !it.transition } ?: continue
+        if (if (slot == MotionSlot.In) l.startTime == before.startTime else l.endTime == before.endTime) continue
+        val alone = Scene(node.copy(children = node.children.filter { it.name !in Scene.LAYER_TAGS } + l.node))
+        l = alone.withAnimation(l.id, slot, record.id, record.ms).layer(l.id) ?: l
+    }
+    return l
+}
+
+fun Scene.cutBetween(first: Long, second: Long): Pair<Layer, Layer>? {
+    val x = layer(first) ?: return null
+    val y = layer(second) ?: return null
+    val (a, b) = if (x.startTime <= y.startTime) x to y else y to x
+    return (a to b).takeIf { a.canAnimate && b.canAnimate && b.startTime > a.startTime && b.endTime > a.endTime }
+}
+
+fun Scene.cutAt(timeMs: Int): Pair<Layer, Layer>? {
+    val near = 2000 / fps
+    val shown = layers.filter { it.canAnimate && !it.hidden }
+    val starts = IntArray(shown.size) { shown[it].startTime }
+    val ends = IntArray(shown.size) { shown[it].endTime }
+    var best: Pair<Layer, Layer>? = null
+    var bestGap = Int.MAX_VALUE
+    for (j in shown.indices) for (i in shown.indices) {
+        val start = starts[j]
+        val end = ends[i]
+        if (start <= starts[i] || ends[j] <= end || start > end + near) continue
+        if (timeMs < min(start, end) - near || timeMs > max(start, end) + near) continue
+        val gap = abs(2 * timeMs - start - end)
+        if (gap <= bestGap) { best = shown[i] to shown[j]; bestGap = gap }
+    }
+    return best
+}
+
+data class TransitionResult(val scene: Scene, val note: UiText? = null)
+
+private fun seconds(ms: Int) = String.format(Locale.US, "%.1f s", ms / 1000f)
+
+fun Scene.withTransition(aId: Long, bId: Long, kind: TransitionKind?, ms: Int): TransitionResult {
+    val s = withoutMotion(aId, MotionSlot.Out).withoutMotion(bId, MotionSlot.In)
+    if (kind == null) return TransitionResult(s)
+    val start = s.cutBetween(aId, bId) ?: return TransitionResult(this)
+    var (a, b) = start
+    val bOnTop = s.layers.indexOfFirst { it.id == b.id } > s.layers.indexOfFirst { it.id == a.id }
+    val (outSide, inSide) = kind.sides(bOnTop, (if (bOnTop) b else a).mediaFill == null)
+    val wanted = ms.coerceIn(MOTION_MIN_MS, MOTION_MAX_MS)
+    var extA = 0
+    var extB = 0
+    var shift = 0
+    val d: Int
+    val aWindow: Pair<Int, Int>
+    val bWindow: Pair<Int, Int>
+    if (kind.overlap) {
+        d = minOf(wanted, a.length, b.length)
+        val overlap = a.endTime - b.startTime
+        if (overlap >= d) {
+            val from = if (bOnTop) b.startTime else a.endTime - d
+            aWindow = from to from + d
+        } else {
+            val extra = d - overlap
+            val mediaA = s.mediaLengthMs(a)
+            val mediaB = s.mediaLengthMs(b)
+            val roomA = a.trimmedTo(a.startTime, a.endTime + extra, mediaA).endTime - a.endTime
+            val roomB = b.startTime - b.trimmedTo(max(0, b.startTime - extra), b.endTime, mediaB).startTime
+            var growA = min(roomA, extra / 2)
+            val growB = min(roomB, extra - growA)
+            growA = min(roomA, extra - growB)
+            if (growA > 0) a = a.trimmedTo(a.startTime, a.endTime + growA, mediaA)
+            if (growB > 0) b = b.trimmedTo(b.startTime - growB, b.endTime, mediaB)
+            extA = a.endTime - start.first.endTime
+            extB = start.second.startTime - b.startTime
+            shift = max(0, d - (a.endTime - b.startTime))
+            if (shift > 0) b = b.movedTo(b.startTime - shift)
+            aWindow = b.startTime to a.endTime
+        }
+        bWindow = aWindow
+    } else {
+        d = minOf(wanted, 2 * a.length, 2 * b.length)
+        val half = d / 2
+        val cut = if (b.startTime >= a.endTime) null else if (bOnTop) b.startTime else a.endTime
+        aWindow = max(a.startTime, (cut ?: a.endTime) - half) to (cut ?: a.endTime)
+        bWindow = (cut ?: b.startTime) to min(b.endTime, (cut ?: b.startTime) + half)
+    }
+    val w = width.toFloat()
+    val h = height.toFloat()
+    val outA = a.withSide(outSide, MotionSlot.Out, false, aWindow.first, aWindow.second, w, h)
+    val inB = b.withSide(inSide, MotionSlot.In, true, bWindow.first, bWindow.second, w, h)
+    val next = s.update(aId) { outA.copy(node = outA.node.with(MotionSlot.Out.attr, MotionRecord(true, kind.id, wanted, extA, 0, bId).toString())) }
+        .update(bId) { inB.copy(node = inB.node.with(MotionSlot.In.attr, MotionRecord(true, kind.id, wanted, extB, shift, aId).toString())) }
+    val notes = listOfNotNull(
+        if (shift > 0) txt(R.string.transition_moved, b.label.ifEmpty { null } ?: txt(R.string.transition_second_clip), seconds(shift)) else null,
+        if (d < wanted) txt(R.string.transition_shortened, seconds(d)) else null,
+    )
+    return TransitionResult(next, notes.takeIf { it.isNotEmpty() }?.let { txt(R.string.library_text_value, it) })
+}

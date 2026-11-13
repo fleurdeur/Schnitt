@@ -1,0 +1,51 @@
+{
+ "id": "flicker",
+ "name": "Flicker",
+ "category": "stylize",
+ "since": "2.5.0",
+ "description": "Flickers the opacity of the layer at random.",
+ "params": [
+  {
+   "id": "speed",
+   "label": "Frequency",
+   "type": "float",
+   "default": 7,
+   "min": 0.0,
+   "max": 60.0,
+   "step": 0.01,
+   "legacyDefault": 12.0,
+   "unit": "Hz"
+  },
+  {
+   "id": "intensity",
+   "label": "Strength",
+   "type": "float",
+   "default": 0.75,
+   "min": 0.0,
+   "max": 1.0,
+   "step": 0.01,
+   "legacyDefault": 0.4
+  },
+  {
+   "id": "seed",
+   "label": "Seed",
+   "type": "float",
+   "default": 0,
+   "min": 0.0,
+   "max": 100.0,
+   "step": 0.1,
+   "legacyDefault": 1.0
+  },
+  {
+   "id": "style",
+   "label": "Mode",
+   "type": "choice",
+   "default": 0,
+   "options": [
+    "Blink",
+    "Steady"
+   ]
+  }
+ ],
+ "sksl": "uniform shader image;\nuniform float2 size;\nuniform float time;\nuniform float speed;\nuniform float intensity;\nuniform float seed;\nuniform float style;\nfloat hash21(float2 p)\n{\n    float3 q = fract(float3(p.xyx) * 0.1031);\n    q += dot(q, q.yzx + 33.33);\n    return fract((q.x + q.y) * q.z);\n}\nhalf4 main(float2 coord)\n{\n    half4 c = image.eval(coord);\n    if (c.a <= 0.001 || speed <= 0.0 || intensity <= 0.0) return c;\n    float f = time * speed;\n    float n = floor(f);\n    float ramp = 0.15;\n    float t = clamp((f - n - (1.0 - ramp)) / ramp, 0.0, 1.0);\n    float r = mix(hash21(float2(mod(n, 4096.0), seed)), hash21(float2(mod(n + 1.0, 4096.0), seed)), t);\n    float keep = clamp(1.0 - intensity * (style > 0.5 ? 0.5 + 0.3 * r : r), 0.0, 1.0);\n    return c * half(style > 0.5 ? keep * keep : keep);\n}"
+}

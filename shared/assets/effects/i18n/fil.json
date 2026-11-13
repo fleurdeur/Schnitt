@@ -1,0 +1,6995 @@
+{
+ "categories": {
+  "3d": "3D",
+  "ai": "AI",
+  "beat": "Beat",
+  "blur": "Blur",
+  "color": "Kulay",
+  "distort": "Distort",
+  "key": "Key",
+  "move": "Galaw",
+  "new": "Bago",
+  "noise": "Ingay",
+  "other": "Iba pa",
+  "repeat": "Pag-uulit",
+  "stylize": "I-istilo",
+  "text": "Teksto"
+ },
+ "effects": {
+  "ascii": {
+   "description": "Ginagawang text art ang layer, gawa sa mga letra at simbolo: mas buong character ang inilalagay sa mas maliliwanag na bahagi. Itinatakda ng Laki kung gaano kalapad ang bawat character sa layer, kaya gumagalaw, umiikot at nagsi-scale ang mga character kasama nito. Pinapanatili ng Kulay ang sariling kulay ng larawan o gumagamit ng isang kulay lang, at gumuguhit ang Mga linya ng gilid ng mga outline gamit ang mga character na | - / at \\.",
+   "name": "ASCII",
+   "params": {
+    "background": {
+     "label": "Kulay ng background"
+    },
+    "backgroundMode": {
+     "label": "Background",
+     "options": [
+      "Wala",
+      "Kulay"
+     ]
+    },
+    "brightness": {
+     "label": "Liwanag"
+    },
+    "cell": {
+     "label": "Laki"
+    },
+    "characters": {
+     "label": "Custom"
+    },
+    "charset": {
+     "label": "Mga character",
+     "options": [
+      "Detalyado",
+      "Simple",
+      "Mga block",
+      "Binary",
+      "Custom"
+     ]
+    },
+    "colorMode": {
+     "label": "Kulay",
+     "options": [
+      "Orihinal",
+      "Isang kulay"
+     ]
+    },
+    "contrast": {
+     "label": "Kontrast"
+    },
+    "edges": {
+     "label": "Mga linya ng gilid"
+    },
+    "invert": {
+     "label": "I-invert"
+    },
+    "textColor": {
+     "label": "Kulay ng teksto"
+    }
+   },
+   "presets": {
+    "amber-monitor": "Amber Monitor",
+    "binary-rain": "Ulan ng Binary",
+    "blocks": "Mga block",
+    "line-art": "Line Art",
+    "newspaper": "Diyaryo",
+    "terminal": "Terminal"
+   }
+  },
+  "autoshake": {
+   "description": "Random na ginagalaw ang layer sa paglipas ng oras sa loob ng itinakdang limit.",
+   "name": "Auto-yanig",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "evolution": {
+     "label": "Ebolusyon"
+    },
+    "frequency": {
+     "label": "Dalas"
+    },
+    "magnitude": {
+     "label": "Lakas"
+    },
+    "pattern": {
+     "label": "Pattern",
+     "options": [
+      "Klasiko",
+      "Standard"
+     ]
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "slack": {
+     "label": "Luwag"
+    },
+    "zshake": {
+     "label": "Z shake"
+    }
+   }
+  },
+  "backdrop": {
+   "description": "Dati itong tinatawag na Adjustment layer. Isang adjustment layer: kinokopya ang iginuguhit sa ilalim ng layer para ang mga epektong kasunod nito ang magbago sa kopyang iyon. Nililimitahan ng Mask sa layer ang kopya sa mga opaque na bahagi ng layer. Ibinabalik ng Halo ang fill ng layer. Pinapayagan ng Umaabot sa labas ang mga epekto ang mga susunod na epekto, gaya ng Stretch, na dalhin ang kopya lampas sa gilid ng layer.",
+   "name": "Kopyahin ang Background",
+   "params": {
+    "mask": {
+     "label": "Mask sa layer"
+    },
+    "mix": {
+     "label": "Halo"
+    },
+    "spill": {
+     "label": "Umaabot sa labas ang mga epekto"
+    }
+   }
+  },
+  "beatblur": {
+   "description": "May zoom blur sa bawat beat na nawawala habang kumukupas ang beat. Piliin ang music clip, buksan ang menu nito at i-tap muna ang Mark Beats; kung walang beat marks, susunod ito sa BPM setting.",
+   "name": "Blur sa Beat",
+   "params": {
+    "beats": {
+     "label": "Beats",
+     "options": [
+      "Bawat Beat",
+      "Bawat Ika-2 Beat",
+      "Bawat Ika-4 Beat"
+     ]
+    },
+    "bpm": {
+     "label": "BPM"
+    },
+    "decay": {
+     "label": "Decay"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "beatflash": {
+   "description": "Nagfa-flash ng kulay sa layer sa bawat beat. Piliin ang music clip, buksan ang menu nito at i-tap muna ang Mark Beats; kung walang beat marks, susunod ito sa BPM setting.",
+   "name": "Flash sa Beat",
+   "params": {
+    "beats": {
+     "label": "Beats",
+     "options": [
+      "Bawat Beat",
+      "Bawat Ika-2 Beat",
+      "Bawat Ika-4 Beat"
+     ]
+    },
+    "bpm": {
+     "label": "BPM"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "decay": {
+     "label": "Decay"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "beatglitch": {
+   "description": "Hinahati ang layer sa mga naka-shift na slice na may split na kulay sa bawat beat. Piliin ang music clip, buksan ang menu nito at i-tap muna ang Mark Beats; kung walang beat marks, susunod ito sa BPM setting.",
+   "name": "Glitch sa Beat",
+   "params": {
+    "beats": {
+     "label": "Beats",
+     "options": [
+      "Bawat Beat",
+      "Bawat Ika-2 Beat",
+      "Bawat Ika-4 Beat"
+     ]
+    },
+    "bpm": {
+     "label": "BPM"
+    },
+    "decay": {
+     "label": "Decay"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "slices": {
+     "label": "Mga slice"
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "beatglow": {
+   "description": "Pinapakislap ang maliwanag na bahagi ng layer sa bawat beat. Piliin ang music clip, buksan ang menu nito at i-tap muna ang Mark Beats; kung walang beat marks, susunod ito sa BPM setting.",
+   "name": "Glow sa Beat",
+   "params": {
+    "beats": {
+     "label": "Beats",
+     "options": [
+      "Bawat Beat",
+      "Bawat Ika-2 Beat",
+      "Bawat Ika-4 na Beat"
+     ]
+    },
+    "blur": {
+     "label": "Radius"
+    },
+    "bpm": {
+     "label": "BPM"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "decay": {
+     "label": "Decay"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "strength": {
+     "label": "Lakas"
+    },
+    "threshold": {
+     "label": "Threshold"
+    }
+   }
+  },
+  "beatpulse": {
+   "description": "Pinapaliwanag ang layer sa bawat beat na parang flash ng exposure; ang negatibong lakas ay nagpapadilim dito. Piliin muna ang music clip, buksan ang menu nito at i-tap ang Mark Beats; kung walang beat marks, susunod ito sa BPM setting.",
+   "name": "Beat Pulse",
+   "params": {
+    "beats": {
+     "label": "Beats",
+     "options": [
+      "Bawat Beat",
+      "Bawat Ika-2 Beat",
+      "Bawat Ika-4 na Beat"
+     ]
+    },
+    "bpm": {
+     "label": "BPM"
+    },
+    "decay": {
+     "label": "Decay"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "beatrgbsplit": {
+   "description": "Binubukod ang pula at asul na channel sa bawat beat. Piliin muna ang music clip, buksan ang menu nito at i-tap ang Mark Beats; kung walang beat marks, susunod ito sa BPM setting.",
+   "name": "Beat RGB Split",
+   "params": {
+    "angle": {
+     "label": "Angle"
+    },
+    "beats": {
+     "label": "Beats",
+     "options": [
+      "Bawat Beat",
+      "Bawat Ika-2 Beat",
+      "Bawat Ika-4 na Beat"
+     ]
+    },
+    "bpm": {
+     "label": "BPM"
+    },
+    "decay": {
+     "label": "Decay"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "beatrotate": {
+   "description": "Itinatagilid ang layer sa bawat beat, pakaliwa at pakanan nang salitan, at bumabalik sa dati. Piliin muna ang music clip, buksan ang menu nito at i-tap ang Mark Beats; kung walang beat marks, susunod ito sa BPM setting.",
+   "name": "Beat Rotate",
+   "params": {
+    "alternate": {
+     "label": "Salitan"
+    },
+    "beats": {
+     "label": "Beats",
+     "options": [
+      "Bawat Beat",
+      "Bawat Ika-2 Beat",
+      "Bawat Ika-4 na Beat"
+     ]
+    },
+    "bpm": {
+     "label": "BPM"
+    },
+    "cover": {
+     "label": "Fill ang frame"
+    },
+    "decay": {
+     "label": "Decay"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "beatshake": {
+   "description": "Iniuuga ang layer sa bawat beat, sa bagong direksyon tuwing may beat, at kumakalma bago ang susunod. Piliin muna ang music clip, buksan ang menu nito at i-tap ang Mark Beats; kung walang beat marks, susunod ito sa BPM setting.",
+   "name": "Beat Shake",
+   "params": {
+    "beats": {
+     "label": "Beats",
+     "options": [
+      "Bawat Beat",
+      "Bawat Ika-2 Beat",
+      "Bawat Ika-4 na Beat"
+     ]
+    },
+    "bpm": {
+     "label": "BPM"
+    },
+    "decay": {
+     "label": "Decay"
+    },
+    "frequency": {
+     "label": "Dalas"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "beatzoom": {
+   "description": "Nagzo-zoom in sa bawat beat at dahan-dahang bumabalik sa dati. Piliin muna ang music clip, buksan ang menu nito at i-tap ang Mark Beats; kung walang beat marks, susunod ito sa BPM setting.",
+   "name": "Beat Zoom",
+   "params": {
+    "beats": {
+     "label": "Beats",
+     "options": [
+      "Bawat Beat",
+      "Bawat Ikalawang Beat",
+      "Bawat Ikaapat na Beat"
+     ]
+    },
+    "bpm": {
+     "label": "BPM"
+    },
+    "decay": {
+     "label": "Decay"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "bend": {
+   "description": "Ibinabaluktot ang layer sa pabilog na arko; nananatili ang panig ng Origin at lumiliko ang kabilang panig sa anggulong itinakda mo, pakaliwa ang positibong anggulo. Pinakamainam sa mahahaba at manipis na layer.",
+   "name": "Bend",
+   "params": {
+    "amount": {
+     "label": "Anggulo"
+    },
+    "before": {
+     "label": "Bago ang Simula",
+     "options": [
+      "I-freeze",
+      "I-bend sa Parehong Gilid",
+      "I-bend sa Kabaligtarang Gilid"
+     ]
+    },
+    "origin": {
+     "label": "Origin",
+     "options": [
+      "Kaliwa",
+      "Kanan",
+      "Itaas",
+      "Ibaba"
+     ]
+    },
+    "start": {
+     "label": "Simula"
+    },
+    "tuneHead": {
+     "label": "Tune Head"
+    },
+    "tuneTail": {
+     "label": "Tune Tail"
+    }
+   }
+  },
+  "blink": {
+   "description": "Pinapatay-sindi ang layer nang ilang beses kada segundo.",
+   "name": "Kumurap",
+   "params": {
+    "frequency": {
+     "label": "Dalas"
+    }
+   }
+  },
+  "blockdissolve": {
+   "description": "Random na nag-aalis ng mga block na naka-align sa grid mula sa layer. I-animate ang Lakas para parami nang parami ang nawawalang block.",
+   "name": "Block dissolve",
+   "params": {
+    "blockSize": {
+     "label": "Laki"
+    },
+    "fade": {
+     "label": "Fade"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "strength": {
+     "label": "Lakas"
+    },
+    "stretch": {
+     "label": "Stretch"
+    }
+   }
+  },
+  "blocknoise": {
+   "description": "Nagpapakita ng kumikislap na random na bloke ng noise sa layer. Binabago ng Multiply ang mga kasalukuyang kulay; nagdadagdag ang Add ng noise sa mga ito. Pinapanatili ng Freeze na hindi gumagalaw ang pattern.",
+   "name": "Block noise",
+   "params": {
+    "blending": {
+     "label": "Blending mode",
+     "options": [
+      "Add",
+      "Multiply"
+     ]
+    },
+    "blockSize": {
+     "label": "Laki"
+    },
+    "extremes": {
+     "label": "Extremes"
+    },
+    "freeze": {
+     "label": "Freeze"
+    },
+    "mono": {
+     "label": "Monochrome"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "overshoot": {
+     "label": "Overshoot"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "strength": {
+     "label": "Lakas"
+    },
+    "stretch": {
+     "label": "Stretch"
+    }
+   }
+  },
+  "blur": {
+   "description": "Makinis at pantay na pag-blur.",
+   "name": "Pag-blur",
+   "params": {
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "box": {
+   "description": "Binabalot ang layer sa isang box na ikaw ang pipili ng lapad, taas at lalim.",
+   "name": "Box",
+   "params": {
+    "depth": {
+     "label": "Lalim"
+    },
+    "height": {
+     "label": "Taas"
+    },
+    "light": {
+     "label": "Anggulo ng ilaw"
+    },
+    "perspective": {
+     "label": "Perspective"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "rotX": {
+     "label": "Rotation X"
+    },
+    "rotY": {
+     "label": "Rotation Y"
+    },
+    "rotZ": {
+     "label": "Rotation Z"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "shading": {
+     "label": "Shading"
+    },
+    "shine": {
+     "label": "Shine"
+    },
+    "smoothing": {
+     "label": "Smoothing"
+    },
+    "width": {
+     "label": "Lapad"
+    }
+   }
+  },
+  "brightnesscontrast": {
+   "description": "Inaayos ang liwanag at kontrast ng larawan.",
+   "name": "Liwanag at kontrast",
+   "params": {
+    "brightness": {
+     "label": "Liwanag"
+    },
+    "contrast": {
+     "label": "Kontrast"
+    },
+    "style": {
+     "label": "Estilo",
+     "options": [
+      "Bawat channel",
+      "Panatilihin ang kulay"
+     ]
+    }
+   }
+  },
+  "bulge": {
+   "description": "Itinutulak palabas ang layer na parang lente (positibong Strength) o pinipisil papasok patungo sa Center (negatibo) sa loob ng bilog na Radius, isang bahagi ng laki ng layer.",
+   "name": "Pinch/Bulge",
+   "params": {
+    "amount": {
+     "label": "Strength"
+    },
+    "center": {
+     "label": "Center"
+    },
+    "radius": {
+     "label": "Radius"
+    }
+   }
+  },
+  "bumpmap": {
+   "description": "Iniilaw ang layer na para bang nakataas na surface ang liwanag nito, para sa embossed at may texture na itsura na pinapanatili ang mga kulay.",
+   "name": "Bump map",
+   "params": {
+    "ambient": {
+     "label": "Ambient"
+    },
+    "angle": {
+     "label": "Anggulo ng ilaw"
+    },
+    "height": {
+     "label": "Taas"
+    },
+    "light": {
+     "label": "Kulay ng ilaw"
+    },
+    "shine": {
+     "label": "Shine"
+    }
+   }
+  },
+  "channelremap": {
+   "description": "Binubuo muli ang bawat channel ng kulay mula sa ibang channel ng layer, para sa false color o para ilipat ang luminance sa alpha.",
+   "name": "Channel remap (RGB)",
+   "params": {
+    "a": {
+     "label": "A",
+     "options": [
+      "Pula",
+      "Berde",
+      "Asul",
+      "Alpha",
+      "Luminance",
+      "Zero",
+      "Full"
+     ]
+    },
+    "b": {
+     "label": "B",
+     "options": [
+      "Pula",
+      "Berde",
+      "Asul",
+      "Alpha",
+      "Luminance",
+      "Zero",
+      "Full"
+     ]
+    },
+    "g": {
+     "label": "G",
+     "options": [
+      "Pula",
+      "Berde",
+      "Asul",
+      "Alpha",
+      "Luminance",
+      "Zero",
+      "Full"
+     ]
+    },
+    "r": {
+     "label": "R",
+     "options": [
+      "Pula",
+      "Berde",
+      "Asul",
+      "Alpha",
+      "Luminance",
+      "Zero",
+      "Full"
+     ]
+    }
+   }
+  },
+  "channelremaphsv": {
+   "description": "Binubuo muli ang hue, saturation, value at alpha mula sa ibang channel ng layer.",
+   "name": "Channel Remap (HSV)",
+   "params": {
+    "a": {
+     "label": "A",
+     "options": [
+      "Hue",
+      "Saturation",
+      "Value",
+      "Alpha",
+      "Luminance",
+      "Zero",
+      "Full"
+     ]
+    },
+    "h": {
+     "label": "H",
+     "options": [
+      "Hue",
+      "Saturation",
+      "Value",
+      "Alpha",
+      "Luminance",
+      "Zero",
+      "Full"
+     ]
+    },
+    "s": {
+     "label": "S",
+     "options": [
+      "Hue",
+      "Saturation",
+      "Value",
+      "Alpha",
+      "Luminance",
+      "Zero",
+      "Full"
+     ]
+    },
+    "v": {
+     "label": "V",
+     "options": [
+      "Hue",
+      "Saturation",
+      "Value",
+      "Alpha",
+      "Luminance",
+      "Zero",
+      "Full"
+     ]
+    }
+   }
+  },
+  "checker": {
+   "description": "Nagguguhit ng checkerboard sa mga opaque na bahagi ng layer, o tinatanggal ang mga checker dito.",
+   "name": "Checker",
+   "params": {
+    "angle": {
+     "label": "Angulo"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "punch": {
+     "label": "Punch Out"
+    },
+    "screenSpace": {
+     "label": "Screen space"
+    },
+    "stretch": {
+     "label": "Iunat"
+    }
+   }
+  },
+  "chromakey": {
+   "description": "Tinatanggal ang isang kulay, tulad ng green screen.",
+   "name": "Chroma key",
+   "params": {
+    "defringe": {
+     "label": "Linisin ang gilid"
+    },
+    "invert": {
+     "label": "I-invert"
+    },
+    "key": {
+     "label": "Kulay ng key"
+    },
+    "softness": {
+     "label": "Kalambutan"
+    },
+    "tolerance": {
+     "label": "Toleransya"
+    }
+   }
+  },
+  "chromaticzoomblur": {
+   "description": "Isang zoom blur mula sa gitna na humihila ng asul papasok at pula palabas, kaya nagiging rainbow fringe ang mga gilid.",
+   "name": "Chromatic Zoom Blur",
+   "params": {
+    "amount": {
+     "label": "Lakas"
+    },
+    "center": {
+     "label": "Sentro"
+    }
+   }
+  },
+  "circularripple": {
+   "description": "Nagpapalabas ng pabilog na ripple mula sa isang punto, parang patak na bumabagsak sa tubig.",
+   "name": "Pabilog na Ripple",
+   "params": {
+    "center": {
+     "label": "Gitna"
+    },
+    "feather": {
+     "label": "Feather"
+    },
+    "frequency": {
+     "label": "Dalas"
+    },
+    "phase": {
+     "label": "Phase"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "clouds": {
+   "description": "Tinatakpan ang mga opaque na bahagi ng layer ng malambot na pattern ng ulap, at kapaki-pakinabang din bilang pinagmumulan ng noise.",
+   "name": "Mga Ulap",
+   "params": {
+    "color1": {
+     "label": "Kulay 1"
+    },
+    "color2": {
+     "label": "Kulay 2"
+    },
+    "intensity": {
+     "label": "Tindi"
+    },
+    "octaves": {
+     "label": "Octaves"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "parallax": {
+     "label": "Parallax"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "stretch": {
+     "label": "Iunat"
+    }
+   }
+  },
+  "cmykhalftone": {
+   "description": "Muling iginuguhit ang layer na parang print sa magazine: cyan, magenta, yellow at black na tuldok sa apat na naka-rotate na screen.",
+   "name": "Mga Tuldok ng CMYK Halftone",
+   "params": {
+    "amount": {
+     "label": "Halaga"
+    },
+    "angle": {
+     "label": "Angulo"
+    },
+    "black": {
+     "label": "Itim"
+    },
+    "phase": {
+     "label": "Phase"
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "colorbalance": {
+   "description": "Itinutulak ang shadows, midtones, at highlights patungo sa sarili nilang kulay (hindi binabago ng gray ang isang range).",
+   "name": "Balanse ng Kulay",
+   "params": {
+    "amount": {
+     "label": "Dami"
+    },
+    "highlights": {
+     "label": "Mga highlight"
+    },
+    "midtones": {
+     "label": "Mga midtone"
+    },
+    "shadows": {
+     "label": "Mga anino"
+    }
+   }
+  },
+  "colorize": {
+   "description": "Kinukulayan ang buong layer ng isang hue. Ginagamit ng Light and Shade ang liwanag ng layer para sa hue; pinapanatili ng Keep Brightness ang liwanag ng bawat pixel at ipinapalit ang kulay ng hue.",
+   "name": "Kulayan",
+   "params": {
+    "amount": {
+     "label": "Halaga"
+    },
+    "hue": {
+     "label": "Hue"
+    },
+    "style": {
+     "label": "Estilo",
+     "options": [
+      "Liwanag at Lilim",
+      "Panatilihin ang Liwanag"
+     ]
+    }
+   }
+  },
+  "colorwheels": {
+   "description": "Mga color wheel para sa shadows (lift), midtones (gamma), at highlights (gain): isang hue, kung gaano kalayo itulak, at isang level. Inililipat ng Offset ang lahat ng tono. Sa estilong Ayon sa Liwanag, tinitimbang ang bawat gulong ayon sa liwanag ng pixel.",
+   "name": "Lift gamma gain",
+   "params": {
+    "gainAmount": {
+     "label": "Dami ng gain"
+    },
+    "gainHue": {
+     "label": "Hue ng gain"
+    },
+    "gainLevel": {
+     "label": "Antas ng gain"
+    },
+    "gammaAmount": {
+     "label": "Dami ng gamma"
+    },
+    "gammaHue": {
+     "label": "Hue ng gamma"
+    },
+    "gammaLevel": {
+     "label": "Antas ng gamma"
+    },
+    "liftAmount": {
+     "label": "Dami ng lift"
+    },
+    "liftHue": {
+     "label": "Hue ng lift"
+    },
+    "liftLevel": {
+     "label": "Antas ng lift"
+    },
+    "offsetAmount": {
+     "label": "Dami ng Offset"
+    },
+    "offsetHue": {
+     "label": "Hue ng Offset"
+    },
+    "offsetLevel": {
+     "label": "Level ng Offset"
+    },
+    "style": {
+     "label": "Estilo",
+     "options": [
+      "Klasiko",
+      "Ayon sa Liwanag"
+     ]
+    }
+   }
+  },
+  "contourgradient": {
+   "description": "Nagpipinta ng gradient na may dalawang kulay palabas mula sa mga gilid ng opaque na bahagi ng layer, parang malambot na kulay na halo.",
+   "name": "Gradient ng Contour",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "blur": {
+     "label": "Lapad"
+    },
+    "color1": {
+     "label": "Kulay 1"
+    },
+    "color2": {
+     "label": "Kulay 2"
+    },
+    "fade": {
+     "label": "Fade"
+    },
+    "fill": {
+     "label": "Fill"
+    }
+   }
+  },
+  "contourlines": {
+   "description": "Gumuguhit ng mga outline na singsing sa paligid ng opaque na bahagi ng layer, para sa stacked sticker o neon outlines.",
+   "name": "Mga Linya ng Contour",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "blur": {
+     "label": "Outset"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "fill": {
+     "label": "Fill"
+    },
+    "phase": {
+     "label": "Phase"
+    },
+    "width": {
+     "label": "Lapad"
+    }
+   }
+  },
+  "contourstrips": {
+   "description": "Gumuguhit ng magkapatong na piraso ng papel na ang taas ay sumusunod sa liwanag o opacity ng layer, parang tanawin ng mga ridge.",
+   "name": "Contour Strips",
+   "params": {
+    "angle": {
+     "label": "Angulo"
+    },
+    "color1": {
+     "label": "Kulay 1"
+    },
+    "color2": {
+     "label": "Kulay 2"
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "edgeColor": {
+     "label": "Kulay ng Gilid"
+    },
+    "height": {
+     "label": "Taas"
+    },
+    "invert": {
+     "label": "I-invert"
+    },
+    "light": {
+     "label": "Kulay ng Ilaw"
+    },
+    "lightAngle": {
+     "label": "Angulo ng Ilaw"
+    },
+    "map": {
+     "label": "Height Map",
+     "options": [
+      "Alpha",
+      "Luminance"
+     ]
+    },
+    "mask": {
+     "label": "I-mask sa Layer"
+    },
+    "phase": {
+     "label": "Phase"
+    },
+    "thickness": {
+     "label": "Kapal"
+    }
+   }
+  },
+  "countupdown": {
+   "description": "Binabago ang bawat numero sa isang text layer: pinaparami at dinadagdagan ito, kaya kapag nag-keyframe ka ng Multiply mula 0% hanggang 100%, nagbibilang ito hanggang sa numerong tinype mo. Mananatili ang mga salita sa paligid ng mga numero.",
+   "name": "Pagbilang Pataas/Pababa",
+   "params": {
+    "add": {
+     "label": "Idagdag"
+    },
+    "decimals": {
+     "label": "Bilang ng Decimal",
+     "options": [
+      "Tulad ng Tinype",
+      "0",
+      "1",
+      "2",
+      "3"
+     ]
+    },
+    "multiply": {
+     "label": "Multiply"
+    },
+    "separator": {
+     "label": "Libu-libo",
+     "options": [
+      "1000.5",
+      "1,000.5",
+      "1.000,5",
+      "1 000.5"
+     ]
+    }
+   },
+   "presets": {
+    "count-up": "Bilang pataas"
+   }
+  },
+  "crop": {
+   "description": "Pinuputol ang mga gilid ng layer: sinasabi ng Kaliwa, Itaas, Kanan at Ibaba kung gaano kalaki ng sariling lapad o taas ng layer ang aalisin sa bawat panig, binibilog ng Pagkabilog ang mga sulok at pinalalambot ng Feather ang mga gilid. Nananatili ang layer kung nasaan ito.",
+   "name": "Crop",
+   "params": {
+    "bottom": {
+     "label": "Ibaba"
+    },
+    "feather": {
+     "label": "Feather"
+    },
+    "left": {
+     "label": "Kaliwa"
+    },
+    "radius": {
+     "label": "Pagkabilog"
+    },
+    "right": {
+     "label": "Kanan"
+    },
+    "top": {
+     "label": "Itaas"
+    }
+   }
+  },
+  "cross": {
+   "description": "Inilalagay ang layer sa tatlong bar na nagsasalubong sa gitna.",
+   "name": "Krus na Tatlong Axis",
+   "params": {
+    "light": {
+     "label": "Anggulo ng Ilaw"
+    },
+    "perspective": {
+     "label": "Perspektibo"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "reach": {
+     "label": "Haba"
+    },
+    "rotX": {
+     "label": "Rotation X"
+    },
+    "rotY": {
+     "label": "Rotation Y"
+    },
+    "rotZ": {
+     "label": "Rotation Z"
+    },
+    "scale": {
+     "label": "Iskala"
+    },
+    "shading": {
+     "label": "Shading"
+    },
+    "shine": {
+     "label": "Kislap"
+    },
+    "smoothing": {
+     "label": "Pagpapakinis"
+    },
+    "thickness": {
+     "label": "Kapal"
+    }
+   }
+  },
+  "cube": {
+   "description": "Binabalot ang layer sa bawat mukha ng umiikot na kubo na may bilugang gilid at ilaw.",
+   "name": "Kubo",
+   "params": {
+    "edge": {
+     "label": "Laki"
+    },
+    "light": {
+     "label": "Anggulo ng Ilaw"
+    },
+    "perspective": {
+     "label": "Perspektibo"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "rotX": {
+     "label": "Rotasyon X"
+    },
+    "rotY": {
+     "label": "Rotasyon Y"
+    },
+    "rotZ": {
+     "label": "Rotasyon Z"
+    },
+    "scale": {
+     "label": "Iskala"
+    },
+    "shading": {
+     "label": "Shading"
+    },
+    "shine": {
+     "label": "Kislap"
+    },
+    "smoothing": {
+     "label": "Pagpapakinis"
+    }
+   }
+  },
+  "curl": {
+   "description": "Pinagliligid ang isang dulo ng layer sa isang bilog habang flat ang kabilang dulo; i-animate ang Offset para iligid o iladlad ito. Pinakamainam sa malapad at manipis na layer.",
+   "name": "Curl",
+   "params": {
+    "curlFrom": {
+     "label": "Curl From",
+     "options": [
+      "Kaliwa",
+      "Kanan"
+     ]
+    },
+    "direction": {
+     "label": "Direksyon",
+     "options": [
+      "Pataas",
+      "Pababa"
+     ]
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "stretch": {
+     "label": "I-stretch"
+    }
+   }
+  },
+  "cylinder": {
+   "description": "Binabalot ang layer sa paligid ng silindro at sa mga bilog na dulo nito.",
+   "name": "Silindro",
+   "params": {
+    "height": {
+     "label": "Taas"
+    },
+    "light": {
+     "label": "Anggulo ng Ilaw"
+    },
+    "perspective": {
+     "label": "Perspektibo"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "rotX": {
+     "label": "Rotasyon X"
+    },
+    "rotY": {
+     "label": "Rotasyon Y"
+    },
+    "rotZ": {
+     "label": "Rotasyon Z"
+    },
+    "scale": {
+     "label": "Iskala"
+    },
+    "shading": {
+     "label": "Shading"
+    },
+    "shine": {
+     "label": "Kislap"
+    },
+    "smoothing": {
+     "label": "Pagpapakinis"
+    }
+   }
+  },
+  "darkglow": {
+   "description": "Iginagalang ang madidilim na bahagi ng layer sa mga maliwanag, parang kislap na gawa sa anino.",
+   "name": "Madilim na Kislap",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "blend": {
+     "label": "Paghahalo"
+    },
+    "blur": {
+     "label": "Pagkalat"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "threshold": {
+     "label": "Threshold"
+    }
+   }
+  },
+  "datamosh": {
+   "description": "Sa pagitan ng simula at pagtatapos, sa mga segundong mula sa simula ng layer, humihinto ang pag-refresh ng larawan at hinihila ito ng kasunod na galaw, na parang may kulang na keyframe. Ang mga video layer ay nababahiran ng totoong galaw nila, ang ibang layer naman ay ng gumagalaw na bloke.",
+   "name": "Datamosh",
+   "params": {
+    "block": {
+     "label": "Laki ng Block"
+    },
+    "bloom": {
+     "label": "Bloom"
+    },
+    "decay": {
+     "label": "Paghina"
+    },
+    "end": {
+     "label": "Pagtatapos"
+    },
+    "glitch": {
+     "label": "Glitch"
+    },
+    "intensity": {
+     "label": "Tindi"
+    },
+    "start": {
+     "label": "Simula"
+    }
+   }
+  },
+  "deepglow": {
+   "description": "Malakas at maliwanag na glow na kumakalat nang malayo: mainit na core malapit sa layer na unti-unting nagiging malawak at malambot na hamog.",
+   "name": "Malalim na Glow",
+   "params": {
+    "blur": {
+     "label": "Radius"
+    },
+    "falloff": {
+     "label": "Falloff"
+    },
+    "high": {
+     "label": "Mataas na threshold"
+    },
+    "hue": {
+     "label": "Pagbabago ng hue"
+    },
+    "intensity": {
+     "label": "Tindi"
+    },
+    "limit": {
+     "label": "Threshold"
+    },
+    "low": {
+     "label": "Mababang threshold"
+    },
+    "opacity": {
+     "label": "Opacity ng glow"
+    },
+    "original": {
+     "label": "Orihinal na opacity"
+    },
+    "outside": {
+     "label": "Glow sa labas"
+    },
+    "saturation": {
+     "label": "Saturation"
+    },
+    "softness": {
+     "label": "Lambot ng threshold"
+    },
+    "tint": {
+     "label": "Kulay ng tint"
+    },
+    "tintAmount": {
+     "label": "Tint"
+    },
+    "vibrance": {
+     "label": "Vibrance"
+    }
+   }
+  },
+  "denoise": {
+   "description": "Tinatanggal ang noise ng larawan gamit ang edge-preserving bilateral filter na nag-a-average ng malapit na pixel kapag magkatulad ang kanilang kulay.",
+   "name": "Bawas ingay",
+   "params": {
+    "detail": {
+     "label": "Detalye"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "directionalblur": {
+   "description": "Gumagawa ng motion blur gamit ang pag-average ng mga sample sa isang direksyon.",
+   "name": "Directional na pag-blur",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "blurLength": {
+     "label": "Haba"
+    }
+   }
+  },
+  "displacementmap": {
+   "description": "Ginagamit ang mga kulay ng layer para itulak ang mga layer sa likod nito, tapos nagtatago ito; o, kapag ang Map ay nakatakda sa Layer Below, itinutulak nito ang layer na ito gamit ang layer sa ilalim.",
+   "name": "Displacement Map",
+   "params": {
+    "edges": {
+     "label": "Mga Gilid",
+     "options": [
+      "Ulitin",
+      "Mirror",
+      "I-clear",
+      "Tile"
+     ]
+    },
+    "fromCenter": {
+     "label": "Mula sa Gitna"
+    },
+    "invert": {
+     "label": "I-invert"
+    },
+    "map": {
+     "label": "Map",
+     "options": [
+      "Ang layer na ito",
+      "Layer sa ibaba"
+     ]
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "xchannel": {
+     "label": "X",
+     "options": [
+      "R",
+      "G",
+      "B"
+     ]
+    },
+    "ychannel": {
+     "label": "Y",
+     "options": [
+      "R",
+      "G",
+      "B"
+     ]
+    }
+   }
+  },
+  "dissolve": {
+   "description": "Nag-aalis ng random na pixel o bloke mula sa layer. I-animate ang Strength para sa dissolve transition; pinipili ng Seed ang pattern at itinatakda ng Size ang laki ng bawat tuldok.",
+   "name": "Pagkatunaw",
+   "params": {
+    "grain": {
+     "label": "Laki"
+    },
+    "progress": {
+     "label": "Lakas"
+    },
+    "seed": {
+     "label": "Seed"
+    }
+   }
+  },
+  "dots": {
+   "description": "Gumuguhit ng random pero pantay na pattern ng malalambot na tuldok sa layer, o ginagamit ang layer bilang mask lang para sa mga tuldok.",
+   "name": "Mga Tuldok",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "blend": {
+     "label": "Blending mode",
+     "options": [
+      "Normal",
+      "Multiply",
+      "Screen"
+     ]
+    },
+    "color1": {
+     "label": "Kulay 1"
+    },
+    "color2": {
+     "label": "Kulay 2"
+    },
+    "density": {
+     "label": "Densidad"
+    },
+    "feather": {
+     "label": "Feather"
+    },
+    "fill": {
+     "label": "Fill"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "phase": {
+     "label": "Phase"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "scale": {
+     "label": "Iskala"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "slack": {
+     "label": "Slack"
+    }
+   }
+  },
+  "drawingprogress": {
+   "description": "Ginuguhit ang isang freehand drawing nang pa-stroke, o ang outline ng isang hugis, mula Start hanggang End. I-keyframe ang End mula 0% hanggang 100% para mapanood itong gumuhit. Pinakamainam sa mga hugis na naka-off ang Fill at may Stroke.",
+   "name": "Pag-usad ng Guhit",
+   "params": {
+    "end": {
+     "label": "Wakas"
+    },
+    "start": {
+     "label": "Simula"
+    }
+   }
+  },
+  "dropshadow": {
+   "description": "Gumuguhit ng malambot na anino ng hugis ng layer sa likod nito, na inililipat ng Offset X at Offset Y.",
+   "name": "Drop Shadow",
+   "params": {
+    "blur": {
+     "label": "Lambot"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "opacity": {
+     "label": "Opacity"
+    },
+    "x": {
+     "label": "Offset X"
+    },
+    "y": {
+     "label": "Offset Y"
+    }
+   }
+  },
+  "duotone": {
+   "description": "Naglalapat ng gradient map na may dalawang kulay batay sa liwanag, may kontrol sa kontrast at dami.",
+   "name": "Dalawang tono",
+   "params": {
+    "amount": {
+     "label": "Dami"
+    },
+    "color1": {
+     "label": "Kulay ng anino"
+    },
+    "color2": {
+     "label": "Kulay ng highlight"
+    },
+    "contrast": {
+     "label": "Kontrast"
+    }
+   }
+  },
+  "echo": {
+   "description": "Gumuguhit ng mga kopya ng layer gaya ng ilang sandali ang nakalipas, sumusunod sa animation nito.",
+   "name": "Echo na keyframe",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "composite": {
+     "label": "Composite",
+     "options": [
+      "Sa likod",
+      "Sa ibabaw"
+     ]
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "seconds": {
+     "label": "Segundo"
+    }
+   }
+  },
+  "edgedetect": {
+   "description": "Maliwanag na linya kung saan nagbabago ang larawan, madilim sa iba.",
+   "name": "Pag-detect ng gilid",
+   "params": {
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "edgeglow": {
+   "description": "Hinahanap ang mga gilid sa layer at pinagliliwanag ang mga ito na parang neon sa madilim na larawan.",
+   "name": "Glow sa gilid",
+   "params": {
+    "blend": {
+     "label": "Blend"
+    },
+    "blur": {
+     "label": "Blur"
+    },
+    "brightness": {
+     "label": "Liwanag"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "edges": {
+     "label": "Lakas ng gilid"
+    },
+    "gamma": {
+     "label": "Gamma"
+    },
+    "invert": {
+     "label": "I-invert"
+    },
+    "own": {
+     "label": "Kulay ng larawan"
+    },
+    "spread": {
+     "label": "Spread"
+    },
+    "threshold": {
+     "label": "Threshold"
+    },
+    "tint": {
+     "label": "Tint"
+    },
+    "tintColor": {
+     "label": "Kulay ng tint"
+    }
+   }
+  },
+  "electricedges": {
+   "description": "Gumuguhit ng kumikinang at pumipitik na outline sa paligid ng layer. Pinalalapad ito ng Kapal para maging kumikinang na banda, bawat value ng Seed ay nagbibigay ng ibang pattern kaya ang na-animate na Seed ay pumipitik sa bawat frame, at pinadadaloy ito ng Evolution. May opsyonal na contour lines sa loob.",
+   "name": "Kuryenteng Gilid",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "blur": {
+     "label": "Distansya"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "contourAngle": {
+     "label": "Anggulo ng contour"
+    },
+    "contours": {
+     "label": "I-render ang contours"
+    },
+    "count": {
+     "label": "Bilang ng contour"
+    },
+    "detail": {
+     "label": "Detalye"
+    },
+    "distortion": {
+     "label": "Distortion"
+    },
+    "evolution": {
+     "label": "Evolution"
+    },
+    "fill": {
+     "label": "Fill"
+    },
+    "glow": {
+     "label": "Glow"
+    },
+    "glowColor": {
+     "label": "Kulay ng glow"
+    },
+    "maskColor": {
+     "label": "Kulay ng mask"
+    },
+    "maskEvolution": {
+     "label": "Evolution ng mask"
+    },
+    "maskScale": {
+     "label": "Scale ng mask"
+    },
+    "maskSeed": {
+     "label": "Seed ng mask"
+    },
+    "maskStrength": {
+     "label": "Lakas ng mask"
+    },
+    "phase": {
+     "label": "Phase ng contour"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "strength": {
+     "label": "Lakas"
+    },
+    "thickness": {
+     "label": "Kapal"
+    }
+   }
+  },
+  "ellipsoid": {
+   "description": "Binabalot ang layer sa isang sphere na puwede mong pisilin at patagin.",
+   "name": "Ellipsoid",
+   "params": {
+    "flattenRatio": {
+     "label": "Patagin"
+    },
+    "light": {
+     "label": "Anggulo ng ilaw"
+    },
+    "perspective": {
+     "label": "Perspective"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "rotX": {
+     "label": "Rotation X"
+    },
+    "rotY": {
+     "label": "Rotation Y"
+    },
+    "rotZ": {
+     "label": "Rotation Z"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "shading": {
+     "label": "Shading"
+    },
+    "shine": {
+     "label": "Shine"
+    },
+    "squeezeRatio": {
+     "label": "Pisil"
+    }
+   }
+  },
+  "emboss": {
+   "description": "Naglalapat ng emboss gamit ang gradient ng liwanag sa tinukoy na anggulo.",
+   "name": "Emboss",
+   "params": {
+    "angle": {
+     "label": "Anggulo ng liwanag"
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "energybeam": {
+   "description": "Gumuguhit ng kumikinang na sinag na may maliwanag na ubod at malambot na halo sa pagitan ng dalawang punto, at maaaring umuuga at humaba.",
+   "name": "Sinag ng Enerhiya",
+   "params": {
+    "blend": {
+     "label": "Blend",
+     "options": [
+      "Add",
+      "Screen",
+      "Normal"
+     ]
+    },
+    "color": {
+     "label": "Kulay ng kinang"
+    },
+    "dim": {
+     "label": "I-dim ang background"
+    },
+    "evolution": {
+     "label": "Ebolusyon"
+    },
+    "frequency": {
+     "label": "Dalas"
+    },
+    "from": {
+     "label": "Simula"
+    },
+    "glow": {
+     "label": "Kinang"
+    },
+    "halo": {
+     "label": "Halo"
+    },
+    "haloColor": {
+     "label": "Kulay ng halo"
+    },
+    "haloWidth": {
+     "label": "Lapad ng halo"
+    },
+    "opacity": {
+     "label": "Opacity"
+    },
+    "progress": {
+     "label": "Pag-usad"
+    },
+    "span": {
+     "label": "Haba"
+    },
+    "to": {
+     "label": "Wakas"
+    },
+    "width": {
+     "label": "Lapad"
+    },
+    "wiggle": {
+     "label": "Uga"
+    }
+   }
+  },
+  "exposure": {
+   "description": "Ginagaya ang exposure ng litrato gamit ang stops, offset, at gamma correction. Pinapayagan ng Paliwanagin ang Malinaw na Bahagi na lumiwanag nang lampas sa puti ang mga bahagyang malinaw na pixel, gaya ng malabong gilid.",
+   "name": "Exposure",
+   "params": {
+    "gamma": {
+     "label": "Gamma"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "soft": {
+     "label": "Paliwanagin ang Malinaw na Bahagi"
+    },
+    "stops": {
+     "label": "Stops"
+    }
+   }
+  },
+  "fade": {
+   "description": "Nagfa-fade in sa layer sa simula at nagfa-fade out sa dulo, sa loob ng mga oras na itinakda mo.",
+   "name": "Fade in/out",
+   "params": {
+    "fadeIn": {
+     "label": "In"
+    },
+    "fadeOut": {
+     "label": "Out"
+    }
+   }
+  },
+  "feather": {
+   "description": "Pinapalambot ang alpha na gilid ng layer. Ang Inward ay nagfa-fade papasok sa kasalukuyang outline; ang Blur Alpha ay nagpapalawak din ng pinapalambot na gilid sa labas nito.",
+   "name": "Feather",
+   "params": {
+    "blur": {
+     "label": "Lakas"
+    },
+    "mode": {
+     "label": "Gilid",
+     "options": [
+      "Papasok",
+      "Blur alpha"
+     ]
+    }
+   }
+  },
+  "fillbehind": {
+   "description": "Pinupuno ang frame sa likod ng layer ng malabong, naka-zoom na kopya nito — ang karaniwang solusyon para sa portrait na bidyo sa landscape na proyekto.",
+   "name": "Puno sa Likod",
+   "params": {
+    "bgAlpha": {
+     "label": "Alpha ng background"
+    },
+    "bgOffset": {
+     "label": "Offset ng BG"
+    },
+    "bgScale": {
+     "label": "Scale ng BG"
+    },
+    "blur": {
+     "label": "Lakas"
+    },
+    "brightness": {
+     "label": "Liwanag"
+    },
+    "edgeColor": {
+     "label": "Kulay ng gilid"
+    },
+    "edgeStrength": {
+     "label": "Lakas ng gilid"
+    },
+    "feather": {
+     "label": "Feather"
+    },
+    "fgAlpha": {
+     "label": "Alpha ng foreground"
+    },
+    "fgOffset": {
+     "label": "Offset ng FG"
+    },
+    "fgScale": {
+     "label": "Scale ng FG"
+    },
+    "gamma": {
+     "label": "Gamma"
+    },
+    "saturation": {
+     "label": "Saturation"
+    },
+    "scanCount": {
+     "label": "Bilang ng scan line"
+    },
+    "scanStrength": {
+     "label": "Lakas ng scan line"
+    },
+    "tint": {
+     "label": "Tint"
+    },
+    "tintColor": {
+     "label": "Kulay ng tint"
+    }
+   }
+  },
+  "filmgrain": {
+   "description": "Gumagalaw na monochrome na butil ng pelikula, may kontrol sa dami, laki ng butil, at bilis ng animation.",
+   "name": "Butil ng pelikula",
+   "params": {
+    "amount": {
+     "label": "Dami"
+    },
+    "grainSize": {
+     "label": "Laki ng butil"
+    },
+    "speed": {
+     "label": "Bilis"
+    }
+   }
+  },
+  "flicker": {
+   "description": "Kumukurap ang opacity ng layer nang random.",
+   "name": "Kumikislap",
+   "params": {
+    "intensity": {
+     "label": "Lakas"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "speed": {
+     "label": "Dalas"
+    },
+    "style": {
+     "label": "Mode",
+     "options": [
+      "Kumurap",
+      "Tuloy-tuloy"
+     ]
+    }
+   }
+  },
+  "flip": {
+   "description": "Iniikot ang layer na parang card sa 3D, kung saan ang likod ay transparent, larawan, o kulay.",
+   "name": "I-flip ang layer",
+   "params": {
+    "axis": {
+     "label": "Aksis"
+    },
+    "back": {
+     "label": "Likod",
+     "options": [
+      "Transparent",
+      "Larawan",
+      "Kulay"
+     ]
+    },
+    "backColor": {
+     "label": "Kulay ng likod"
+    },
+    "light": {
+     "label": "Anggulo ng ilaw"
+    },
+    "perspective": {
+     "label": "Perspective"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "rotX": {
+     "label": "Rotation X"
+    },
+    "rotY": {
+     "label": "Rotation Y"
+    },
+    "rotZ": {
+     "label": "Rotation Z"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "shading": {
+     "label": "Shading"
+    },
+    "shine": {
+     "label": "Shine"
+    }
+   }
+  },
+  "fontweight": {
+   "description": "Itinatakda kung gaano kakapal ang mga letra, mula manipis hanggang makapal, at puwedeng i-animate gamit ang mga keyframe. Gumagana sa mga variable font, na nasa iisang file ang lahat ng bigat: Raleway, Quicksand, Comfortaa, Lora, Bitter, Orbitron, Playfair Display at Dancing Script sa listahan ng font, o isang variable font na ii-import mo. Pinapanatili ng mga font na may nakapirming bigat ang sarili nilang hitsura.",
+   "name": "Bigat ng Font",
+   "params": {
+    "weight": {
+     "label": "Bigat"
+    }
+   }
+  },
+  "fourcolor": {
+   "description": "Hinahalo ang apat na kulay na inilagay sa apat na punto (sa pixel mula sa gitna ng layer) sa ibabaw ng layer.",
+   "name": "Gradient na apat na kulay",
+   "params": {
+    "blend": {
+     "label": "Blend",
+     "options": [
+      "Normal",
+      "Multiply",
+      "Screen",
+      "Overlay",
+      "Soft light",
+      "Hard light",
+      "Idagdag",
+      "Padilimin",
+      "Paliwanagin",
+      "Pagkakaiba",
+      "Color dodge",
+      "Color Burn"
+     ]
+    },
+    "color1": {
+     "label": "Kulay 1"
+    },
+    "color2": {
+     "label": "Kulay 2"
+    },
+    "color3": {
+     "label": "Kulay 3"
+    },
+    "color4": {
+     "label": "Kulay 4"
+    },
+    "corner": {
+     "label": "Mga offset ng sulok"
+    },
+    "opacity": {
+     "label": "Opacity"
+    },
+    "point1": {
+     "label": "Punto 1"
+    },
+    "point2": {
+     "label": "Punto 2"
+    },
+    "point3": {
+     "label": "Punto 3"
+    },
+    "point4": {
+     "label": "Punto 4"
+    },
+    "softness": {
+     "label": "Lambot"
+    }
+   }
+  },
+  "fractalridges": {
+   "description": "Pinupuno ang mga opaque na bahagi ng layer ng matatalim at magulong ridges ng fractal noise.",
+   "name": "Fractal ridges",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "color1": {
+     "label": "Kulay 1"
+    },
+    "color2": {
+     "label": "Kulay 2"
+    },
+    "evolution": {
+     "label": "Evolution"
+    },
+    "intensity": {
+     "label": "Intensity"
+    },
+    "octaves": {
+     "label": "Octaves"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "stretch": {
+     "label": "Stretch"
+    }
+   }
+  },
+  "fractalwarp": {
+   "description": "Binabaluktot ang layer gamit ang nakatuping fractal noise para sa apoy, tubig at alon ng init.",
+   "name": "Fractal Warp",
+   "params": {
+    "complexity": {
+     "label": "Complexity"
+    },
+    "evolution": {
+     "label": "Evolution"
+    },
+    "intensity": {
+     "label": "Tindi"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "parallax": {
+     "label": "Parallax"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "screenSpace": {
+     "label": "Screen space"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "fracture3d": {
+   "description": "Binabasag ang layer sa gumagalaw na mga 3D na piraso.",
+   "name": "3D na pagkabasag",
+   "params": {
+    "depthPush": {
+     "label": "Tulak sa lalim"
+    },
+    "direction": {
+     "label": "Direksyon"
+    },
+    "fade": {
+     "label": "Fade out"
+    },
+    "force": {
+     "label": "Lakas"
+    },
+    "gravity": {
+     "label": "Grabidad"
+    },
+    "impact": {
+     "label": "Punto ng tama"
+    },
+    "intensity": {
+     "label": "Lakas ng ilaw"
+    },
+    "light": {
+     "label": "Direksyon ng ilaw"
+    },
+    "pieces": {
+     "label": "Mga piraso"
+    },
+    "progress": {
+     "label": "Progreso"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "spin": {
+     "label": "Ikot"
+    },
+    "spread": {
+     "label": "Kalat ng direksyon"
+    },
+    "thickness": {
+     "label": "Kapal"
+    }
+   }
+  },
+  "fringeclean": {
+   "description": "Inaalis ang kulay mula sa mga pixel sa gilid ng matte ng layer, kaya ang mga may kulay na halo na naiwan ng key ay kumukupas sa grey, habang hanggang tatlong protektadong kulay ang nananatili.",
+   "name": "Fringe ng Matte",
+   "params": {
+    "blur": {
+     "label": "Kapal"
+    },
+    "color1": {
+     "label": "Panatilihin ang kulay 1"
+    },
+    "color2": {
+     "label": "Panatilihin ang kulay 2"
+    },
+    "color3": {
+     "label": "Panatilihin ang kulay 3"
+    },
+    "feather": {
+     "label": "Feather"
+    },
+    "threshold1": {
+     "label": "Saklaw 1"
+    },
+    "threshold2": {
+     "label": "Saklaw 2"
+    },
+    "threshold3": {
+     "label": "Saklaw 3"
+    }
+   }
+  },
+  "glass": {
+   "description": "Ginagawang beveled glass ang hugis ng layer na nagbabaluktot sa mga layer sa likod nito, na may highlight sa gilid.",
+   "name": "Salamin",
+   "params": {
+    "angle": {
+     "label": "Anggulo ng ilaw"
+    },
+    "blur": {
+     "label": "Bevel"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "highlight": {
+     "label": "Highlight"
+    },
+    "refraction": {
+     "label": "Refraction"
+    },
+    "tint": {
+     "label": "Tint"
+    }
+   }
+  },
+  "glitch": {
+   "description": "Random na horizontal na block displacement at color channel offset, nagbabago nang ilang beses kada segundo.",
+   "name": "Glitch",
+   "params": {
+    "blockHeight": {
+     "label": "Taas ng block"
+    },
+    "intensity": {
+     "label": "Lakas"
+    },
+    "seed": {
+     "label": "Seed"
+    }
+   }
+  },
+  "glow": {
+   "description": "Isang halo sa isang kulay sa labas ng hugis ng layer. Ginagawang solid outline ng Hardness ang malambot na fade.",
+   "name": "Glow",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "blendMode": {
+     "label": "Blending mode",
+     "options": [
+      "Normal",
+      "Multiply",
+      "Screen"
+     ]
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "hardness": {
+     "label": "Tigas"
+    },
+    "radius": {
+     "label": "Radius"
+    }
+   }
+  },
+  "glowscan": {
+   "description": "Binubur at pinapaliwanag lang ang mga bahagi ng layer na ang liwanag ay nasa isang banda; i-animate ang Posisyon para i-sweep ang glow mula anino hanggang highlight.",
+   "name": "Glow Scan",
+   "params": {
+    "blur": {
+     "label": "Blur"
+    },
+    "color": {
+     "label": "Kulay ng glow"
+    },
+    "intensity": {
+     "label": "Intensity"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "show": {
+     "label": "Band lang ang ipakita"
+    },
+    "softness": {
+     "label": "Lambot"
+    },
+    "width": {
+     "label": "Lapad"
+    }
+   }
+  },
+  "gradientmap": {
+   "description": "Kinukulayan muli ang larawan ayon sa liwanag gamit ang tatlong kulay, may repeats at phase. Pinaparami ng Scale Brightness ang resulta sa sariling liwanag ng larawan.",
+   "name": "Gradient Map",
+   "params": {
+    "color1": {
+     "label": "Anino"
+    },
+    "color2": {
+     "label": "Gitnang tono"
+    },
+    "color3": {
+     "label": "Highlights"
+    },
+    "opacity": {
+     "label": "Opacity"
+    },
+    "phase": {
+     "label": "Phase"
+    },
+    "repeat": {
+     "label": "Ulitin"
+    },
+    "reverse": {
+     "label": "Baliktarin"
+    },
+    "saturation": {
+     "label": "Saturation"
+    },
+    "scaleBrightness": {
+     "label": "I-scale ang liwanag"
+    }
+   }
+  },
+  "gradientoverlay": {
+   "description": "Naglalagay ng two-color gradient sa ibabaw ng layer na may mapipiling hugis at blending mode.",
+   "name": "Gradient Overlay",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "blend": {
+     "label": "Blend",
+     "options": [
+      "Normal",
+      "Multiply",
+      "Screen",
+      "Overlay",
+      "Soft Light",
+      "Hard Light",
+      "Add",
+      "Darken",
+      "Lighten",
+      "Difference",
+      "Color Dodge",
+      "Color Burn"
+     ]
+    },
+    "color1": {
+     "label": "Kulay 1"
+    },
+    "color2": {
+     "label": "Kulay 2"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "opacity": {
+     "label": "Opacity"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "shape": {
+     "label": "Hugis",
+     "options": [
+      "Linear",
+      "Radial",
+      "Reflected",
+      "Angle"
+     ]
+    },
+    "style": {
+     "label": "Haba",
+     "options": [
+      "Kahon",
+      "Oval"
+     ]
+    }
+   }
+  },
+  "grid": {
+   "description": "Naglalagay ng mga linya ng grid sa mga opaque na bahagi ng layer, o pinuputol ang mga ito mula rito.",
+   "name": "Grid",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "punch": {
+     "label": "Punch Out"
+    },
+    "stretch": {
+     "label": "Stretch"
+    },
+    "width": {
+     "label": "Lapad"
+    }
+   }
+  },
+  "gridrepeat": {
+   "description": "Gumagawa ng maraming kopya ng layer nang dynamic, na nakaayos sa grid.",
+   "name": "Grid Repeat",
+   "params": {
+    "copyDelay": {
+     "label": "Antala kada kopya"
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "easing": {
+     "label": "Easing",
+     "options": [
+      "Linear",
+      "Ease In",
+      "Ease Out",
+      "Ease In Out"
+     ]
+    },
+    "fillAmount": {
+     "label": "Dami ng Fill"
+    },
+    "fillColor": {
+     "label": "Kulay ng Fill"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "randomOpacity": {
+     "label": "Random na opacity"
+    },
+    "randomOrder": {
+     "label": "Random na Order"
+    },
+    "randomPosition": {
+     "label": "Random na posisyon"
+    },
+    "randomRotation": {
+     "label": "Random na rotation"
+    },
+    "randomScale": {
+     "label": "Random na scale"
+    },
+    "rangeEnd": {
+     "label": "Wakas ng Range"
+    },
+    "rangeOffset": {
+     "label": "Offset ng Range"
+    },
+    "rangeOpacity": {
+     "label": "Opacity ng Range"
+    },
+    "rangePosition": {
+     "label": "Posisyon ng Range"
+    },
+    "rangeRotation": {
+     "label": "Rotation ng Range"
+    },
+    "rangeScale": {
+     "label": "Scale ng Range"
+    },
+    "rangeStart": {
+     "label": "Simula ng Range"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "stagger": {
+     "label": "Stagger"
+    }
+   }
+  },
+  "grunge": {
+   "description": "Nagbibigay ng pagkasira sa layer gamit ang grain, mga mantsa ng dumi, sunog na gilid at maalikabok na tint ng kulay.",
+   "name": "Grunge",
+   "params": {
+    "blotches": {
+     "label": "Dumi"
+    },
+    "burn": {
+     "label": "Sunog na gilid"
+    },
+    "color": {
+     "label": "Kulay ng tint"
+    },
+    "grain": {
+     "label": "Grain"
+    },
+    "scale": {
+     "label": "Laki ng dumi"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "strength": {
+     "label": "Lakas"
+    },
+    "tint": {
+     "label": "Tint"
+    }
+   }
+  },
+  "halftone": {
+   "description": "Mga naka-print na tuldok na lumalaki kung saan madilim ang larawan.",
+   "name": "Halftone",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "cell": {
+     "label": "Laki"
+    },
+    "colored": {
+     "label": "May Kulay na Tuldok"
+    },
+    "ink": {
+     "label": "Kulay ng tuldok"
+    },
+    "paper": {
+     "label": "Kulay ng papel"
+    },
+    "style": {
+     "label": "Estilo",
+     "options": [
+      "Klasik",
+      "Dalawang Kulay"
+     ]
+    }
+   }
+  },
+  "halftonelines": {
+   "description": "Muling iginuguhit ang layer bilang mga naka-print na linya na lumalapad sa madilim na bahagi at pumapayat sa maliwanag.",
+   "name": "Halftone Lines",
+   "params": {
+    "amount": {
+     "label": "Dami"
+    },
+    "angle": {
+     "label": "Anggulo"
+    },
+    "color1": {
+     "label": "Kulay 1"
+    },
+    "color2": {
+     "label": "Kulay 2"
+    },
+    "phase": {
+     "label": "Phase"
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "heart": {
+   "description": "Pinuputol ang layer sa hugis matambok na puso.",
+   "name": "Puso",
+   "params": {
+    "depth": {
+     "label": "Lalim"
+    },
+    "heartSize": {
+     "label": "Laki"
+    },
+    "light": {
+     "label": "Anggulo ng ilaw"
+    },
+    "perspective": {
+     "label": "Perspektibo"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "rotX": {
+     "label": "Rotation X"
+    },
+    "rotY": {
+     "label": "Rotation Y"
+    },
+    "rotZ": {
+     "label": "Rotation Z"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "shading": {
+     "label": "Shading"
+    },
+    "shine": {
+     "label": "Kinang"
+    },
+    "smoothing": {
+     "label": "Pagpapakinis"
+    }
+   }
+  },
+  "hexagontilerotate": {
+   "description": "Hinahati ang layer sa mga hexagon tile at pinaiikot nang sarili ang larawan sa loob ng bawat tile.",
+   "name": "Pag-ikot ng hexagon tile",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "random": {
+     "label": "I-randomize"
+    },
+    "rotation": {
+     "label": "Pag-ikot"
+    },
+    "seed": {
+     "label": "Seed"
+    }
+   }
+  },
+  "hexagontileshift": {
+   "description": "Hinahati ang layer sa mga hexagon tile at pinadudulas ang larawan sa loob ng bawat tile sa random na direksyon.",
+   "name": "Paglipat ng hexagon tile",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "hexagontiling": {
+   "description": "Inuulit ang gitna ng layer sa mga hexagon tile na pumupuno sa screen.",
+   "name": "Pag-tile ng hexagon",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "mirror": {
+     "label": "Salamin"
+    },
+    "scale": {
+     "label": "Scale"
+    }
+   }
+  },
+  "hexgrid": {
+   "description": "Tinatakpan ang layer ng sala-sala ng mga hexagon na puno ng isa hanggang tatlong kulay, na may malambot na gilid at puwang sa pagitan ng mga ito.",
+   "name": "Hanay ng Hexagon",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "blend": {
+     "label": "Blend",
+     "options": [
+      "Normal",
+      "Multiply",
+      "Screen",
+      "Overlay",
+      "Soft Light",
+      "Hard Light",
+      "Add",
+      "Darken",
+      "Lighten",
+      "Difference",
+      "Color Dodge",
+      "Color Burn"
+     ]
+    },
+    "cell": {
+     "label": "Laki"
+    },
+    "color1": {
+     "label": "Kulay 1"
+    },
+    "color2": {
+     "label": "Kulay 2"
+    },
+    "color3": {
+     "label": "Kulay 3"
+    },
+    "colors": {
+     "label": "Mga Kulay",
+     "options": [
+      "Isa",
+      "Dalawa",
+      "Tatlo"
+     ]
+    },
+    "feather": {
+     "label": "Feather"
+    },
+    "gap": {
+     "label": "Puwang"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "opacity": {
+     "label": "Opacity"
+    },
+    "stretch": {
+     "label": "Inat"
+    }
+   }
+  },
+  "hexprism": {
+   "description": "Inilalagay ang layer sa harap at likod ng prisma na may anim na gilid.",
+   "name": "Hexagonal na prisma",
+   "params": {
+    "depth": {
+     "label": "Lalim"
+    },
+    "light": {
+     "label": "Anggulo ng ilaw"
+    },
+    "perspective": {
+     "label": "Perspektibo"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "rotX": {
+     "label": "Pag-ikot X"
+    },
+    "rotY": {
+     "label": "Pag-ikot Y"
+    },
+    "rotZ": {
+     "label": "Pag-ikot Z"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "shading": {
+     "label": "Shading"
+    },
+    "shine": {
+     "label": "Kinang"
+    },
+    "smoothing": {
+     "label": "Pagpapakinis"
+    }
+   }
+  },
+  "highlightshadow": {
+   "description": "Binabawi o pinapalakas ang maliwanag na highlight at itinataas o pinapalalim ang madilim na anino, batay sa liwanag ng bawat pixel.",
+   "name": "Highlights at Shadows",
+   "params": {
+    "highlights": {
+     "label": "Highlights"
+    },
+    "shadows": {
+     "label": "Anino"
+    },
+    "style": {
+     "label": "Estilo",
+     "options": [
+      "Klasiko",
+      "Panatilihin ang kulay"
+     ]
+    }
+   }
+  },
+  "hollowbox": {
+   "description": "Isang box na bukas ang taas at ilalim: tinatakpan ng layer ang labas at kinukuha ng loob ang interior color.",
+   "name": "Hollow na kahon",
+   "params": {
+    "depth": {
+     "label": "Lalim"
+    },
+    "height": {
+     "label": "Taas"
+    },
+    "interior": {
+     "label": "Kulay ng loob"
+    },
+    "light": {
+     "label": "Anggulo ng ilaw"
+    },
+    "perspective": {
+     "label": "Perspektibo"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "rotX": {
+     "label": "Pag-ikot X"
+    },
+    "rotY": {
+     "label": "Pag-ikot Y"
+    },
+    "rotZ": {
+     "label": "Pag-ikot Z"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "shading": {
+     "label": "Shading"
+    },
+    "shine": {
+     "label": "Kinang"
+    },
+    "smoothing": {
+     "label": "Pagpapakinis"
+    },
+    "thickness": {
+     "label": "Kapal"
+    },
+    "width": {
+     "label": "Lapad"
+    }
+   }
+  },
+  "hsl": {
+   "description": "Isa-isang binabago ang hue, saturation at lightness ng bawat hanay ng kulay (pula, kahel, berde at iba pa) nang hindi ginagalaw ang ibang kulay.",
+   "name": "HSL",
+   "params": {
+    "blend": {
+     "label": "Blend",
+     "options": [
+      "Normal",
+      "Multiply",
+      "Screen"
+     ]
+    },
+    "blueHue": {
+     "label": "Hue"
+    },
+    "blueLightness": {
+     "label": "Lightness"
+    },
+    "blueSaturation": {
+     "label": "Saturation"
+    },
+    "brightness": {
+     "label": "Liwanag"
+    },
+    "cyanHue": {
+     "label": "Hue"
+    },
+    "cyanLightness": {
+     "label": "Lightness"
+    },
+    "cyanSaturation": {
+     "label": "Saturation"
+    },
+    "greenHue": {
+     "label": "Hue"
+    },
+    "greenLightness": {
+     "label": "Lightness"
+    },
+    "greenSaturation": {
+     "label": "Saturation"
+    },
+    "magentaHue": {
+     "label": "Hue"
+    },
+    "magentaLightness": {
+     "label": "Lightness"
+    },
+    "magentaSaturation": {
+     "label": "Saturation"
+    },
+    "opacity": {
+     "label": "Opacity"
+    },
+    "orangeHue": {
+     "label": "Hue"
+    },
+    "orangeLightness": {
+     "label": "Lightness"
+    },
+    "orangeSaturation": {
+     "label": "Saturation"
+    },
+    "purpleHue": {
+     "label": "Hue"
+    },
+    "purpleLightness": {
+     "label": "Lightness"
+    },
+    "purpleSaturation": {
+     "label": "Saturation"
+    },
+    "range": {
+     "label": "Kulay",
+     "options": [
+      "Pula",
+      "Kahel",
+      "Dilaw",
+      "Berde",
+      "Cyan",
+      "Asul",
+      "Lila",
+      "Magenta"
+     ]
+    },
+    "redHue": {
+     "label": "Hue"
+    },
+    "redLightness": {
+     "label": "Lightness"
+    },
+    "redSaturation": {
+     "label": "Saturation"
+    },
+    "yellowHue": {
+     "label": "Hue"
+    },
+    "yellowLightness": {
+     "label": "Lightness"
+    },
+    "yellowSaturation": {
+     "label": "Saturation"
+    }
+   }
+  },
+  "huesaturation": {
+   "description": "Iniikot ang mga kulay sa color wheel at ginagawang mas malakas o mahina; pinapalakas ng vibrance ang pinakamaputlang kulay.",
+   "name": "Hue at Saturation",
+   "params": {
+    "hue": {
+     "label": "Hue"
+    },
+    "lightness": {
+     "label": "Liwanag"
+    },
+    "saturation": {
+     "label": "Saturation"
+    },
+    "style": {
+     "label": "Estilo",
+     "options": [
+      "Klasiko",
+      "Panatilihin ang liwanag"
+     ]
+    },
+    "vibrance": {
+     "label": "Vibrance"
+    }
+   }
+  },
+  "innerblur": {
+   "description": "Binablabo ang larawan sa loob ng layer habang nananatiling matalas ang outline nito.",
+   "name": "Blur sa loob",
+   "params": {
+    "blur": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "innerbulge": {
+   "description": "Itinutulak palabas ang gitna ng layer o hinihigop paloob, habang nananatili ang mga gilid nito.",
+   "name": "Pinch/Bulge sa loob",
+   "params": {
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "innerglow": {
+   "description": "Nagdadagdag ng glow sa loob ng mga gilid ng opaque na bahagi ng layer.",
+   "name": "Inner Glow",
+   "params": {
+    "blur": {
+     "label": "Laki"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "intensity": {
+     "label": "Tindi"
+    }
+   }
+  },
+  "invert": {
+   "description": "Binabaligtad ang mga channel ng kulay ng larawan gamit ang dami ng paghahalo at opsyonal na pagbaligtad ng alpha.",
+   "name": "Baliktarin",
+   "params": {
+    "amount": {
+     "label": "Dami"
+    },
+    "invert_alpha": {
+     "label": "Baliktarin ang alpha"
+    }
+   }
+  },
+  "iridescence": {
+   "description": "Binabalot ang mga opaque na bahagi ng layer ng umaagos na rainbow sheen, tulad ng langis sa tubig o bula ng sabon.",
+   "name": "Iridescence",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "blend": {
+     "label": "Blending mode",
+     "options": [
+      "Normal",
+      "Multiply",
+      "Screen",
+      "Overlay",
+      "Soft Light",
+      "Hard Light",
+      "Add",
+      "Darken",
+      "Lighten",
+      "Difference",
+      "Color Dodge",
+      "Color Burn"
+     ]
+    },
+    "evolution": {
+     "label": "Evolution"
+    },
+    "saturation": {
+     "label": "Saturasyon"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "shift": {
+     "label": "Hue Shift"
+    }
+   }
+  },
+  "kaleidoscope": {
+   "description": "Mga nakasalamin na hiwa sa paligid ng isang punto.",
+   "name": "Kaleidoscope",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "center": {
+     "label": "Gitna"
+    },
+    "mirror": {
+     "label": "Mirror"
+    },
+    "segments": {
+     "label": "Mga segment"
+    }
+   }
+  },
+  "lensblur": {
+   "description": "Isang umiikot na blur na nag-iiwan ng matalim na bahagi sa gitna at lumalaki papunta sa mga gilid.",
+   "name": "Lens Blur",
+   "params": {
+    "center": {
+     "label": "Gitna"
+    },
+    "feather": {
+     "label": "Feather"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "sweep": {
+     "label": "Anggulo"
+    }
+   }
+  },
+  "lensflare": {
+   "description": "Isang maliwanag na ilaw na may halo, inilalagay sa ibabaw ng larawan.",
+   "name": "Flare ng ilaw",
+   "params": {
+    "brightness": {
+     "label": "Kaliwanagan"
+    },
+    "center": {
+     "label": "Gitna"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "radius": {
+     "label": "Radius"
+    }
+   }
+  },
+  "levels": {
+   "description": "Inaayos ang mga antas ng larawan gamit ang input na itim/puti, gamma, at output na itim/puti.",
+   "name": "Mga antas",
+   "params": {
+    "gamma": {
+     "label": "Gamma"
+    },
+    "inBlack": {
+     "label": "Itim na input"
+    },
+    "inWhite": {
+     "label": "Puting input"
+    },
+    "outBlack": {
+     "label": "Itim na output"
+    },
+    "outWhite": {
+     "label": "Puting output"
+    }
+   }
+  },
+  "lightglow": {
+   "description": "Nagdadagdag ng kulay na glow sa mga bahagi ng larawan na mas maliwanag kaysa sa threshold.",
+   "name": "Glow ng ilaw",
+   "params": {
+    "blend": {
+     "label": "Blend"
+    },
+    "blur": {
+     "label": "Laki"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "intensity": {
+     "label": "Tindi"
+    },
+    "opacity": {
+     "label": "Opacity"
+    },
+    "threshold": {
+     "label": "Hangganan"
+    }
+   }
+  },
+  "lightning": {
+   "description": "Gumuguhit ng sanga-sangang kidlat sa pagitan ng dalawang punto sa layer.",
+   "name": "Lightning",
+   "params": {
+    "color": {
+     "label": "Kulay"
+    },
+    "evolution": {
+     "label": "Evolution"
+    },
+    "from": {
+     "label": "Simula"
+    },
+    "glow": {
+     "label": "Glow"
+    },
+    "jag": {
+     "label": "Detalye"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "to": {
+     "label": "Dulo"
+    },
+    "width": {
+     "label": "Lapad"
+    }
+   }
+  },
+  "linearrepeat": {
+   "description": "Awtomatikong gumagawa ng maraming kopya ng layer, na nakaayos sa isang linya.",
+   "name": "Linear Repeat",
+   "params": {
+    "copyDelay": {
+     "label": "Antala kada kopya"
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "easing": {
+     "label": "Easing",
+     "options": [
+      "Linear",
+      "Ease In",
+      "Ease Out",
+      "Ease In Out"
+     ]
+    },
+    "fillAmount": {
+     "label": "Dami ng fill"
+    },
+    "fillColor": {
+     "label": "Kulay ng fill"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "randomOpacity": {
+     "label": "Random na opacity"
+    },
+    "randomOrder": {
+     "label": "Random na order"
+    },
+    "randomPosition": {
+     "label": "Random na posisyon"
+    },
+    "randomRotation": {
+     "label": "Random na rotation"
+    },
+    "randomScale": {
+     "label": "Random na scale"
+    },
+    "rangeEnd": {
+     "label": "Dulo ng range"
+    },
+    "rangeOffset": {
+     "label": "Offset ng range"
+    },
+    "rangeOpacity": {
+     "label": "Opacity ng range"
+    },
+    "rangePosition": {
+     "label": "Posisyon ng range"
+    },
+    "rangeRotation": {
+     "label": "Rotasyon ng range"
+    },
+    "rangeScale": {
+     "label": "Scale ng range"
+    },
+    "rangeStart": {
+     "label": "Simula ng range"
+    },
+    "seed": {
+     "label": "Seed"
+    }
+   }
+  },
+  "linearstreaks": {
+   "description": "Gumagawa ng tuwid na mga guhit sa pamamagitan ng pag-slide ng mga kopya ng layer sa isang anggulo at pag-blend sa kanilang overlap.",
+   "name": "Linear Streaks",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "angle": {
+     "label": "Anggulo"
+    },
+    "bias": {
+     "label": "Bias"
+    },
+    "mode": {
+     "label": "Blending",
+     "options": [
+      "Lighten",
+      "Average",
+      "Darken"
+     ]
+    },
+    "reach": {
+     "label": "Haba"
+    }
+   }
+  },
+  "liquidglass": {
+   "description": "Ginagawang malinaw at bilog na salamin ang hugis ng layer, parang button ng phone: pinakamalakas ang baluktot ng mga layer sa likod malapit sa gilid, may maliwanag na gilid sa panig na tinatamaan ng ilaw at mas malambot na gilid sa kabila. Nilalabo ng Frost ang nasa likod, at pinaghihiwalay ng Gilid na Rainbow ang mga kulay sa gilid.",
+   "name": "Liquid Glass",
+   "params": {
+    "angle": {
+     "label": "Anggulo ng ilaw"
+    },
+    "blur": {
+     "label": "Gilid"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "dispersion": {
+     "label": "Gilid na Rainbow"
+    },
+    "frost": {
+     "label": "Frost"
+    },
+    "highlight": {
+     "label": "Highlight"
+    },
+    "refraction": {
+     "label": "Baluktot"
+    },
+    "tint": {
+     "label": "Tint"
+    }
+   }
+  },
+  "longshadow": {
+   "description": "Naglalagay ng mahaba at parallel na anino mula sa mga opaque na bahagi ng layer.",
+   "name": "Mahabang Anino",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "angle": {
+     "label": "Anggulo"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "fade": {
+     "label": "Fade"
+    },
+    "reach": {
+     "label": "Haba"
+    },
+    "solidity": {
+     "label": "Solidity"
+    }
+   }
+  },
+  "lumakey": {
+   "description": "Tinatanggal ang madidilim na bahagi ng layer (o ang maliliwanag).",
+   "name": "Luma key",
+   "params": {
+    "invert": {
+     "label": "Baliktarin"
+    },
+    "softness": {
+     "label": "Lambot"
+    },
+    "threshold": {
+     "label": "Hangganan"
+    }
+   }
+  },
+  "lumastamp": {
+   "description": "Ginagawang patag na kulay ang layer; sinusundan ng opacity ang ningning ng bawat pixel, tulad ng stamp o stencil.",
+   "name": "Luma Stamper",
+   "params": {
+    "color": {
+     "label": "Kulay"
+    },
+    "gamma": {
+     "label": "Gamma"
+    },
+    "high": {
+     "label": "White point"
+    },
+    "invert": {
+     "label": "I-invert"
+    },
+    "low": {
+     "label": "Black point"
+    }
+   }
+  },
+  "magnifybackground": {
+   "description": "Ginagawang magnifying glass ang layer: ipinapakita ng hugis nito ang mga layer sa likod nito, pinalaki sa paligid ng gitna.",
+   "name": "Palakihin ang background",
+   "params": {
+    "magnify": {
+     "label": "Palakihin ang layer"
+    },
+    "sampling": {
+     "label": "Sampling",
+     "options": [
+      "Nearest",
+      "Linear"
+     ]
+    },
+    "scale": {
+     "label": "Scale"
+    }
+   }
+  },
+  "maskblur": {
+   "description": "Binablabo ang mga layer sa likod nito sa loob ng hugis nito; mas malabo ang mas maliwanag na bahagi ng layer, kaya nagiging tilt-shift ang gradient.",
+   "name": "Mask blur",
+   "params": {
+    "invert": {
+     "label": "I-invert"
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "mattechoker": {
+   "description": "Pinapaliit ang mga opaque na bahagi ng layer sa pamamagitan ng pag-ubos sa mga gilid nito.",
+   "name": "Matte Choker",
+   "params": {
+    "amount": {
+     "label": "Choke"
+    },
+    "blur": {
+     "label": "Laki"
+    },
+    "invert": {
+     "label": "I-invert"
+    },
+    "softness": {
+     "label": "Lambot"
+    }
+   }
+  },
+  "mirror": {
+   "description": "Sinasalamin ang kalahati ng larawan sa linya ng salamin na tinutukoy ng anggulo at gitna.",
+   "name": "Salamin",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "angle": {
+     "label": "Anggulo"
+    },
+    "center": {
+     "label": "Gitna"
+    },
+    "style": {
+     "label": "Estilo",
+     "options": [
+      "Tupi",
+      "Baliktad"
+     ]
+    }
+   }
+  },
+  "mosaic": {
+   "description": "Hinahati ang layer sa mga parisukat at pinupuno ang bawat isa ng average na kulay nito.",
+   "name": "Mosaic",
+   "params": {
+    "count": {
+     "label": "Bilang"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "stretch": {
+     "label": "Stretch"
+    }
+   }
+  },
+  "motionblur": {
+   "description": "Nagdadagdag ng blur sa layer habang gumagalaw, lumiliko at lumalaki ito, mula sa mga keyframe nito at sa mga epekto sa paggalaw gaya ng Auto-Shake at Oscillate. Inaayos ng I-tune ang sukat ng blur. Mas mabilis ang blur sa preview maliban kung naka-on ang Full Blur.",
+   "name": "Motion blur",
+   "params": {
+    "position": {
+     "label": "Posisyon"
+    },
+    "rotation": {
+     "label": "Anggulo"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "tune": {
+     "label": "I-tune"
+    }
+   }
+  },
+  "movealongpath": {
+   "description": "Inilalagay ang layer sa bahagi ng outline ng layer sa ilalim nito.",
+   "name": "Gumalaw sa Landas",
+   "params": {
+    "inset": {
+     "label": "Inset/Outset"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "orientation": {
+     "label": "Oryentasyon"
+    },
+    "progress": {
+     "label": "Progress"
+    },
+    "rotate": {
+     "label": "Auto-rotate"
+    }
+   }
+  },
+  "noise": {
+   "description": "Tinatakpan ang layer ng pinong grain, isang grain bawat pixel, na nagbabago bawat frame. Ginagawang kulay-abo ng Monochrome ang grain, ginagawang ganap na maliwanag o madilim ng Extremes ang bawat grain, at pinapanatiling hindi gumagalaw ng Freeze ang pattern.",
+   "name": "Noise",
+   "params": {
+    "amount": {
+     "label": "Lakas"
+    },
+    "extremes": {
+     "label": "Extremes"
+    },
+    "freeze": {
+     "label": "Freeze"
+    },
+    "mono": {
+     "label": "Monochrome"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "overshoot": {
+     "label": "Overshoot"
+    }
+   }
+  },
+  "noisedisplace": {
+   "description": "Inilalayo ang mga pixel gamit ang makinis na value noise na gumagalaw sa paglipas ng oras.",
+   "name": "Noise displace",
+   "params": {
+    "amount": {
+     "label": "Dami"
+    },
+    "scale": {
+     "label": "Sukat ng noise"
+    },
+    "speed": {
+     "label": "Bilis ng animation"
+    }
+   }
+  },
+  "octahedron": {
+   "description": "Inilalagay ang layer sa walong mukha ng isang oktaedro.",
+   "name": "Oktaedro",
+   "params": {
+    "light": {
+     "label": "Anggulo ng Ilaw"
+    },
+    "perspective": {
+     "label": "Perspektibo"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "rotX": {
+     "label": "Rotation X"
+    },
+    "rotY": {
+     "label": "Rotation Y"
+    },
+    "rotZ": {
+     "label": "Rotation Z"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "shading": {
+     "label": "Shading"
+    },
+    "shine": {
+     "label": "Kinang"
+    }
+   }
+  },
+  "offset": {
+   "description": "Inililipat ang larawan ng layer, pinaiikot ito sa mga gilid ng kahon ng layer.",
+   "name": "Offset",
+   "params": {
+    "feather": {
+     "label": "Feather"
+    },
+    "mask": {
+     "label": "I-mask sa Layer"
+    },
+    "offset": {
+     "label": "Offset"
+    }
+   }
+  },
+  "ominodiffusion": {
+   "description": "Muling iginuguhit ang layer sa maliit na palette at hinihila ang rounding error sa isang direksyon, para sa glitchy dithered na itsura na nagiging buhay sa galaw.",
+   "name": "Omino Diffusion+",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "angle": {
+     "label": "Anggulo"
+    },
+    "blend": {
+     "label": "Blending mode",
+     "options": [
+      "Normal",
+      "Multiply",
+      "Screen"
+     ]
+    },
+    "color1": {
+     "label": "Kulay 1"
+    },
+    "color2": {
+     "label": "Kulay 2"
+    },
+    "color3": {
+     "label": "Kulay 3"
+    },
+    "color4": {
+     "label": "Kulay 4"
+    },
+    "color5": {
+     "label": "Kulay 5"
+    },
+    "color6": {
+     "label": "Kulay 6"
+    },
+    "falloff": {
+     "label": "Pagbaba ng timbang"
+    },
+    "palette": {
+     "label": "Palette",
+     "options": [
+      "Itim/Puti",
+      "RGB Posterize (2 antas)",
+      "RGB Posterize (3 antas)",
+      "RGB Posterize (4 antas)",
+      "Gray (3 antas)",
+      "Gray (4 antas)",
+      "CGA Berde/Pula/Dilaw",
+      "CGA Cyan/Magenta/Puti",
+      "CGA Asul/Cyan/Magenta/Puti",
+      "Saturate at Posterize",
+      "Sariling 2-kulay",
+      "Sariling 3-kulay",
+      "Sariling 4-kulay",
+      "Sariling 5-kulay",
+      "Sariling 6-kulay"
+     ]
+    },
+    "steps": {
+     "label": "Hakbang"
+    },
+    "strength": {
+     "label": "Lakas"
+    },
+    "weight": {
+     "label": "Timbang ng error"
+    }
+   }
+  },
+  "ominoglass": {
+   "description": "Salamin na gawa sa liwanag ng layer: nire-refract ang nasa likod nito na may rainbow fringes at nililiwanagan ang ibabaw na parang lens.",
+   "name": "Omino Glass",
+   "params": {
+    "aberration": {
+     "label": "Chromatic aberration"
+    },
+    "ambient": {
+     "label": "Ambient"
+    },
+    "amount": {
+     "label": "Roughness"
+    },
+    "blend": {
+     "label": "Blend"
+    },
+    "blur": {
+     "label": "Bevel"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "direction": {
+     "label": "Direksyon"
+    },
+    "elevation": {
+     "label": "Elevation"
+    },
+    "evolution": {
+     "label": "Evolution"
+    },
+    "feature": {
+     "label": "Laki ng feature"
+    },
+    "intensity": {
+     "label": "Tindi"
+    },
+    "light": {
+     "label": "Kulay ng Ilaw"
+    },
+    "refraction": {
+     "label": "Refraction"
+    },
+    "samples": {
+     "label": "Mga sample ng smoothing"
+    },
+    "scale": {
+     "label": "Roughness Scale"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "shading": {
+     "label": "Shading",
+     "options": [
+      "Wala",
+      "Point light",
+      "Directional light"
+     ]
+    },
+    "shine": {
+     "label": "Kinang"
+    },
+    "specularity": {
+     "label": "Specularity"
+    },
+    "useLuma": {
+     "label": "Gamitin ang Luminance ng Layer"
+    }
+   }
+  },
+  "oscillate": {
+   "description": "Ginagalaw ang layer pabalik-balik sa isang anggulo, sa lalim o paikot sa isang orbit.",
+   "name": "Oscillate",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "direction": {
+     "label": "Direksyon",
+     "options": [
+      "Anggulo",
+      "Lalim",
+      "Orbit"
+     ]
+    },
+    "frequency": {
+     "label": "Dalas"
+    },
+    "magnitude": {
+     "label": "Laki"
+    },
+    "phase": {
+     "label": "Phase"
+    },
+    "wave": {
+     "label": "Alon",
+     "options": [
+      "Sine",
+      "Tatsulok"
+     ]
+    }
+   }
+  },
+  "pagecurl": {
+   "description": "Binubuklat ang layer na parang pahina: umaangat at nalulukot ang isang sulok, na ipinapakita ang likod ng pahina. I-animate ang Progreso para buksan ang pahina. Kapag naka-on ang Sundan ang Hugis, bumabaliktad ang pahina mula sa mga gilid ng nakikita mo, kaya ang bilog na larawan o 3D model ay kumukulot mula sa sarili nitong gilid sa halip na sa isang di-nakikitang kahon.",
+   "name": "Paglukot ng pahina",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "backAlpha": {
+     "label": "Opacity sa likod"
+    },
+    "backColor": {
+     "label": "Kulay sa likod"
+    },
+    "follow": {
+     "label": "Sundan ang Hugis"
+    },
+    "progress": {
+     "label": "Progreso"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "shadow": {
+     "label": "Anino"
+    },
+    "shine": {
+     "label": "Kintab"
+    }
+   }
+  },
+  "palettemap": {
+   "description": "Ginagawang pinakamalapit na kulay sa isang palette ang bawat pixel: hanggang walong kulay na pipiliin mo, o palette na hanggang 512 kulay mula sa isang preset o sa file na ii-import mo. Pinaghahalo ng mga dither pattern ang magkakatabing kulay ng palette para magpakita ng mas maraming shade. Hinahalo ng Alpha ang mga nakatapat na kulay sa orihinal na layer.",
+   "name": "Mapa ng Palette",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "color1": {
+     "label": "Kulay 1"
+    },
+    "color2": {
+     "label": "Kulay 2"
+    },
+    "color3": {
+     "label": "Kulay 3"
+    },
+    "color4": {
+     "label": "Kulay 4"
+    },
+    "color5": {
+     "label": "Kulay 5"
+    },
+    "color6": {
+     "label": "Kulay 6"
+    },
+    "color7": {
+     "label": "Kulay 7"
+    },
+    "color8": {
+     "label": "Kulay 8"
+    },
+    "colors": {
+     "label": "Mga Kulay"
+    },
+    "dither": {
+     "label": "Dither"
+    },
+    "palette": {
+     "label": "Palette"
+    },
+    "pattern": {
+     "label": "Dither Pattern",
+     "options": [
+      "Wala",
+      "Ingay",
+      "Checker",
+      "Bayer 2x2",
+      "Bayer 3x3",
+      "Bayer 4x4",
+      "Bayer 8x8",
+      "Cluster Dot 4x4",
+      "Cluster Dot 8x8",
+      "Pahalang na Linya",
+      "Patayong Linya",
+      "Pahilis na Linya",
+      "Floyd-Steinberg",
+      "False Floyd-Steinberg",
+      "Sierra Lite",
+      "Fan",
+      "Shiau-Fan",
+      "Jarvis-Judice-Ninke",
+      "Stucki",
+      "Burkes",
+      "Sierra",
+      "Two-Row Sierra",
+      "Atkinson"
+     ]
+    },
+    "source": {
+     "label": "Pinagmulan ng Kulay",
+     "options": [
+      "Mga Kulay",
+      "Palette"
+     ]
+    }
+   }
+  },
+  "parenthelper": {
+   "description": "Binabago kung paano sinusunod ng child layer ang parent nito: puwedeng ganap na sundan ang scale at rotation, manatiling naka-lock, o sumunod ayon sa takdang dami. Pinapaikot ng Auto Rotate ang layer habang gumagalaw ito, parang gumugulong na gulong.",
+   "name": "Parenting Helper",
+   "params": {
+    "autoRotate": {
+     "label": "Auto Rotate",
+     "options": [
+      "Naka-off",
+      "X axis",
+      "Y axis"
+     ]
+    },
+    "radiusAdjust": {
+     "label": "Pag-adjust ng radius"
+    },
+    "rotateMode": {
+     "label": "Rotation",
+     "options": [
+      "Normal",
+      "Naka-lock",
+      "May timbang"
+     ]
+    },
+    "rotateWeight": {
+     "label": "Timbang ng rotation"
+    },
+    "scaleMode": {
+     "label": "Scale",
+     "options": [
+      "Normal",
+      "Naka-lock",
+      "May timbang"
+     ]
+    },
+    "scaleWeight": {
+     "label": "Timbang ng scale"
+    }
+   }
+  },
+  "particles": {
+   "description": "Nagpapasabog ng mga particle mula sa layer: niyebe, kislap, confetti, bula, alikabok, puso, bituin, talulot o maliliit na kopya ng layer mismo, na ginagalaw ng gravity, hangin at swirl. Magsimula sa preset, pagkatapos palitan ang emitter, dami at forces. Sa Beats, nagpapadala ng burst sa bawat beat: piliin ang musika, buksan ang menu nito at i-tap muna ang Markahan ang Beats.",
+   "name": "Mga particle",
+   "params": {
+    "beats": {
+     "label": "Beats",
+     "options": [
+      "Bawat Beat",
+      "Bawat Ikalawang Beat",
+      "Bawat Ikaapat na Beat"
+     ]
+    },
+    "blend": {
+     "label": "Blending",
+     "options": [
+      "Normal",
+      "Add",
+      "Screen"
+     ]
+    },
+    "bpm": {
+     "label": "BPM"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "color2": {
+     "label": "Kulay 2"
+    },
+    "colorMode": {
+     "label": "Mode ng kulay",
+     "options": [
+      "Isang kulay",
+      "Random na halo",
+      "Sa buong buhay"
+     ]
+    },
+    "colorVariation": {
+     "label": "Baryasyon ng kulay"
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "depth": {
+     "label": "Lalim"
+    },
+    "direction": {
+     "label": "Direksyon"
+    },
+    "drag": {
+     "label": "Resistensya sa hangin"
+    },
+    "emission": {
+     "label": "Paglabas",
+     "options": [
+      "Tuloy-tuloy",
+      "Sabog",
+      "Sa Beat"
+     ]
+    },
+    "emitter": {
+     "label": "Emitter",
+     "options": [
+      "Punto",
+      "Linya",
+      "Lugar",
+      "Balangkas"
+     ]
+    },
+    "emitterSize": {
+     "label": "Laki ng emitter"
+    },
+    "endSize": {
+     "label": "Laki sa dulo"
+    },
+    "every": {
+     "label": "Ulitin bawat"
+    },
+    "fadeIn": {
+     "label": "Fade in"
+    },
+    "fadeOut": {
+     "label": "Fade out"
+    },
+    "gravity": {
+     "label": "Grabidad"
+    },
+    "kind": {
+     "label": "Particle",
+     "options": [
+      "Niyebe",
+      "Kislap",
+      "Confetti",
+      "Bula",
+      "Alikabok",
+      "Puso",
+      "Bituin",
+      "Talulot",
+      "Layer"
+     ]
+    },
+    "layer": {
+     "label": "Layer",
+     "options": [
+      "Sa ilalim ng mga particle",
+      "Sa ibabaw ng mga particle",
+      "Nakatago"
+     ]
+    },
+    "lifeVariation": {
+     "label": "Pagbabago ng tagal"
+    },
+    "lifetime": {
+     "label": "Tagal"
+    },
+    "more": {
+     "label": "Iba pang mga setting"
+    },
+    "orientation": {
+     "label": "Orientasyon",
+     "options": [
+      "Malaya",
+      "Sumunod sa galaw"
+     ]
+    },
+    "perspective": {
+     "label": "Perspektibo"
+    },
+    "position": {
+     "label": "Posisyon ng emitter"
+    },
+    "prewarm": {
+     "label": "Puno sa simula"
+    },
+    "randomRotation": {
+     "label": "Random na pag-ikot"
+    },
+    "rate": {
+     "label": "Rate"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "size": {
+     "label": "Laki"
+    },
+    "sizeVariation": {
+     "label": "Pagbabago ng laki"
+    },
+    "speed": {
+     "label": "Bilis"
+    },
+    "speedVariation": {
+     "label": "Pagbabago ng bilis"
+    },
+    "spin": {
+     "label": "Pag-ikot"
+    },
+    "spinVariation": {
+     "label": "Baryasyon ng pag-ikot"
+    },
+    "spread": {
+     "label": "Kalat"
+    },
+    "start": {
+     "label": "Oras ng sabog"
+    },
+    "swirl": {
+     "label": "Swirl"
+    },
+    "swirlSpeed": {
+     "label": "Bilis ng swirl"
+    },
+    "tint": {
+     "label": "Tint"
+    },
+    "twinkle": {
+     "label": "Kislap"
+    },
+    "wind": {
+     "label": "Hangin"
+    },
+    "zSpeed": {
+     "label": "Bilis sa Z"
+    },
+    "zSpread": {
+     "label": "Kalat sa Z"
+    }
+   },
+   "presets": {
+    "beat-confetti": "Confetti sa beat",
+    "bubbles": "Bula",
+    "confetti": "Confetti",
+    "dust": "Alikabok",
+    "hearts": "Puso",
+    "layer-fountain": "Fountain ng layer",
+    "petals": "Mga petalo",
+    "snow": "Niyebe",
+    "sparks": "Siklab",
+    "twinkle": "Kislap"
+   }
+  },
+  "pixelate": {
+   "description": "Ginagawang mga block na may isang kulay bawat isa ang layer, kinuha mula sa gitna ng block, sa grid na nakasentro sa layer (o sa frame gamit ang Screen Space). Hinuhubog ng Stretch, Offset at Angle ang grid at pinapadilim ng Vignette ang bawat block papunta sa mga gilid.",
+   "name": "Pixelate",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "blockSize": {
+     "label": "Laki"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "screenSpace": {
+     "label": "Screen Space"
+    },
+    "stretch": {
+     "label": "Stretch"
+    },
+    "vignette": {
+     "label": "Vignette"
+    }
+   }
+  },
+  "pixeltiles": {
+   "description": "Binubuo muli ang layer mula sa grid ng maliliit na tile na may pixel pattern. Pinipili ng bawat tile kung gaano karami sa pattern nito ang iguguhit batay sa liwanag sa ilalim nito, parang halo ng ASCII art at mosaic. Sinisira ng Chaos ang grid gamit ang mga random na tile.",
+   "name": "Pixel Tiles",
+   "params": {
+    "alpha": {
+     "label": "Halo"
+    },
+    "background": {
+     "label": "Background"
+    },
+    "brightness": {
+     "label": "Liwanag"
+    },
+    "chaos": {
+     "label": "Chaos"
+    },
+    "chaosAmount": {
+     "label": "Dami ng Chaos"
+    },
+    "chaosSpeed": {
+     "label": "Bilis ng Chaos"
+    },
+    "contrast": {
+     "label": "Kontrast"
+    },
+    "detail": {
+     "label": "Detalye"
+    },
+    "flip": {
+     "label": "Baligtarin ang Pixel"
+    },
+    "foreground": {
+     "label": "Foreground"
+    },
+    "levels": {
+     "label": "Mga Shade"
+    },
+    "offset": {
+     "label": "Offset ng Pattern"
+    },
+    "original": {
+     "label": "Gamitin ang Orihinal na Kulay"
+    },
+    "pattern": {
+     "label": "Pattern",
+     "options": [
+      "Mataas na Detalye",
+      "Numero at Titik",
+      "Pahalang na Linya",
+      "Mga Tuldok",
+      "Patayong Linya",
+      "Grunge",
+      "Mga Singsing",
+      "Solid",
+      "Pahilis Pakaliwa",
+      "Pahilis Pakanan"
+     ]
+    },
+    "randomPattern": {
+     "label": "Random na Pattern"
+    },
+    "scramble": {
+     "label": "Haluin ang mga Tile"
+    },
+    "seed": {
+     "label": "Random Seed"
+    },
+    "tile": {
+     "label": "Laki ng Tile"
+    },
+    "tone": {
+     "label": "Pinagmulan ng Tono",
+     "options": [
+      "Luminance",
+      "Average",
+      "Pula",
+      "Berde",
+      "Asul"
+     ]
+    },
+    "transparent": {
+     "label": "Transparent na Background"
+    }
+   }
+  },
+  "polar": {
+   "description": "Binabaluktot ang layer sa paligid ng gitna nito, ginagawang bilog ang mga tuwid na linya, o binubuklat ang mga bilog para maging tuwid na linya.",
+   "name": "Polar Coordinates",
+   "params": {
+    "amount": {
+     "label": "Interpolation"
+    },
+    "direction": {
+     "label": "Uri",
+     "options": [
+      "Parihaba papuntang Polar",
+      "Polar papuntang Parihaba"
+     ]
+    }
+   }
+  },
+  "polardisplacement": {
+   "description": "Pinaiikot at hinihila ang mga layer sa likod nito sa paligid ng isang center point gamit ang mga kulay ng layer, tapos itinatago ang layer.",
+   "name": "Polar Displacement Map",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "angleChannel": {
+     "label": "Anggulo Mula Sa",
+     "options": [
+      "R",
+      "G",
+      "B",
+      "Luminance",
+      "Alpha"
+     ]
+    },
+    "center": {
+     "label": "Sentro"
+    },
+    "distanceChannel": {
+     "label": "Distansya Mula Sa",
+     "options": [
+      "R",
+      "G",
+      "B",
+      "Luminance",
+      "Alpha"
+     ]
+    },
+    "edges": {
+     "label": "Mga Gilid",
+     "options": [
+      "Ulitin",
+      "Mirror",
+      "I-clear",
+      "Tile"
+     ]
+    },
+    "fromCenter": {
+     "label": "Mula sa Sentro"
+    },
+    "invert": {
+     "label": "I-invert"
+    },
+    "reach": {
+     "label": "Paloob/palabas"
+    }
+   }
+  },
+  "posterize": {
+   "description": "Hinahati ang bawat channel ng kulay sa ilang flat na Steps, kaya nagiging bands ang makinis na gradient. Inililipat ng Offset kung saan napupunta ang mga gilid ng band.",
+   "name": "Posterize",
+   "params": {
+    "levels": {
+     "label": "Steps"
+    },
+    "offset": {
+     "label": "Offset"
+    }
+   }
+  },
+  "pulseopacity": {
+   "description": "Paulit-ulit na nagpapa-fade out at in sa layer, sa sine o triangle wave.",
+   "name": "Pulse na Opacity",
+   "params": {
+    "frequency": {
+     "label": "Dalas"
+    },
+    "phase": {
+     "label": "Panimulang Phase"
+    },
+    "strength": {
+     "label": "Lakas"
+    },
+    "wave": {
+     "label": "Alon",
+     "options": [
+      "Sine",
+      "Tatsulok"
+     ]
+    }
+   }
+  },
+  "pulsesize": {
+   "description": "Paulit-ulit na pinapalaki at pinapaliit ang layer, sa sine o triangle wave.",
+   "name": "Pulse na Laki",
+   "params": {
+    "frequency": {
+     "label": "Dalas"
+    },
+    "grow": {
+     "label": "Palakihin"
+    },
+    "phase": {
+     "label": "Panimulang Phase"
+    },
+    "shrink": {
+     "label": "Paliitin"
+    },
+    "wave": {
+     "label": "Alon",
+     "options": [
+      "Sine",
+      "Tatsulok"
+     ]
+    }
+   }
+  },
+  "puppet": {
+   "description": "Binabaluktot ang layer na parang puppet: maglagay ng mga pin dito, tapos i-drag o i-animate ang mga pin at susundan sila ng larawan nang maayos.",
+   "name": "Puppet Pin",
+   "params": {
+    "density": {
+     "label": "Density ng triangle"
+    },
+    "expansion": {
+     "label": "Pagpapalawak ng mesh"
+    },
+    "falloff": {
+     "label": "Falloff"
+    },
+    "sway": {
+     "label": "Sway"
+    },
+    "swayAmount": {
+     "label": "Dami ng sway"
+    },
+    "swayAngle": {
+     "label": "Anggulo ng sway"
+    },
+    "swayDirection": {
+     "label": "Direksyon ng sway",
+     "options": [
+      "Anggulo",
+      "Random"
+     ]
+    },
+    "swayPins": {
+     "label": "Mga pin na may sway",
+     "options": [
+      "Lahat",
+      "Napili"
+     ]
+    },
+    "swaySeed": {
+     "label": "Seed ng sway"
+    },
+    "swaySpeed": {
+     "label": "Bilis ng sway"
+    }
+   }
+  },
+  "pyramid": {
+   "description": "Inilalagay ang layer sa mga gilid ng isang square pyramid.",
+   "name": "Pyramid",
+   "params": {
+    "base": {
+     "label": "Base"
+    },
+    "height": {
+     "label": "Taas"
+    },
+    "light": {
+     "label": "Anggulo ng Ilaw"
+    },
+    "perspective": {
+     "label": "Perspective"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "rotX": {
+     "label": "Rotation X"
+    },
+    "rotY": {
+     "label": "Rotation Y"
+    },
+    "rotZ": {
+     "label": "Rotation Z"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "shading": {
+     "label": "Shading"
+    },
+    "shine": {
+     "label": "Shine"
+    }
+   }
+  },
+  "radialblur": {
+   "description": "Nagdadagdag ng radial zoom blur gamit ang mga sample sa mga sinag mula sa gitna, na may adjustable na lakas.",
+   "name": "Zoom Blur",
+   "params": {
+    "amount": {
+     "label": "Lakas"
+    },
+    "center": {
+     "label": "Gitna"
+    }
+   }
+  },
+  "radialrays": {
+   "description": "Nagpipinta ng solidong sinag ng araw mula sa isang punto papunta sa mga opaque na bahagi ng layer.",
+   "name": "Radial Rays",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "angle": {
+     "label": "Anggulo"
+    },
+    "center": {
+     "label": "Sentro"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "width": {
+     "label": "Lapad"
+    }
+   }
+  },
+  "radialrepeat": {
+   "description": "Awtomatikong gumagawa ng maraming kopya ng layer, na nakaayos sa pabilog na pattern.",
+   "name": "Radial Repeat",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "copyDelay": {
+     "label": "Antala kada kopya"
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "easing": {
+     "label": "Easing",
+     "options": [
+      "Linear",
+      "Ease In",
+      "Ease Out",
+      "Ease In Out"
+     ]
+    },
+    "fillAmount": {
+     "label": "Dami ng Fill"
+    },
+    "fillColor": {
+     "label": "Kulay ng Fill"
+    },
+    "orientation": {
+     "label": "Orientation"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "randomOpacity": {
+     "label": "Random na opacity"
+    },
+    "randomOrder": {
+     "label": "Random na Order"
+    },
+    "randomPosition": {
+     "label": "Random na posisyon"
+    },
+    "randomRotation": {
+     "label": "Random na rotation"
+    },
+    "randomScale": {
+     "label": "Random na scale"
+    },
+    "rangeEnd": {
+     "label": "Wakas ng Range"
+    },
+    "rangeOffset": {
+     "label": "Offset ng Range"
+    },
+    "rangeOpacity": {
+     "label": "Opacity ng Range"
+    },
+    "rangePosition": {
+     "label": "Posisyon ng Range"
+    },
+    "rangeRotation": {
+     "label": "Rotation ng Range"
+    },
+    "rangeScale": {
+     "label": "Scale ng Range"
+    },
+    "rangeStart": {
+     "label": "Simula ng Range"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "sweep": {
+     "label": "Sweep"
+    }
+   }
+  },
+  "radialshadow": {
+   "description": "Naglalagay ng mahahabang anino mula sa opaque na bahagi ng layer, na kumakalat palayo sa pinagmumulan ng liwanag.",
+   "name": "Radial na Anino",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "fade": {
+     "label": "Fade"
+    },
+    "light": {
+     "label": "Liwanag"
+    },
+    "reach": {
+     "label": "Haba"
+    }
+   }
+  },
+  "radialwipe": {
+   "description": "Nagtatago ng isang wedge ng layer na umiikot sa Center mula sa Start Angle, parang kamay ng orasan. Ang Progress ay ang anggulong naisweep, inuulit ng Count ang wedge sa bilog at isinasalit ng Both ang dalawang direksyon. I-animate ang Progress para sa transition.",
+   "name": "Radial na Wipe",
+   "params": {
+    "center": {
+     "label": "Gitna"
+    },
+    "count": {
+     "label": "Count"
+    },
+    "direction": {
+     "label": "Direksyon",
+     "options": [
+      "Clockwise",
+      "Counterclockwise",
+      "Both"
+     ]
+    },
+    "feather": {
+     "label": "Feather"
+    },
+    "progress": {
+     "label": "Progress"
+    },
+    "start": {
+     "label": "Panimulang Anggulo"
+    }
+   }
+  },
+  "randomdisplace": {
+   "description": "Awtomatikong gumagalaw ang layer nang smooth pero random sa paglipas ng oras. Pumipili ng ibang galaw ang Seed, itinatakda ng Bilis kung gaano kabilis itong gumalaw, at binabago ng Evolution ang pattern.",
+   "name": "Random na Displacement",
+   "params": {
+    "evolution": {
+     "label": "Evolution"
+    },
+    "magnitude": {
+     "label": "Laki"
+    },
+    "scatter": {
+     "label": "Scatter"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "speed": {
+     "label": "Bilis"
+    }
+   }
+  },
+  "randomjitter": {
+   "description": "Pinapatalon pabalik-balik ang layer nang random sa isang anggulo.",
+   "name": "Random na Jitter",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "frequency": {
+     "label": "Dalas"
+    },
+    "magnitude": {
+     "label": "Laki"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "slack": {
+     "label": "Slack"
+    },
+    "zjitter": {
+     "label": "Z Jitter"
+    }
+   }
+  },
+  "rasterextrude": {
+   "description": "Itinutulak palabas ang larawan ng layer para maging solid na block; kinukuha ng mga gilid ang kulay sa loob.",
+   "name": "Raster Extrude",
+   "params": {
+    "depth": {
+     "label": "Lalim"
+    },
+    "interior": {
+     "label": "Kulay ng Interior"
+    },
+    "light": {
+     "label": "Anggulo ng Liwanag"
+    },
+    "perspective": {
+     "label": "Perspective"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "rotX": {
+     "label": "Pag-ikot X"
+    },
+    "rotY": {
+     "label": "Pag-ikot Y"
+    },
+    "rotZ": {
+     "label": "Pag-ikot Z"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "shading": {
+     "label": "Shading"
+    },
+    "shine": {
+     "label": "Kintab"
+    }
+   },
+   "shortcuts": {
+    "text3d": {
+     "description": "Ginagawang solidong 3D na letra ang text layer na maiikot mo sa 3D. Idinadagdag nito ang Raster Extrude, na gumagana sa anumang layer.",
+     "name": "3D na Teksto"
+    }
+   }
+  },
+  "rastertransform": {
+   "description": "Ini-scale, iniikot, at ginagalaw ang tapos na larawan ng layer, pagkatapos ng mga epekto sa itaas nito, para ma-transform din ang resulta nila. Pinapanatili ng Fill ang ilang bahagi ng orihinal sa ilalim at pinapanatili ng Mask To Layer ang resulta sa loob ng orihinal na hugis.",
+   "name": "Raster Transform",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "angle": {
+     "label": "Anggulo"
+    },
+    "fill": {
+     "label": "Fill"
+    },
+    "mask": {
+     "label": "I-mask sa layer"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "sampling": {
+     "label": "Sampling",
+     "options": [
+      "Nearest",
+      "Linear"
+     ]
+    },
+    "scale": {
+     "label": "Scale"
+    }
+   }
+  },
+  "rays": {
+   "description": "Nagpapasikat ng mga sinag ng liwanag mula sa maliwanag na bahagi ng layer, palayo sa isang center point.",
+   "name": "Mga Sinag",
+   "params": {
+    "blend": {
+     "label": "Blend"
+    },
+    "center": {
+     "label": "Gitna"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "intensity": {
+     "label": "Tindi"
+    },
+    "reach": {
+     "label": "Haba"
+    },
+    "style": {
+     "label": "Estilo",
+     "options": [
+      "Klasiko",
+      "Karaniwan"
+     ]
+    },
+    "threshold": {
+     "label": "Threshold"
+    },
+    "thresholdAdd": {
+     "label": "Dagdag na threshold"
+    }
+   }
+  },
+  "reorient360": {
+   "description": "Pinaiikot ang 360° panorama layer sa loob ng sphere nito para patagin ang horizon o baguhin ang harapan.",
+   "name": "360° Reorient Sphere",
+   "params": {
+    "pitch": {
+     "label": "Pitch"
+    },
+    "roll": {
+     "label": "Roll"
+    },
+    "yaw": {
+     "label": "Yaw"
+    }
+   }
+  },
+  "repeat": {
+   "description": "Dynamic na gumagawa ng maraming kopya ng layer.",
+   "name": "Pag-uulit",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "angle": {
+     "label": "Anggulo"
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "time": {
+     "label": "Oras"
+    }
+   }
+  },
+  "repeatalongpath": {
+   "description": "Awtomatikong gumagawa ng maraming kopya ng layer sa tabas ng layer na nasa ilalim mismo nito.",
+   "name": "Ulitin sa Landas",
+   "params": {
+    "copyDelay": {
+     "label": "Antala kada kopya"
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "easing": {
+     "label": "Easing",
+     "options": [
+      "Linear",
+      "Ease In",
+      "Ease Out",
+      "Ease In Out"
+     ]
+    },
+    "end": {
+     "label": "Wakas"
+    },
+    "fillAmount": {
+     "label": "Dami ng Fill"
+    },
+    "fillColor": {
+     "label": "Kulay ng Fill"
+    },
+    "phase": {
+     "label": "Phase"
+    },
+    "randomOpacity": {
+     "label": "Random na opacity"
+    },
+    "randomOrder": {
+     "label": "Random na Ayos"
+    },
+    "randomPosition": {
+     "label": "Random na posisyon"
+    },
+    "randomRotation": {
+     "label": "Random na rotation"
+    },
+    "randomScale": {
+     "label": "Random na scale"
+    },
+    "rangeEnd": {
+     "label": "Wakas ng Range"
+    },
+    "rangeOffset": {
+     "label": "Offset ng Range"
+    },
+    "rangeOpacity": {
+     "label": "Opacity ng Range"
+    },
+    "rangePosition": {
+     "label": "Posisyon ng Range"
+    },
+    "rangeRotation": {
+     "label": "Rotation ng Range"
+    },
+    "rangeScale": {
+     "label": "Scale ng Range"
+    },
+    "rangeStart": {
+     "label": "Simula ng Range"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "start": {
+     "label": "Simula"
+    },
+    "tangent": {
+     "label": "Tangent"
+    }
+   }
+  },
+  "replacecolor": {
+   "description": "Pinapalitan ang isang kulay ng iba. Kinokontrol ng Alpha ang lakas ng pagpapalit; pinapanatili ng Lock Luminance ang liwanag at anino ng orihinal.",
+   "name": "Palitan ang Kulay",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "choke": {
+     "label": "Choke"
+    },
+    "feather": {
+     "label": "Feather"
+    },
+    "lockLuminance": {
+     "label": "I-lock ang luminance"
+    },
+    "source": {
+     "label": "Kulay na papalitan"
+    },
+    "target": {
+     "label": "Bagong kulay"
+    },
+    "threshold": {
+     "label": "Threshold"
+    }
+   }
+  },
+  "retrodither": {
+   "description": "Ginagawang retro pixel graphics ang layer: kumukuha ng kulay ang bawat bloke ng pixel mula sa isang palette, gaya ng palette ng lumang console o computer o isang palette na ii-import mo, at pinaghahalo ng dither pattern ang mga kulay ng palette para magmukhang mas marami ang shade.",
+   "name": "Retro Dither",
+   "params": {
+    "alpha": {
+     "label": "Halo"
+    },
+    "dither": {
+     "label": "Lakas"
+    },
+    "palette": {
+     "label": "Palette"
+    },
+    "pattern": {
+     "label": "Dither",
+     "options": [
+      "Wala",
+      "Ingay",
+      "Checker",
+      "Bayer 2x2",
+      "Bayer 3x3",
+      "Bayer 4x4",
+      "Bayer 8x8",
+      "Cluster Dot 4x4",
+      "Cluster Dot 8x8",
+      "Pahalang na Linya",
+      "Patayong Linya",
+      "Pahilis na Linya",
+      "Floyd-Steinberg",
+      "False Floyd-Steinberg",
+      "Sierra Lite",
+      "Fan",
+      "Shiau-Fan",
+      "Jarvis-Judice-Ninke",
+      "Stucki",
+      "Burkes",
+      "Sierra",
+      "Two-Row Sierra",
+      "Atkinson"
+     ]
+    },
+    "pixel": {
+     "label": "Laki ng Pixel"
+    }
+   }
+  },
+  "rgbsplit": {
+   "description": "Hinahati ang red, green at blue channels: nananatili ang Center channel at ang dalawa pa ay lumilipat sa magkasalungat na direksyon kasunod ng Angle. Idinadagdag ng Light ang mga inilipat na kulay, pinapanatiling solid ang Dark, pinapanatili ng Mask ang kung saan nag-overlap ang tatlo, at ginagawang kasing-opaque ng kanilang kaliwanagan ng Luma ang mga fringe.",
+   "name": "RGB Split",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "center": {
+     "label": "Center",
+     "options": [
+      "R",
+      "G",
+      "B"
+     ]
+    },
+    "mode": {
+     "label": "Mode",
+     "options": [
+      "Light",
+      "Dark",
+      "Mask",
+      "Luma"
+     ]
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "ribbon": {
+   "description": "Gumuguhit ng pasukot-sukot na ribbon na nagbabago ang lapad sa mga opaque na bahagi ng layer; i-animate ang Phase para dumaloy ito, o i-punch out ito mula sa layer.",
+   "name": "Ribbon",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "frequency": {
+     "label": "Frequency"
+    },
+    "magnitude": {
+     "label": "Magnitude"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "phase": {
+     "label": "Phase"
+    },
+    "punch": {
+     "label": "Punch Out"
+    },
+    "smoothing": {
+     "label": "Smoothing"
+    },
+    "tint": {
+     "label": "Tint"
+    },
+    "tintAmount": {
+     "label": "Tint Amount"
+    },
+    "width": {
+     "label": "Lapad"
+    }
+   }
+  },
+  "ripple": {
+   "description": "Mga concentric na ripple na lumalabas mula sa gitna, may naiko-configure na amplitude, wavelength, at bilis.",
+   "name": "Alon",
+   "params": {
+    "amplitude": {
+     "label": "Amplitude"
+    },
+    "center": {
+     "label": "Gitna"
+    },
+    "speed": {
+     "label": "Bilis"
+    },
+    "wavelength": {
+     "label": "Haba ng alon"
+    }
+   }
+  },
+  "roughenedges": {
+   "description": "Kinakain ng noise ang mga gilid ng opaque na bahagi para sa punit, luma o sunog na outline.",
+   "name": "Magaspang na Gilid",
+   "params": {
+    "blur": {
+     "label": "Border"
+    },
+    "evolution": {
+     "label": "Evolution"
+    },
+    "octaves": {
+     "label": "Mga octave"
+    },
+    "roughness": {
+     "label": "Pagkamagaspang"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "seed": {
+     "label": "Seed"
+    }
+   }
+  },
+  "scaleassist": {
+   "description": "Nagdadagdag ng extra scale sa ibabaw ng sariling laki ng layer sa X, Y, pareho, o X na baliktad ang Y. Sumusunod sa bagong laki ang mga layer na naka-parent dito.",
+   "name": "Scale Assist",
+   "params": {
+    "axis": {
+     "label": "Axis",
+     "options": [
+      "X",
+      "Y",
+      "X,Y",
+      "X,-Y"
+     ]
+    },
+    "damp": {
+     "label": "Damping"
+    },
+    "scale": {
+     "label": "Scale"
+    }
+   }
+  },
+  "scanlines": {
+   "description": "Nagdadagdag ng pahalang na scanlines para sa CRT monitor effect, may opsyonal na vertical rolling.",
+   "name": "Scanlines",
+   "params": {
+    "darkness": {
+     "label": "Kadiliman"
+    },
+    "roll_speed": {
+     "label": "Bilis ng roll"
+    },
+    "spacing": {
+     "label": "Espasyo ng linya"
+    }
+   }
+  },
+  "scatter3d": {
+   "description": "Ginagawang grid ng nagkalat na 3D na piraso ang layer.",
+   "name": "3D na pagkakalat",
+   "params": {
+    "axis": {
+     "label": "Axis ng pihit",
+     "options": [
+      "X",
+      "Y",
+      "Z"
+     ]
+    },
+    "depth": {
+     "label": "Lalim ng grid"
+    },
+    "depthSpacing": {
+     "label": "Agwat sa lalim"
+    },
+    "intensity": {
+     "label": "Lakas ng ilaw"
+    },
+    "light": {
+     "label": "Direksyon ng ilaw"
+    },
+    "lightHeight": {
+     "label": "Taas ng ilaw"
+    },
+    "perspective": {
+     "label": "Perspektibo"
+    },
+    "rotX": {
+     "label": "Pag-ikot X"
+    },
+    "rotY": {
+     "label": "Pag-ikot Y"
+    },
+    "rotZ": {
+     "label": "Pag-ikot Z"
+    },
+    "scatter": {
+     "label": "Kalat"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "shading": {
+     "label": "Paglilim"
+    },
+    "shape": {
+     "label": "Hugis",
+     "options": [
+      "Kubo",
+      "Bola",
+      "Kuwadrado",
+      "Bilog"
+     ]
+    },
+    "size": {
+     "label": "Laki ng piraso"
+    },
+    "spacing": {
+     "label": "Agwat ng grid"
+    },
+    "spin": {
+     "label": "Ikot ng kalat"
+    },
+    "twist": {
+     "label": "Anggulo ng pihit"
+    }
+   }
+  },
+  "scatterfield": {
+   "description": "Nagkakalat ng mga kopya ng layer sa loob ng walang hanggang 3D na field habang itinatago ang orihinal na layer, at may simulated na galaw sa tatlong dimensyon gamit ang keyframe animation.",
+   "name": "Scatter Field",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "amount": {
+     "label": "Dami"
+    },
+    "angle": {
+     "label": "Anggulo"
+    },
+    "angleVariance": {
+     "label": "Variance ng Anggulo"
+    },
+    "blending": {
+     "label": "Blending Mode",
+     "options": [
+      "Normal",
+      "Add",
+      "Screen",
+      "Multiply",
+      "Lighten",
+      "Padilimin",
+      "Overlay",
+      "Pagkakaiba"
+     ]
+    },
+    "color1": {
+     "label": "Kulay 1"
+    },
+    "color2": {
+     "label": "Kulay 2"
+    },
+    "color3": {
+     "label": "Kulay 3"
+    },
+    "coloring": {
+     "label": "Pangkulay",
+     "options": [
+      "Wala",
+      "Random",
+      "Lalim"
+     ]
+    },
+    "density": {
+     "label": "Density"
+    },
+    "evolution": {
+     "label": "Evolution"
+    },
+    "fade": {
+     "label": "Fade"
+    },
+    "interpolateHue": {
+     "label": "I-interpolate ang hue"
+    },
+    "lockLuminance": {
+     "label": "I-lock ang luminance"
+    },
+    "lockSaturation": {
+     "label": "I-lock ang saturation"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "size": {
+     "label": "Laki"
+    },
+    "sizeVariance": {
+     "label": "Variance ng Laki"
+    },
+    "slack": {
+     "label": "Slack"
+    },
+    "z": {
+     "label": "Posisyon Z"
+    }
+   }
+  },
+  "scatterrepeat": {
+   "description": "Gumagawa ng mga kopya ng layer at ikinakalat ang mga ito nang random sa loob ng isang bilog sa paligid nito. Ginagalaw ng Ebolusyon ang mga kopya; pumipili naman ang Scatter Seed ng ibang pattern.",
+   "name": "Kalat na pag-uulit",
+   "params": {
+    "copyDelay": {
+     "label": "Delay bawat kopya"
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "easing": {
+     "label": "Easing",
+     "options": [
+      "Linear",
+      "Ease In",
+      "Ease Out",
+      "Ease In Out"
+     ]
+    },
+    "evolution": {
+     "label": "Ebolusyon"
+    },
+    "fillAmount": {
+     "label": "Dami ng fill"
+    },
+    "fillColor": {
+     "label": "Kulay ng fill"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "randomOpacity": {
+     "label": "Random na opacity"
+    },
+    "randomOrder": {
+     "label": "Random na pagkakasunod-sunod"
+    },
+    "randomPosition": {
+     "label": "Random na posisyon"
+    },
+    "randomRotation": {
+     "label": "Random na pag-ikot"
+    },
+    "randomScale": {
+     "label": "Random na scale"
+    },
+    "rangeEnd": {
+     "label": "Dulo ng saklaw"
+    },
+    "rangeOffset": {
+     "label": "Offset ng saklaw"
+    },
+    "rangeOpacity": {
+     "label": "Saklaw ng opacity"
+    },
+    "rangePosition": {
+     "label": "Saklaw ng posisyon"
+    },
+    "rangeRotation": {
+     "label": "Saklaw ng pag-ikot"
+    },
+    "rangeScale": {
+     "label": "Saklaw ng scale"
+    },
+    "rangeStart": {
+     "label": "Simula ng saklaw"
+    },
+    "scatterSeed": {
+     "label": "Scatter Seed"
+    },
+    "seed": {
+     "label": "Seed"
+    }
+   }
+  },
+  "sepia": {
+   "description": "Mainit na kayumangging tono, parang lumang litrato.",
+   "name": "Sepia",
+   "params": {
+    "amount": {
+     "label": "Dami"
+    }
+   }
+  },
+  "sharpen": {
+   "description": "Naglalapat ng unsharp mask gamit ang 3x3 neighborhood para pagbutihin ang maliliit na detalye.",
+   "name": "Pagpapatalas",
+   "params": {
+    "amount": {
+     "label": "Lakas"
+    },
+    "radius": {
+     "label": "Radius"
+    }
+   }
+  },
+  "shutterblur": {
+   "description": "Hinihidyo ang layer sa aktwal na paraan ng paggalaw, pag-ikot at paglaki nito, gaya ng shutter ng kamera. Mas malawak ang shutter angle, mas mahaba ang bakas; mas maraming sample, mas makinis. Mas mabilis ang preview blur maliban kung naka-on ang Full Blur.",
+   "name": "Tunay na motion blur",
+   "params": {
+    "samples": {
+     "label": "Mga sample"
+    },
+    "shutter": {
+     "label": "Anggulo ng shutter"
+    }
+   }
+  },
+  "simplestarfield": {
+   "description": "Nagkakalat ng maliliit na bituin sa mga layer ng lalim sa ibabaw ng opaque na bahagi ng layer. Ginagalaw ng Position ang field nang may parallax, lumilipad ang Depth dito, nagzo-zoom ang Scale dito, hinuhubog ng Size at Feather ang bawat bituin, at nagtatakda ang Amount kung ilan ang naroon.",
+   "name": "Simpleng Starfield",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "amount": {
+     "label": "Dami"
+    },
+    "blend": {
+     "label": "Blending mode",
+     "options": [
+      "Normal",
+      "Add",
+      "Screen",
+      "Multiply"
+     ]
+    },
+    "brightness": {
+     "label": "Liwanag"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "depth": {
+     "label": "Lalim"
+    },
+    "feather": {
+     "label": "Feather"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "starSize": {
+     "label": "Laki"
+    }
+   }
+  },
+  "smear": {
+   "description": "Pinapahaba ang layer sa isang direksyon nang fixed ang haba, na parang mabilis itong gumalaw.",
+   "name": "Smear",
+   "params": {
+    "angle": {
+     "label": "Direksyon"
+    },
+    "length": {
+     "label": "Haba"
+    }
+   }
+  },
+  "smoothbevel": {
+   "description": "Binibigyan ang opaque na bahagi ng layer ng makinis at bilugang bevel na may ilaw mula sa isang gilid.",
+   "name": "Makinis na bevel",
+   "params": {
+    "angle": {
+     "label": "Anggulo ng ilaw"
+    },
+    "blur": {
+     "label": "Laki"
+    },
+    "depth": {
+     "label": "Lalim"
+    },
+    "highlight": {
+     "label": "Highlight"
+    },
+    "intensity": {
+     "label": "Tindi"
+    },
+    "shadow": {
+     "label": "Anino"
+    }
+   }
+  },
+  "smoothedges": {
+   "description": "Binibilog at pinapakinis ang mga gilid ng opaque na bahagi ng layer nang hindi binabago ang mga kulay sa loob. Pinapayagan lang ng Mask To Layer na gumalaw papasok ang mga gilid.",
+   "name": "Makinis na gilid",
+   "params": {
+    "blur": {
+     "label": "Lakas"
+    },
+    "mask": {
+     "label": "I-mask sa layer"
+    }
+   }
+  },
+  "softglow": {
+   "description": "Nagsa-screen ng malambot at blurred na kopya ng larawan para sa dreamy glow, kadalasan mula sa highlights.",
+   "name": "Malambot na Glow",
+   "params": {
+    "blend": {
+     "label": "Blend"
+    },
+    "blur": {
+     "label": "Laki"
+    },
+    "brightness": {
+     "label": "Liwanag"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "contrast": {
+     "label": "Kontrast"
+    },
+    "highlights": {
+     "label": "Mga highlight"
+    },
+    "opacity": {
+     "label": "Opacity"
+    },
+    "outside": {
+     "label": "Glow sa labas"
+    }
+   }
+  },
+  "solid": {
+   "description": "Naglalagay ng isang kulay sa ibabaw ng layer, pinapanatili ang hugis nito, na may mapipiling blending mode.",
+   "name": "Solid na kulay",
+   "params": {
+    "amount": {
+     "label": "Alpha"
+    },
+    "blend": {
+     "label": "Blending mode",
+     "options": [
+      "Normal",
+      "Multiply",
+      "Screen",
+      "Overlay",
+      "Soft Light",
+      "Hard Light",
+      "Add",
+      "Darken",
+      "Lighten",
+      "Difference",
+      "Color Dodge",
+      "Color Burn"
+     ]
+    },
+    "color": {
+     "label": "Kulay"
+    }
+   }
+  },
+  "solidmatte": {
+   "description": "Naglalagay ng solid na kulay sa likod ng layer, pinupuno ang mga transparent na bahagi nito. Ipinapakita lang ng Punch Out ang kulay na may butas na hugis ng layer, at pinupuno ng Screen Space ang buong screen sa halip na ang kahon ng layer.",
+   "name": "Solid Matte",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "punch": {
+     "label": "Punch Out"
+    },
+    "screenSpace": {
+     "label": "Screen Space"
+    }
+   }
+  },
+  "spherize": {
+   "description": "Binabalot ang layer sa isang sphere gamit ang front projection o equirectangular texture.",
+   "name": "Spherize",
+   "params": {
+    "coverage": {
+     "label": "Saklaw"
+    },
+    "light": {
+     "label": "Anggulo ng ilaw"
+    },
+    "perspective": {
+     "label": "Perspektibo"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "projection": {
+     "label": "Proyeksyon",
+     "options": [
+      "Harap",
+      "Equirectangular"
+     ]
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "rotX": {
+     "label": "Pag-ikot X"
+    },
+    "rotY": {
+     "label": "Pag-ikot Y"
+    },
+    "rotZ": {
+     "label": "Pag-ikot Z"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "shading": {
+     "label": "Shading"
+    },
+    "shine": {
+     "label": "Kinang"
+    }
+   }
+  },
+  "spillclean": {
+   "description": "Tinatanggal ang berde o asul na glow na naiiwan ng naka-key na background sa gilid ng layer, habang pinapanatili ang liwanag ng mga pixel.",
+   "name": "Tagalinis ng Key Spill",
+   "params": {
+    "blur": {
+     "label": "Lapad ng gilid"
+    },
+    "channel": {
+     "label": "Kulay ng spill",
+     "options": [
+      "Auto",
+      "Berde",
+      "Asul"
+     ]
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "spin": {
+   "description": "Paulit-ulit na pinapaikot ang layer sa pare-parehong bilis; kapag mas mababa sa zero, kabaligtaran ang ikot.",
+   "name": "Pag-ikot",
+   "params": {
+    "rpm": {
+     "label": "RPM"
+    }
+   }
+  },
+  "spinblur": {
+   "description": "Hinihidyo ang layer nang pabilog sa paligid ng isang punto, parang umiikot.",
+   "name": "Spin blur",
+   "params": {
+    "center": {
+     "label": "Gitna"
+    },
+    "sweep": {
+     "label": "Anggulo"
+    }
+   }
+  },
+  "spinstreaks": {
+   "description": "Gumagawa ng hugis-arkong streak sa pag-ikot ng mga kopya ng layer sa isang punto at pag-blend kung saan nag-o-overlap. Pinipili ng R, G, B at A sa bawat channel kung pinakamababa, pinakamataas o average na value ang gagamitin ng mga kopya, o hindi papansinin ang channel.",
+   "name": "Spin streaks",
+   "params": {
+    "a": {
+     "label": "A",
+     "options": [
+      "Pinakamababa",
+      "Pinakamataas",
+      "Average",
+      "Naka-off"
+     ]
+    },
+    "alpha": {
+     "label": "Alpha"
+    },
+    "b": {
+     "label": "B",
+     "options": [
+      "Pinakamababa",
+      "Pinakamataas",
+      "Average",
+      "Naka-off"
+     ]
+    },
+    "bias": {
+     "label": "Bias"
+    },
+    "center": {
+     "label": "Gitna"
+    },
+    "g": {
+     "label": "G",
+     "options": [
+      "Pinakamababa",
+      "Pinakamataas",
+      "Average",
+      "Naka-off"
+     ]
+    },
+    "r": {
+     "label": "R",
+     "options": [
+      "Pinakamababa",
+      "Pinakamataas",
+      "Average",
+      "Naka-off"
+     ]
+    },
+    "sweep": {
+     "label": "Hagod"
+    }
+   }
+  },
+  "splittone": {
+   "description": "Kinukulayan ang mga anino at highlight sa magkaibang hue, pinapanatili ang itim, puti at liwanag. Binabaluktot ng Level ng Anino ang kurba ng liwanag at inililipat ng Level ng Highlight kung saan nagsisimula ang kulay ng highlight. Sa estilong Gradient Map, kulay mula sa liwanag lang ang ibinibigay sa bawat pixel.",
+   "name": "Hatiin ang Tono",
+   "params": {
+    "highlightAmount": {
+     "label": "Dami ng Highlight"
+    },
+    "highlightHue": {
+     "label": "Hue ng Highlight"
+    },
+    "highlightLevel": {
+     "label": "Level ng Highlight"
+    },
+    "shadowAmount": {
+     "label": "Dami ng Anino"
+    },
+    "shadowHue": {
+     "label": "Hue ng Anino"
+    },
+    "shadowLevel": {
+     "label": "Level ng Anino"
+    },
+    "style": {
+     "label": "Estilo",
+     "options": [
+      "Tint",
+      "Gradient Map"
+     ]
+    }
+   }
+  },
+  "spotcolor": {
+   "description": "Pinapanatili ang isang kulay at inaalis ang saturation sa lahat ng iba pang kulay sa layer.",
+   "name": "Spot color",
+   "params": {
+    "choke": {
+     "label": "Choke"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "feather": {
+     "label": "Feather"
+    },
+    "saturation": {
+     "label": "Saturation"
+    },
+    "threshold": {
+     "label": "Threshold"
+    }
+   }
+  },
+  "squeeze": {
+   "description": "Pinipisil ang gitna ng layer papasok kapag positibo ang Lakas at pinapauslog palabas kapag negatibo ang Lakas. Pinapanatili ng Legacy ang hugis ng mas lumang proyekto.",
+   "name": "Pisil",
+   "params": {
+    "amount": {
+     "label": "Lakas"
+    },
+    "shape": {
+     "label": "Hugis",
+     "options": [
+      "Pisil/Lobo",
+      "Legacy"
+     ]
+    }
+   }
+  },
+  "star": {
+   "description": "Gumuguhit ng isang kumikinang na bituin sa layer.",
+   "name": "Bituin",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "blend": {
+     "label": "Blending mode",
+     "options": [
+      "Normal",
+      "Multiply",
+      "Screen",
+      "Overlay",
+      "Soft Light",
+      "Hard Light",
+      "Add",
+      "Darken",
+      "Lighten",
+      "Difference",
+      "Color Dodge",
+      "Color Burn"
+     ]
+    },
+    "brightness": {
+     "label": "Liwanag"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "points": {
+     "label": "Puntos"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "shine": {
+     "label": "Kislap"
+    }
+   }
+  },
+  "starfield": {
+   "description": "Pinupuno ang opaque na bahagi ng layer ng malalim na field ng mga bituin. Gumagalaw ang Offset sa field, at mas malayo ang galaw ng malalapit na bituin kaysa sa malalayo.",
+   "name": "Starfield",
+   "params": {
+    "brightness": {
+     "label": "Liwanag"
+    },
+    "darkMatter": {
+     "label": "Dark Matter"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "scale": {
+     "label": "Scale"
+    }
+   }
+  },
+  "starpolyhedron": {
+   "description": "Inilalagay ang layer sa isang bituin na gawa sa dalawang pyramid na nagsalubong.",
+   "name": "Bituing Polyhedron",
+   "params": {
+    "light": {
+     "label": "Anggulo ng liwanag"
+    },
+    "perspective": {
+     "label": "Perspective"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "rotX": {
+     "label": "Rotation X"
+    },
+    "rotY": {
+     "label": "Rotation Y"
+    },
+    "rotZ": {
+     "label": "Rotation Z"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "shading": {
+     "label": "Shading"
+    },
+    "shine": {
+     "label": "Kislap"
+    }
+   }
+  },
+  "starprism": {
+   "description": "Hinihiwa ang layer sa hugis bituin at binibigyan ito ng lalim.",
+   "name": "Bituing Prism",
+   "params": {
+    "depth": {
+     "label": "Lalim"
+    },
+    "inner": {
+     "label": "Panloob na radius"
+    },
+    "light": {
+     "label": "Anggulo ng liwanag"
+    },
+    "perspective": {
+     "label": "Perspective"
+    },
+    "points": {
+     "label": "Puntos"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "rotX": {
+     "label": "Rotation X"
+    },
+    "rotY": {
+     "label": "Rotation Y"
+    },
+    "rotZ": {
+     "label": "Rotation Z"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "shading": {
+     "label": "Shading"
+    },
+    "shine": {
+     "label": "Kislap"
+    },
+    "smoothing": {
+     "label": "Pagpapakinis"
+    }
+   }
+  },
+  "static": {
+   "description": "Kumikislap na gray na noise, parang telebisyon na walang signal.",
+   "name": "Static",
+   "params": {
+    "amount": {
+     "label": "Dami"
+    },
+    "grain": {
+     "label": "Laki"
+    }
+   }
+  },
+  "stretch": {
+   "description": "Hinihiwa ang layer sa isang linya at hinihila ang dalawang hati palayo, hinihila ang mga pixel sa linya papunta sa puwang.",
+   "name": "Stretch ng Segment",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "relative": {
+     "label": "Sukatin sa Laki ng Layer"
+    },
+    "spread": {
+     "label": "Spread"
+    },
+    "stretch": {
+     "label": "Stretch"
+    }
+   }
+  },
+  "stretchaxis": {
+   "description": "Ini-stretch ang layer sa kahit anong direksyon.",
+   "name": "Stretch Axis",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "mask": {
+     "label": "I-mask sa layer"
+    },
+    "scale": {
+     "label": "Scale"
+    }
+   }
+  },
+  "stripes": {
+   "description": "Gumuguhit ng pattern ng mga guhit sa hindi transparent na bahagi ng layer, o binubutas ang mga guhit mula rito.",
+   "name": "Mga Guhit",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "color": {
+     "label": "Kulay"
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "phase": {
+     "label": "Phase"
+    },
+    "punch": {
+     "label": "Butasin"
+    },
+    "screenSpace": {
+     "label": "Screen space"
+    },
+    "smoothing": {
+     "label": "Pagpapakinis"
+    },
+    "width": {
+     "label": "Lapad"
+    }
+   }
+  },
+  "stroketaper": {
+   "description": "Pinapanipis ang mga stroke hanggang maging matulis: ang pen at brush strokes ng freehand drawing, at ang Stroke ng mga linya at hugis (Frame at Anino > Stroke). Mula wala hanggang Simula, at mula Wakas pababa sa wala. Pinapatalas ng Squeeze ang taper.",
+   "name": "Pagnipis ng Stroke",
+   "params": {
+    "end": {
+     "label": "Wakas"
+    },
+    "squeeze": {
+     "label": "Squeeze"
+    },
+    "start": {
+     "label": "Simula"
+    }
+   }
+  },
+  "swing": {
+   "description": "Pinaiikot ang layer pabalik-balik sa pagitan ng dalawang anggulo.",
+   "name": "Indayog",
+   "params": {
+    "angle1": {
+     "label": "Anggulo 1"
+    },
+    "angle2": {
+     "label": "Anggulo 2"
+    },
+    "frequency": {
+     "label": "Dalas"
+    },
+    "phase": {
+     "label": "Phase"
+    },
+    "wave": {
+     "label": "Alon",
+     "options": [
+      "Sine",
+      "Triangle"
+     ]
+    }
+   }
+  },
+  "temperature": {
+   "description": "Pinapainit o pinapalamig ang larawan gaya ng ilaw na may temperatura ng kulay sa kelvin; hindi binabago ng 6500 K ang larawan.",
+   "name": "Temperatura ng Kulay",
+   "params": {
+    "kelvin": {
+     "label": "Temperatura"
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  },
+  "textblips": {
+   "description": "Tina-type ang teksto nang isa-isang letra na may maikling blip sa bawat letra, parang karakter na nagsasalita sa laro. Pumili ng Boses, tapos itakda ang Pitch nito, kung gaano kabilis mag-type ang mga letra at gaano katagal ang paghinto pagkatapos ng bantas. Tahimik ang mga espasyo at bantas.",
+   "name": "Mga Blip ng Teksto",
+   "params": {
+    "delay": {
+     "label": "Antala"
+    },
+    "every": {
+     "label": "Blip bawat"
+    },
+    "pause": {
+     "label": "Paghinto sa bantas"
+    },
+    "pitch": {
+     "label": "Pitch"
+    },
+    "reveal": {
+     "label": "Pag-type nang isa-isa"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "speed": {
+     "label": "Bilis"
+    },
+    "variation": {
+     "label": "Pagbabago ng pitch"
+    },
+    "voice": {
+     "label": "Boses",
+     "options": [
+      "Classic",
+      "Malambot",
+      "Malalim",
+      "Mataas",
+      "Robot",
+      "Squeak",
+      "Typewriter",
+      "Chiptune"
+     ]
+    },
+    "volume": {
+     "label": "Volume"
+    }
+   },
+   "presets": {
+    "fast-talker": "Mabilis Magsalita",
+    "hero": "Bayani",
+    "monster": "Halimaw",
+    "robot": "Robot",
+    "typewriter": "Typewriter"
+   }
+  },
+  "textpath": {
+   "description": "Inilalagay ang teksto sa kahabaan ng arko, bilog, o outline ng layer na nasa ilalim mismo nito, titik por titik, habang napapanatili ang hugis ng mga titik, font, at emoji ng teksto.",
+   "name": "Teksto sa Path",
+   "params": {
+    "align": {
+     "label": "Ihanay",
+     "options": [
+      "Kaliwa",
+      "Gitna",
+      "Kanan"
+     ]
+    },
+    "baseline": {
+     "label": "Usog ng Baseline"
+    },
+    "center": {
+     "label": "Gitna"
+    },
+    "control1": {
+     "label": "Kontrol 1"
+    },
+    "control2": {
+     "label": "Kontrol 2"
+    },
+    "end": {
+     "label": "Dulo"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "reverse": {
+     "label": "Baligtarin ang Path"
+    },
+    "rotate": {
+     "label": "I-rotate ang mga Titik"
+    },
+    "shape": {
+     "label": "Path",
+     "options": [
+      "Arko",
+      "Bilog",
+      "Layer sa Ilalim"
+     ]
+    },
+    "start": {
+     "label": "Simula"
+    }
+   }
+  },
+  "textprogress": {
+   "description": "Ipinapakita ang teksto sa pagitan ng Simula at Wakas, ayon sa character, salita o linya, na may opsyonal na fade, slide, scaling o blur.",
+   "name": "Pag-usad ng Teksto",
+   "params": {
+    "appearance": {
+     "label": "Lumalabas Bilang",
+     "options": [
+      "Pop",
+      "Fade",
+      "Dumulas Pataas",
+      "Dumulas Pababa",
+      "Dumulas Pakaliwa",
+      "Dumulas Pakanan",
+      "Lumaki",
+      "Lumiit",
+      "Blur"
+     ]
+    },
+    "direction": {
+     "label": "Direksyon",
+     "options": [
+      "Mula sa Simula",
+      "Mula sa Dulo",
+      "Mula sa Gitna",
+      "Random"
+     ]
+    },
+    "distance": {
+     "label": "Distansya"
+    },
+    "progress": {
+     "label": "Wakas"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "softness": {
+     "label": "Lambot"
+    },
+    "start": {
+     "label": "Simula"
+    },
+    "unit": {
+     "label": "Batay sa",
+     "options": [
+      "Character",
+      "Salita",
+      "Linya"
+     ]
+    }
+   },
+   "presets": {
+    "fade-in-by-word": "Fade in bawat salita",
+    "pop-in": "Pop in",
+    "slide-up-by-letter": "Slide pataas bawat letra",
+    "typewriter": "Makinilya"
+   }
+  },
+  "textrandomizer": {
+   "description": "Random na pinapalitan ang Dami ng mga character sa pagitan ng Simula at Wakas. I-animate ang Evolution o taasan ang bilis para baguhin ang mga kapalit; ibinabalik sila ng Ibunyag sa orihinal na teksto.",
+   "name": "Randomizer ng Teksto",
+   "params": {
+    "amount": {
+     "label": "Dami"
+    },
+    "characters": {
+     "label": "Custom"
+    },
+    "charset": {
+     "label": "Mga Character",
+     "options": [
+      "Mga Letra",
+      "Malalaking Titik",
+      "Maliit na titik",
+      "Mga numero",
+      "Mga titik at numero",
+      "Mga simbolo",
+      "Custom"
+     ]
+    },
+    "direction": {
+     "label": "Direksyon",
+     "options": [
+      "Mula sa Simula",
+      "Mula sa Dulo",
+      "Mula sa Gitna",
+      "Random"
+     ]
+    },
+    "end": {
+     "label": "Wakas"
+    },
+    "evolution": {
+     "label": "Evolution"
+    },
+    "keepSpaces": {
+     "label": "Panatilihin ang mga puwang"
+    },
+    "progress": {
+     "label": "Ibunyag"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "speed": {
+     "label": "Bilis"
+    },
+    "start": {
+     "label": "Simula"
+    }
+   },
+   "presets": {
+    "scramble": "Guluhin"
+   }
+  },
+  "textshake": {
+   "description": "Niyayanig ang bawat letra nang kanya-kanya, parang kabadong usapan sa laro. Ang Yanig ay lumilipat-lipat sa mga puwesto, ang Panginginig ay tumatalon sa bagong puwesto sa bawat hakbang, ang Alon ay pataas-pababa ang mga letra, ang Bilog ay gumagalaw sa maliliit na ikot at ang Indayog ay pakaliwa't pakanan ang tagilid. Babaan ang Mga letrang yayanig para ilang letra lang ang yumanig, na random na pinipili ulit bawat ilang sandali.",
+   "name": "Yanig ng Teksto",
+   "params": {
+    "amount": {
+     "label": "Dami"
+    },
+    "cycles": {
+     "label": "Bilis"
+    },
+    "end": {
+     "label": "Wakas"
+    },
+    "every": {
+     "label": "Bagong letra bawat"
+    },
+    "letters": {
+     "label": "Mga letrang yayanig"
+    },
+    "rotation": {
+     "label": "Rotation"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "speed": {
+     "label": "Bilis"
+    },
+    "spread": {
+     "label": "Kalat"
+    },
+    "start": {
+     "label": "Simula"
+    },
+    "style": {
+     "label": "Estilo",
+     "options": [
+      "Yanig",
+      "Panginginig",
+      "Alon",
+      "Bilog",
+      "Indayog"
+     ]
+    },
+    "tilt": {
+     "label": "Tilt"
+    },
+    "unit": {
+     "label": "Batay sa",
+     "options": [
+      "Character",
+      "Salita",
+      "Linya"
+     ]
+    }
+   },
+   "presets": {
+    "dizzy": "Nahihilo",
+    "floaty": "Lutang",
+    "nervous": "Kabado",
+    "scared": "Takot",
+    "uneasy": "Balisa",
+    "wavy": "Maalon",
+    "wobbly": "Pasuray-suray"
+   }
+  },
+  "texttransform": {
+   "description": "Ginagalaw, pinalalaki, pinapaikot, pinapakupas at kinukulayan ang mga letra, salita o linya sa loob ng isang range. Itinatakda ng Anchor kung bawat component o ang gitna ng layer ang gagamitin sa scaling at rotation. Ilipat ang range gamit ang Offset para gumalaw ang pagbabago sa buong teksto.",
+   "name": "Transform ng Teksto",
+   "params": {
+    "anchor": {
+     "label": "Anchor",
+     "options": [
+      "Component",
+      "Layer"
+     ]
+    },
+    "end": {
+     "label": "Wakas"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "opacity": {
+     "label": "Opacity"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "randomOrder": {
+     "label": "Random na order"
+    },
+    "rotation": {
+     "label": "Rotasyon"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "shape": {
+     "label": "Hugis",
+     "options": [
+      "Parisukat",
+      "Pataas",
+      "Pababa",
+      "Tatsulok",
+      "Bilog",
+      "Makinis"
+     ]
+    },
+    "smoothness": {
+     "label": "Pagkakinis"
+    },
+    "start": {
+     "label": "Simula"
+    },
+    "tint": {
+     "label": "Tint"
+    },
+    "unit": {
+     "label": "Batay sa",
+     "options": [
+      "Titik",
+      "Salita",
+      "Linya"
+     ]
+    }
+   },
+   "presets": {
+    "spin-cascade": "Sunod-sunod na ikot",
+    "wave": "Alon"
+   }
+  },
+  "threshold": {
+   "description": "Purong itim at puti, nahahati batay sa liwanag.",
+   "name": "Threshold",
+   "params": {
+    "blend": {
+     "label": "Blending mode",
+     "options": [
+      "Normal",
+      "Multiply",
+      "Screen",
+      "Overlay",
+      "Soft light",
+      "Hard light",
+      "Add",
+      "Darken",
+      "Lighten",
+      "Difference",
+      "Color dodge",
+      "Color burn"
+     ]
+    },
+    "invert": {
+     "label": "Baliktarin"
+    },
+    "level": {
+     "label": "Threshold"
+    },
+    "softness": {
+     "label": "Feather"
+    }
+   }
+  },
+  "tile": {
+   "description": "Inuulit ang larawan sa isang grid.",
+   "name": "Tile",
+   "params": {
+    "mirror": {
+     "label": "Salamin"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "scale": {
+     "label": "Iskala"
+    }
+   }
+  },
+  "tilerotate": {
+   "description": "Hinahati ang layer sa grid ng mga tile at iniikot ang larawan sa loob ng bawat tile nang sarili.",
+   "name": "Pag-ikot ng Tile",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "random": {
+     "label": "Random"
+    },
+    "rotation": {
+     "label": "Pag-ikot"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "stretch": {
+     "label": "Stretch"
+    }
+   }
+  },
+  "tiles": {
+   "description": "Inuulit ang layer para mapuno ang screen. Taasan ang Crop para mas maliit ang mga tile, may opsyonal na mirroring, row offset at rotation. Pinapanatili ng Legacy Scale ang mga lumang proyekto.",
+   "name": "Mga Tile",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "mirror": {
+     "label": "Mirror"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "sizing": {
+     "label": "Sizing",
+     "options": [
+      "Crop",
+      "Legacy scale"
+     ]
+    },
+    "vertical": {
+     "label": "Offset nang patayo"
+    },
+    "zoom": {
+     "label": "Crop"
+    }
+   }
+  },
+  "tileshift": {
+   "description": "Hinahati ang layer sa grid ng mga tile at ini-slide ang larawan sa loob ng bawat tile sa random na direksyon.",
+   "name": "Pag-shift ng Tile",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "count": {
+     "label": "Bilang"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "strength": {
+     "label": "Lakas"
+    },
+    "stretch": {
+     "label": "Stretch"
+    }
+   }
+  },
+  "timecode": {
+   "description": "Pinapalitan ang teksto ng isang layer ng tumatakbong orasan ng oras ng layer o proyekto. Ang Start At at negatibong Bilis ay gumagawa ng countdown.",
+   "name": "Timecode",
+   "params": {
+    "format": {
+     "label": "Format",
+     "options": [
+      "HH:MM:SS:FF",
+      "HH:MM:SS",
+      "MM:SS",
+      "MM:SS.hh",
+      "SS.hh",
+      "Mga frame"
+     ]
+    },
+    "offset": {
+     "label": "Magsimula sa"
+    },
+    "source": {
+     "label": "Oras",
+     "options": [
+      "Layer",
+      "Proyekto"
+     ]
+    },
+    "speed": {
+     "label": "Bilis"
+    }
+   }
+  },
+  "timequant": {
+   "description": "Ginagawang mas mababa ang frame rate ng layer na ito, para magmukhang choppy o stop-motion ang bidyo.",
+   "name": "Frame Rate",
+   "params": {
+    "fps": {
+     "label": "Frame/seg"
+    }
+   }
+  },
+  "tint": {
+   "description": "Inimapa ang luminance ng larawan sa pagitan ng kulay ng anino at kulay ng highlight gamit ang isang halaga ng blend.",
+   "name": "Tint",
+   "params": {
+    "amount": {
+     "label": "Dami"
+    },
+    "highlightColor": {
+     "label": "Kulay ng highlight"
+    },
+    "shadowColor": {
+     "label": "Kulay ng anino"
+    }
+   }
+  },
+  "torus": {
+   "description": "Binabalot ang layer sa paligid ng isang singsing.",
+   "name": "Torus",
+   "params": {
+    "light": {
+     "label": "Anggulo ng ilaw"
+    },
+    "perspective": {
+     "label": "Perspektibo"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "rotX": {
+     "label": "Pag-ikot X"
+    },
+    "rotY": {
+     "label": "Pag-ikot Y"
+    },
+    "rotZ": {
+     "label": "Pag-ikot Z"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "shading": {
+     "label": "Shading"
+    },
+    "shine": {
+     "label": "Kinang"
+    },
+    "thickness": {
+     "label": "Kapal"
+    }
+   }
+  },
+  "tunnel": {
+   "description": "Binabalot ang layer sa isang walang katapusang tunnel at lumilipad sa loob nito. Inililipat ng phase ang texture sa haba nito.",
+   "name": "Tunnel",
+   "params": {
+    "fog": {
+     "label": "Fog"
+    },
+    "fogColor": {
+     "label": "Kulay ng fog"
+    },
+    "phase": {
+     "label": "Phase"
+    },
+    "position": {
+     "label": "Posisyon"
+    },
+    "repeat": {
+     "label": "Ulitin"
+    },
+    "rotX": {
+     "label": "Pag-ikot X"
+    },
+    "rotY": {
+     "label": "Pag-ikot Y"
+    },
+    "rotZ": {
+     "label": "Pag-ikot Z"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "speed": {
+     "label": "Bilis"
+    },
+    "twist": {
+     "label": "Pag-twist"
+    }
+   }
+  },
+  "turbulence": {
+   "description": "Pinupuno ang opaque na bahagi ng layer ng makinis na fractal noise, para sa ulap, usok o brightness map.",
+   "name": "Turbulence",
+   "params": {
+    "alpha": {
+     "label": "Alpha"
+    },
+    "bias": {
+     "label": "Bias"
+    },
+    "blend": {
+     "label": "Blending mode",
+     "options": [
+      "Normal",
+      "Multiply",
+      "Screen",
+      "Overlay",
+      "Soft light",
+      "Hard light",
+      "Add",
+      "Darken",
+      "Lighten",
+      "Difference",
+      "Color dodge",
+      "Color burn"
+     ]
+    },
+    "color1": {
+     "label": "Kulay 1"
+    },
+    "color2": {
+     "label": "Kulay 2"
+    },
+    "evolution": {
+     "label": "Evolution"
+    },
+    "intensity": {
+     "label": "Intensity"
+    },
+    "octaves": {
+     "label": "Octaves"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "parallax": {
+     "label": "Parallax"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "stretch": {
+     "label": "Stretch"
+    }
+   }
+  },
+  "turbulentdisplace": {
+   "description": "Itinutulak ang layer gamit ang makinis na fractal noise, para sa apoy, tubig, heat haze o magaspang na natural na gilid.",
+   "name": "Turbulent displace",
+   "params": {
+    "bias": {
+     "label": "Bias"
+    },
+    "direction": {
+     "label": "Direksyon",
+     "options": [
+      "Pareho",
+      "Pahalang",
+      "Patayo",
+      "Radial",
+      "Twist"
+     ]
+    },
+    "evolution": {
+     "label": "Evolution"
+    },
+    "octaves": {
+     "label": "Octaves"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "parallax": {
+     "label": "Parallax"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "strength": {
+     "label": "Strength"
+    },
+    "stretch": {
+     "label": "Stretch"
+    }
+   }
+  },
+  "twirl": {
+   "description": "Pinipilipit ang layer sa paligid ng Center na parang whirlpool, pinakamalakas sa gitna at kumukupas sa Radius (isang bahagi ng laki ng layer). Pinipilipit ng negatibong Strength sa kabilang direksyon.",
+   "name": "Swirl",
+   "params": {
+    "center": {
+     "label": "Sentro"
+    },
+    "radius": {
+     "label": "Radius"
+    },
+    "strength": {
+     "label": "Strength"
+    }
+   }
+  },
+  "unsharpmask": {
+   "description": "Nagpapatalas sa pamamagitan ng pagbabalik ng pagkakaiba ng layer at ng blurred na kopya nito. Itinatakda ng Strength kung gaano kalawak ang blur, ng Amount kung gaano karami ang ibinabalik, at ang Threshold na higit sa 50% ay hindi pinapansin ang maliliit na pagkakaiba.",
+   "name": "Unsharp Mask",
+   "params": {
+    "amount": {
+     "label": "Dami"
+    },
+    "radius": {
+     "label": "Lakas"
+    },
+    "showMask": {
+     "label": "Ipakita ang Mask"
+    },
+    "threshold": {
+     "label": "Hangganan"
+    }
+   }
+  },
+  "vhs": {
+   "description": "Mukhang lumang video tape: color bleed, smeared na linya, scanlines, tape noise at gumagalaw na tracking bands.",
+   "name": "VHS",
+   "params": {
+    "chroma": {
+     "label": "Pagguho ng Kulay"
+    },
+    "headSwitch": {
+     "label": "Pagpalit ng Head"
+    },
+    "noise": {
+     "label": "Ingay"
+    },
+    "saturation": {
+     "label": "Saturation"
+    },
+    "scanlines": {
+     "label": "Scanlines"
+    },
+    "seed": {
+     "label": "Seed"
+    },
+    "smear": {
+     "label": "Pahid"
+    },
+    "tracking": {
+     "label": "Tracking"
+    },
+    "wobble": {
+     "label": "Pag-indayog"
+    }
+   }
+  },
+  "videofeedback": {
+   "description": "Paulit-ulit na iginuguhit ang layer sa loob ng sarili nito, tulad ng kamerang nakatutok sa sarili nitong screen. Kapag naka-on ang Frame by Frame, ipinapakita ng bawat kopya ang layer mula sa isang frame na mas maaga, kaya nag-iiwan ang galaw ng mga bakas na umiikot papasok sa tunnel.",
+   "name": "Feedback ng bidyo",
+   "params": {
+    "blend": {
+     "label": "Blending",
+     "options": [
+      "Normal",
+      "Add",
+      "Screen"
+     ]
+    },
+    "center": {
+     "label": "Gitna"
+    },
+    "copies": {
+     "label": "Mga kopya"
+    },
+    "delay": {
+     "label": "Antala"
+    },
+    "fade": {
+     "label": "Fade"
+    },
+    "hueShift": {
+     "label": "Pagbabago ng hue"
+    },
+    "offset": {
+     "label": "Offset"
+    },
+    "rotation": {
+     "label": "Pag-ikot"
+    },
+    "trails": {
+     "label": "Frame by Frame"
+    },
+    "useLayerTransform": {
+     "label": "Gamitin ang transform ng layer"
+    },
+    "zoom": {
+     "label": "Zoom"
+    }
+   }
+  },
+  "viewer360": {
+   "description": "Ipinapakita ang 360° panorama layer sa pamamagitan ng virtual na kamera na maaari mong paikutin at i-zoom.",
+   "name": "360° Viewer",
+   "params": {
+    "fov": {
+     "label": "Field of view"
+    },
+    "pitch": {
+     "label": "Pitch"
+    },
+    "roll": {
+     "label": "Roll"
+    },
+    "yaw": {
+     "label": "Yaw"
+    }
+   }
+  },
+  "vignette": {
+   "description": "Pinapadilim ang layer papunta sa mga gilid nito sa labas ng bilugang hugis: itinatakda ng Sukat ang hugis, ng Pagkabilog kung gaano ito kabilog, ng Feather kung gaano kalambot ang gilid, ng Lakas kung gaano ito kadilim at ng Tint kung gaano ito nakakakuha ng Kulay. Ginagawang transparent ang mga gilid kapag Punch Out.",
+   "name": "Vignette",
+   "params": {
+    "color": {
+     "label": "Kulay"
+    },
+    "extent": {
+     "label": "Sukat"
+    },
+    "feather": {
+     "label": "Feather"
+    },
+    "punch": {
+     "label": "Punch Out"
+    },
+    "rounding": {
+     "label": "Pagkabilog"
+    },
+    "strength": {
+     "label": "Lakas"
+    },
+    "style": {
+     "label": "Estilo",
+     "options": [
+      "Bilugan",
+      "Malambot na oval"
+     ]
+    },
+    "tint": {
+     "label": "Tint"
+    }
+   }
+  },
+  "voronoicells": {
+   "description": "Pinupuno ang opaque na bahagi ng layer ng pattern ng mga cell sa paligid ng random na mga punto.",
+   "name": "Voronoi cells",
+   "params": {
+    "color1": {
+     "label": "Kulay 1"
+    },
+    "color2": {
+     "label": "Kulay 2"
+    },
+    "lineColor": {
+     "label": "Kulay ng linya"
+    },
+    "lineWidth": {
+     "label": "Lapad ng linya"
+    },
+    "phase": {
+     "label": "Phase"
+    },
+    "scale": {
+     "label": "Scale"
+    },
+    "seed": {
+     "label": "Seed"
+    }
+   }
+  },
+  "wavewarp": {
+   "description": "Binabaluktot ang layer gamit ang sine wave: Itinatakda ng Spacing kung ilang wave ang tumatawid, ng Magnitude kung gaano kalayo ang pagtulak, ng Anggulo ang direksyon ng pagtakbo ng waves at ng Warp Angle ang direksyon ng pagtulak.",
+   "name": "Wave Warp",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "magnitude": {
+     "label": "Magnitude"
+    },
+    "phase": {
+     "label": "Phase"
+    },
+    "spacing": {
+     "label": "Spacing"
+    },
+    "speed": {
+     "label": "Bilis"
+    },
+    "warpAngle": {
+     "label": "Warp Angle"
+    }
+   }
+  },
+  "wipe": {
+   "description": "Itinatago ang layer mula sa dalawang magkasalungat na gilid. I-animate ang Simula o Wakas para sa wipe transition.",
+   "name": "Wipe",
+   "params": {
+    "angle": {
+     "label": "Anggulo"
+    },
+    "end": {
+     "label": "Wakas"
+    },
+    "feather": {
+     "label": "Feather"
+    },
+    "softness": {
+     "label": "Lambot"
+    },
+    "start": {
+     "label": "Simula"
+    }
+   }
+  },
+  "zoomstreaks": {
+   "description": "Gumagawa ng mga streak na lumalabas mula sa isang punto sa pag-scale ng mga kopya ng layer sa paligid nito at pagpapanatili ng pinakamaliwanag na mga pixel. Ang Average ay nagbibigay ng zoom blur. Pinipili ng R, G, B at A sa bawat channel kung pinakamababa, pinakamataas o average na value ang gagamitin ng mga kopya, o hindi papansinin ang channel.",
+   "name": "Zoom Streaks",
+   "params": {
+    "a": {
+     "label": "A",
+     "options": [
+      "Pinakamababa",
+      "Pinakamataas",
+      "Average",
+      "Naka-off"
+     ]
+    },
+    "alpha": {
+     "label": "Alpha"
+    },
+    "b": {
+     "label": "B",
+     "options": [
+      "Pinakamababa",
+      "Pinakamataas",
+      "Average",
+      "Naka-off"
+     ]
+    },
+    "bias": {
+     "label": "Bias"
+    },
+    "center": {
+     "label": "Gitna"
+    },
+    "g": {
+     "label": "G",
+     "options": [
+      "Pinakamababa",
+      "Pinakamataas",
+      "Average",
+      "Naka-off"
+     ]
+    },
+    "r": {
+     "label": "R",
+     "options": [
+      "Pinakamababa",
+      "Pinakamataas",
+      "Average",
+      "Naka-off"
+     ]
+    },
+    "strength": {
+     "label": "Lakas"
+    }
+   }
+  }
+ }
+}

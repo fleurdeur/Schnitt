@@ -1,0 +1,99 @@
+package app.absentmotion.editor
+
+import app.absentmotion.model.*
+import kotlin.math.roundToInt
+
+fun EditorState.addVideo(media: MediaDeclaration) {
+    val layer = scene.videoLayer(media, frame) ?: return
+    edit { it.add(layer, listOf(media)) }
+    selectedId = layer.id; panel = EditorPanel.Tools; addOpen = false
+}
+
+fun Scene.videoLayer(media: MediaDeclaration, frame: Int): Layer? {
+    if (media.width <= 0 || media.height <= 0 || media.duration <= 0) return null
+    val document = this
+    val turned = media.orientation == 90 || media.orientation == 270
+    val w = if (turned) media.height else media.width
+    val h = if (turned) media.width else media.height
+    val atWidth = h.toLong() * document.width / w
+    val fitted = if (atWidth <= document.height) document.width to atWidth.toInt()
+        else (w.toLong() * document.height / h).toInt() to document.height
+    val raw = if (turned) fitted.second to fitted.first else fitted
+    val id = Layer.newId()
+    val duration = (media.duration / 1000).toInt()
+    var layer = Layer(XmlNode("shape", linkedMapOf("id" to "$id", "label" to media.title,
+        "startTime" to "${document.frameStart(frame)}", "endTime" to "${document.endTimeFor(frame, duration)}",
+        "fillType" to "media", "fillVideo" to media.uri, "outTime" to "$duration", "mediaFillMode" to "fill", "s" to ".rect")))
+        .withTransform("location", document.width / 2f, document.height / 2f, 0f)
+        .withProp("size", "vec2", raw.first / 2f, raw.second / 2f)
+    if (media.orientation != 0) layer = layer.withTransform("rotation", media.orientation.toFloat())
+    return layer
+}
+
+fun EditorState.retimeVideo(start: Boolean) {
+    val layer = selected ?: return
+    var newStart = if (start) timeMs else layer.startTime
+    var newEnd = if (start) layer.endTime else scene.frameEnd(frame)
+    if (layer.node.child("speedMap")?.isKeyframed != true) {
+        val timing = VideoTiming(layer)
+        val longest = ((timing.mediaMs((layer.endTime - layer.startTime).toDouble()) - timing.mediaMs(0.0)) / SLOWEST_SPEED).toInt()
+        if (newEnd - newStart > longest) { if (start) newStart = newEnd - longest else newEnd = newStart + longest }
+    }
+    val duration = newEnd - newStart
+    if (duration < 1 || !scene.showsAnyFrame(newStart, newEnd)) return
+    edit { it.update(layer.id) { current -> current.retimedVideo(newStart, newEnd) } }
+}
+
+fun EditorState.setVideoSpeed(value: Float, original: Layer) {
+    if (selectedId != original.id || value.isNaN() || original.remapped) return
+    val speed = value.coerceIn(SLOWEST_SPEED, FASTEST_SPEED)
+    val changed = original.withNormalSpeed(speed)
+    if (!scene.showsAnyFrame(changed.startTime, changed.endTime)) return
+    edit("video-speed") { it.update(original.id) { changed } }
+}
+
+fun EditorState.applySpeedCurve(points: List<CurvePoint>?) {
+    val layer = selected ?: return
+    val media = VideoTiming(layer).mediaMs((sampleMs - layer.startTime).toDouble())
+    val inside = sampleMs in layer.startTime..layer.endTime
+    val changed = layer.withSpeedCurve(points)
+    if (!scene.showsAnyFrame(changed.startTime, changed.endTime)) return
+    edit { it.update(layer.id) { current -> current.withSpeedCurve(points) } }
+    val after = selected ?: return
+    if (inside) frame = scene.frameAt(after.startTime + VideoTiming(after).localMs(media).roundToInt())
+        .coerceIn(scene.frameAt(after.startTime), scene.frameAt(after.endTime))
+}
+
+val EditorState.keyLayer: Layer? get() = selected?.let {
+    if (keyTarget?.ref == SpeedRef) it.atVideoTime(sampleMs, scene.fps) else it
+}
+
+internal fun EditorState.editKeyValue(key: Any? = null, change: (Layer) -> Layer) {
+    if (keyTarget?.ref != SpeedRef) { editSelected(key, change); return }
+    editSelected(key) { original ->
+        val changed = change(original.atVideoTime(sampleMs, scene.fps))
+        original.withVideoSpeedMap(changed.node.child("speedMap") ?: XmlNode("speedMap", mapOf("value" to (changed.node["speed"] ?: "1"))))
+    }
+}
+
+fun EditorState.freezeFrame(seconds: Float) {
+    val layer = selected ?: return
+    val frozen = layer.withFreezeFrame(sampleMs, (seconds * 1000).toInt().coerceIn(100, 30_000), scene.fps) ?: return
+    edit { it.update(layer.id) { frozen } }
+}
+
+fun EditorState.turnOnRemap() = editSelected { layer ->
+    val timing = VideoTiming(layer)
+    val keys = listOf(0.0, (layer.endTime - layer.startTime).toDouble()).mapIndexed { i, local ->
+        XmlNode("kf", mapOf("t" to "$i", "v" to formatNumber((timing.mediaMs(local) / 1000).toFloat())))
+    }
+    layer.withElement(RemapRef, XmlNode("timeRemap", children = keys))
+}
+
+fun EditorState.turnOffRemap() = editSelected { layer ->
+    layer.copy(node = layer.node.copy(children = layer.node.children.filterNot { it.name == "timeRemap" }))
+}
+
+fun EditorState.reverseRemap() = editSelected { layer ->
+    layer.node.child("timeRemap")?.let { layer.withElement(RemapRef, it.reversedInTime()) } ?: layer
+}

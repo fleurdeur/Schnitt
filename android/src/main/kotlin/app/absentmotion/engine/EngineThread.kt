@@ -1,0 +1,799 @@
+package app.absentmotion.engine
+
+import android.graphics.Rect
+import android.graphics.Bitmap
+import android.content.Context
+import android.hardware.HardwareBuffer
+import android.os.Handler
+import android.os.HandlerThread
+import android.util.Log
+import android.view.Surface
+import kotlinx.coroutines.android.asCoroutineDispatcher
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import app.absentmotion.R
+import app.absentmotion.audio.AudioEngine
+import app.absentmotion.export.exportCheck
+import app.absentmotion.i18n.AppText
+import app.absentmotion.i18n.txt
+import app.absentmotion.export.Smoothing
+import app.absentmotion.media.VideoLibrary
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import app.absentmotion.effects.EffectCatalog
+import app.absentmotion.effects.EffectDefinition
+import org.json.JSONArray
+import org.json.JSONObject
+import app.absentmotion.media.MediaLibrary
+import app.absentmotion.media.Mesh
+import app.absentmotion.model.modelUris
+import app.absentmotion.fonts.FontLibrary
+import app.absentmotion.fonts.prepareText
+import app.absentmotion.model.fontNames
+import app.absentmotion.model.font
+import app.absentmotion.model.Scene
+import app.absentmotion.model.imageUris
+import java.io.File
+import java.nio.ByteBuffer
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
+
+object EngineDebug {
+    @Volatile var failStart: String? = null
+    @Volatile var forceGl = false
+    @Volatile var failCheck: String? = null
+}
+
+class EngineThread(@Volatile var background: Int, context: Context? = null, private val preferOpenGl: () -> Boolean = { false }) {
+    private val gpuCheck = context?.let { GpuCheck(it.applicationContext) }
+    private val appContext = context?.applicationContext
+    private val gpuCache = context?.cacheDir
+    private val thread = HandlerThread("am-engine").apply { start() }
+    private val handler = Handler(thread.looper)
+    private val dispatcher = handler.asCoroutineDispatcher()
+    private val mediaScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    val fonts = context?.let { FontLibrary(it) }
+    private var fontJob: Job? = null
+    private var effectLabelsJob: Job? = null
+    private var fontNames = emptyList<String>()
+    private val media = context?.let { MediaLibrary(it, this) }
+    private val videos = context?.let { VideoLibrary(it, this) }
+    val audio = context?.let { AudioEngine(it) }
+    private val captureLock = Mutex()
+    private var capturing = false
+    @Volatile var lastStillMs = 0.0
+        private set
+
+    fun updateBackground(color: Int) { background = color; requestRender() }
+    @Volatile private var requestedView: PreviewView? = null
+    @Volatile private var playing = false
+    private val effectCatalog = MutableStateFlow(EffectCatalog(message = AppText.get(R.string.engine_loading_effects)))
+    val effects = effectCatalog.asStateFlow()
+
+    fun relabelEffects(context: Context) {
+        effectLabelsJob?.cancel()
+        val local = context.createConfigurationContext(android.content.res.Configuration(context.resources.configuration))
+        effectLabelsJob = mediaScope.launch {
+            effectJob?.join()
+            val labels = EffectCatalog.read(local)
+            withContext(dispatcher) { if (!closed) effectCatalog.value = labels.withRuntimeStatusFrom(effectCatalog.value) }
+        }
+    }
+
+    suspend fun effectCheck(directory: File) {
+        effectJob?.join()
+        val catalog = effectCatalog.value
+        val entries = JSONArray()
+        for (def in catalog.definitions) {
+            val entry = JSONObject().put("id", def.id).put("status", def.status).put("category", def.category)
+            if (def.available) entry.put("render", if (renderCheck(def)) "ok" else "empty")
+            entries.put(entry)
+        }
+        val report = JSONObject().put("count", entries.length()).put("effects", entries)
+        catalog.message?.let { report.put("error", it) }
+        withContext(Dispatchers.IO) { File(directory, "effectcheck.json").writeText(report.toString(2)) }
+    }
+
+    private suspend fun renderCheck(def: EffectDefinition): Boolean = captureLock.withLock {
+        withContext(dispatcher) {
+            if (closed) return@withContext false
+            applyPending()
+            val shown = scene
+            val xml = "<scene title=\"effectcheck\" width=\"256\" height=\"256\" fps=\"30\" totalTime=\"1000\" bgcolor=\"#00000000\">" +
+                "<shape id=\"1\" label=\"t\" startTime=\"0\" endTime=\"999\" fillType=\"color\" s=\".rect\"><transform><location value=\"128,128,0\"/></transform>" +
+                "<fillColor value=\"#ffc8503c\"/><property name=\"size\" type=\"vec2\" value=\"160,160\"/>" +
+                def.instance().toXml().substringAfter("?>") + "</shape></scene>"
+            try {
+                setEngineScene(xml)
+                val pixels = engine().still(100.0, 128, 128)
+                pixels != null && (3 until pixels.size step 4).any { pixels[it].toInt() != 0 }
+            } finally { shown?.let { setEngineScene(it) } }
+        }
+    }
+
+    @Volatile private var closed = false
+    @Volatile private var mediaJob: Job? = null
+    @Volatile private var mediaScene: Scene? = null
+    private val pictureRevision = MutableStateFlow(0L)
+    val mediaRevision = pictureRevision.asStateFlow()
+    private val installedSources = MutableStateFlow<Map<String, String>>(emptyMap())
+    val sources = installedSources.asStateFlow()
+    val instance = instances.incrementAndGet()
+    private val refreshes = java.util.concurrent.atomic.AtomicLong()
+    @Volatile private var checkedRefresh = 0L
+    val sourcesChecked: Boolean get() = checkedRefresh == refreshes.get()
+
+    internal fun publishSource(uri: String, identity: String?) = installedSources.update {
+        if (it[uri] == identity) it else if (identity == null) it - uri else it + (uri to identity)
+    }
+
+    fun textIdentity(revision: Long): String = "$instance:$revision:${fonts?.androidEmoji() ?: false}"
+
+    private var engine: NativeEngine? = null
+    private var target = 0L
+    private var surface: Surface? = null
+    private var lost = false
+    @Volatile var generation = 0
+        private set
+    @Volatile internal var simulateGpuLoss = false
+    private var view: PreviewView? = null
+    private var scene: String? = null
+
+    private val pendingScene = PendingScene()
+    private var mediaKey: List<Any?>? = null
+    private val pendingView = AtomicReference<Pair<PreviewView, Long>?>(null)
+    private val renderPosted = AtomicBoolean(false)
+    private val retryRender = Runnable { requestRender() }
+    private val viewSerial = java.util.concurrent.atomic.AtomicLong()
+    private var shownSerial = 0L
+    private val renderedView = MutableStateFlow(RenderedView(0L, -1))
+    val rendered = renderedView.asStateFlow()
+    @Volatile var renders = 0L
+        private set
+
+    init {
+        fonts?.let { library -> mediaScope.launch {
+            library.revision.collect {
+                pendingScene.fontsChanged(); pictureRevision.update { it + 1 }; requestRender()
+            }
+        } }
+    }
+    private val effectJob = context?.let { app -> mediaScope.launch {
+        val catalog = EffectCatalog.read(app)
+        effectCatalog.value = withContext(dispatcher) {
+            if (closed) catalog else catalog.loadInto { runCatching { engine().loadEffect(it) }.getOrElse { e -> "shader error: ${e.message}" } }
+        }
+        withContext(dispatcher) { renderNow() }
+    } }
+
+    private fun engine(): NativeEngine {
+        check(!closed) { "engine closed" }
+        if (engine?.failed == true || simulateGpuLoss && !capturing) {
+            exportCheck(!capturing) { txt(R.string.engine_error_gpu_capture) }
+            simulateGpuLoss = false
+            target = 0L
+            engine?.close()
+            engine = null
+            installed = null
+            lost = true
+        }
+        return engine ?: startEngine().also { next ->
+            engine = next
+            scene?.let { next.setScene(fonts?.prepareText(it, textTime) ?: it) }
+            effects.value.loadInto(next::loadEffect)
+            if (lost) {
+                lost = false
+                generation++
+                surface?.takeIf { it.isValid }?.let { target = next.attach(it, forEncoder = false) }
+                Handler(android.os.Looper.getMainLooper()).post(::refreshMedia)
+            }
+        }
+    }
+
+    private var attachedOnce = false
+    private var watchedFrames = -1
+
+    private fun checked(engine: NativeEngine): NativeEngine {
+        val check = gpuCheck ?: return engine
+        if (check.drawsRight(engine) || check.knownBad(gl = !engine.openGl)) return engine
+        check.trying(gl = !engine.openGl)
+        val other = runCatching { NativeEngine(if (engine.openGl) NativeEngine.Backend.GRAPHITE else NativeEngine.Backend.GL) }.getOrNull() ?: return engine
+        if (!check.drawsRight(other)) {
+            other.close()
+            return engine
+        }
+        Log.w("AMEngine", "switched to ${if (other.openGl) "OpenGL" else "Vulkan"} because the check picture came out wrong")
+        engine.close()
+        return other
+    }
+
+    private fun riskyVulkan(): Boolean {
+        gpuCheck?.trying(gl = false)
+        return GpuCheck.vulkanRisky(NativeEngine.vulkanDevice()).also { if (it) Log.w("AMEngine", "this GPU starts with OpenGL") }
+    }
+
+    private fun startEngine(): NativeEngine {
+        return try {
+            EngineDebug.failStart?.let { throw IllegalStateException(it) }
+            gpuCache?.let { dir -> runCatching { NativeEngine.usePipelineCache(dir, app.absentmotion.BuildConfig.VERSION_CODE) } }
+            // Compatibility first: try the preferred backend, then every other
+            // backend.  No phone is excluded because a previous run or a GPU
+            // sanity check marked a backend as bad.
+            val preferred = if (EngineDebug.forceGl || preferOpenGl()) NativeEngine.Backend.GL else NativeEngine.Backend.GRAPHITE
+            val order = (listOf(preferred, NativeEngine.Backend.GRAPHITE, NativeEngine.Backend.GANESH, NativeEngine.Backend.GL)).distinct()
+            var last: Throwable? = null
+            for (backend in order) {
+                try {
+                    gpuCheck?.trying(backend == NativeEngine.Backend.GL)
+                    val next = NativeEngine(backend)
+                    app.absentmotion.Tier.openGl = next.openGl
+                    gpuCheck?.trying(next.openGl)
+                    appContext?.getSystemService(android.app.ActivityManager::class.java)?.let { manager ->
+                        val memory = android.app.ActivityManager.MemoryInfo().also(manager::getMemoryInfo)
+                        next.setTrailBudget(app.absentmotion.model.trailBudgetMb(memory.totalMem shr 20, manager.isLowRamDevice, manager.memoryClass, app.absentmotion.Tier.compatible || next.openGl))
+                    }
+                    handler.postDelayed({ if (engine?.failed != true && watchedFrames < 0) gpuCheck?.survived() }, SURVIVE_MS)
+                    return next
+                } catch (t: Throwable) {
+                    last = t
+                    Log.w("AMEngine", "$backend cannot start, trying the next backend", t)
+                }
+            }
+            val reason = last?.message ?: last?.toString() ?: "no graphics backend could start"
+            throw IllegalStateException(reason, last)
+        } catch (t: Throwable) {
+            val reason = t.message ?: t.toString()
+            Log.e("AMEngine", "the engine cannot start", t)
+            throw t as? Exception ?: IllegalStateException(reason, t)
+        }
+    }
+
+    /** A fresh start attempt, so the editor can retry after a transient GPU failure. */
+    suspend fun startResult(): String? = withContext(dispatcher) {
+        if (closed) return@withContext "engine closed"
+        runCatching { engine() }.exceptionOrNull()?.let { it.message ?: it.toString() }
+    }
+
+    private val attachSerial = java.util.concurrent.atomic.AtomicInteger()
+
+    fun attach(surface: Surface, retry: Boolean = true): Boolean {
+        val mine = attachSerial.incrementAndGet()
+        return handler.post { if (mine == attachSerial.get()) attachNow(surface, retry) }
+    }
+
+    private fun attachNow(surface: Surface, retry: Boolean) {
+        if (closed) return
+        try {
+            val previous = target
+            target = 0L
+            this.surface = null
+            if (previous != 0L) engine().detach(previous)
+            if (!attachedOnce) {
+                attachedOnce = true
+                gpuCheck?.trying(engine().openGl)
+                watchedFrames = 0
+                handler.postDelayed({ if (watchedFrames > 0 && engine?.failed != true) { watchedFrames = -1; gpuCheck?.survived() } }, SURVIVE_MS)
+            }
+            target = engine().attach(surface, forEncoder = false)
+            this.surface = surface
+            mediaScene?.let { videos?.update(it, requestedView?.timeMs ?: 0, playing) }
+            renderNow()
+        } catch (e: Exception) {
+            Log.e("AMEngine", "preview attachment failed", e)
+            if (target == 0L) this.surface = surface
+            if (retry) handler.postDelayed({ if (!closed && target == 0L && surface.isValid) attach(surface, retry = false) }, 250)
+        }
+    }
+
+    fun detach() {
+        val done = CountDownLatch(1)
+        val release = Runnable {
+            try {
+                val previous = target
+                target = 0L
+                surface = null
+                if (previous != 0L) engine?.detach(previous)
+            } finally { done.countDown() }
+        }
+        if (android.os.Looper.myLooper() == handler.looper) release.run()
+        else if (handler.post(release)) done.await()
+        videos?.suspendPreview()
+    }
+
+    fun setScene(next: Scene, xml: String) = setScene(next, lazyOf(xml))
+
+    @Volatile private var sent: Pair<Lazy<String>, Scene>? = null
+
+    fun setScene(next: Scene, xml: Lazy<String> = lazy { next.toXml() }) {
+        sent = xml to next
+        pendingScene.set(xml)
+        fonts?.let { library ->
+            val names = next.fontNames()
+            if (names != fontNames) {
+                fontNames = names
+                fontJob = mediaScope.launch { names.forEach { library.resolve(it) } }
+            }
+        }
+        if (media != null) {
+            val previous = mediaScene
+            mediaScene = next
+            audio?.setScene(next)
+            videos?.update(next, requestedView?.timeMs ?: 0, playing)
+            val key = listOf(next.node.imageUris(), next.node.modelUris(), next.media, app.absentmotion.media.ModelDetail.budget.value)
+            if (previous == null || key != mediaKey) {
+                mediaKey = key
+                val serial = refreshes.get()
+                mediaJob?.cancel()
+                mediaJob = mediaScope.launch { media.update(next); checked(serial) }.also { loading -> loading.invokeOnCompletion { requestRender() } }
+            }
+        }
+        requestRender()
+    }
+
+    fun refreshMedia() {
+        val next = mediaScene ?: return
+        val serial = refreshes.incrementAndGet()
+        mediaJob?.cancel()
+        mediaJob = mediaScope.launch { media?.update(next); checked(serial); videos?.retry() }.also { loading -> loading.invokeOnCompletion { requestRender() } }
+    }
+
+    private fun checked(serial: Long) = synchronized(refreshes) { if (serial > checkedRefresh) checkedRefresh = serial }
+
+    suspend fun awaitMedia() {
+        do { val loading = mediaJob; loading?.join() } while (loading !== mediaJob)
+    }
+
+    suspend fun awaitVideoFrames(scene: Scene, timeMs: Int) {
+        captureLock.withLock {
+            try {
+                withContext(dispatcher) { check(!closed) { "engine closed" }; capturing = true }
+                videos?.withExact(scene, timeMs) {}
+            }
+            finally {
+                withContext(NonCancellable + dispatcher) { capturing = false; renderNow() }
+                videos?.resumePreview()
+            }
+        }
+    }
+
+    fun holdVideo(): Job? = videos?.hold()
+
+    fun trimMemory() {
+        videos?.trim()
+        handler.post { if (!closed && !capturing) runCatching { engine?.trim(); videos?.refresh() } }
+    }
+
+    fun releaseVideo(): Job? = videos?.release()
+
+    fun setPlaying(value: Boolean) {
+        playing = value
+        mediaScene?.let { videos?.update(it, requestedView?.timeMs ?: 0, value) }
+    }
+
+    internal suspend fun setVideoPicture(uri: String, buffer: HardwareBuffer, layerId: Long,
+                                         exact: Boolean, standard: Int, range: Int, crop: Rect, accept: () -> Boolean): Boolean = withContext(dispatcher) {
+        if (closed || (!exact && capturing) || !accept()) return@withContext false
+        engine().setPicture(uri, buffer, layerId, standard = standard, range = range, crop = crop)
+    }
+
+    internal suspend fun setVideoFrame(uri: String, buffer: HardwareBuffer, layerId: Long, pts: Long, standard: Int = 0, range: Int = 0, crop: Rect? = null): Boolean = withContext(dispatcher) {
+        !closed && engine().setVideoFrame(uri, layerId, pts, buffer, standard, range, crop)
+    }
+
+    internal suspend fun interpolateVideo(uri: String, layerId: Long, frames: LongArray, t: Float, mode: Int, soft: Boolean, blur: Float,
+                                          params: FloatArray, made: android.graphics.Bitmap? = null): Boolean = withContext(dispatcher) {
+        !closed && engine().interpolateVideo(uri, layerId, frames, t, mode, soft, blur, params, made)
+    }
+
+    internal suspend fun moshStart(uri: String, layerId: Long, pts: LongArray, mosh: FloatArray, flow: FloatArray, exact: Boolean): Int = withContext(dispatcher) {
+        if (closed || (!exact && capturing)) return@withContext -1
+        engine().moshStart(uri, layerId, pts, mosh, flow).also { if (it == pts.size && !exact) renderNow() }
+    }
+
+    internal suspend fun moshFrame(uri: String, buffer: HardwareBuffer, layerId: Long, step: Int, last: Boolean, exact: Boolean,
+                                   standard: Int, range: Int, crop: Rect, accept: () -> Boolean): Boolean = withContext(dispatcher) {
+        if (closed || (!exact && capturing) || !accept()) return@withContext false
+        engine().moshFrame(uri, layerId, step, buffer, standard, range, crop).also { if (it && last && !exact) renderNow() }
+    }
+
+    internal suspend fun videoTrail(uri: String, layerId: Long, shown: Long, tags: LongArray, step: Float, exact: Boolean): LongArray = withContext(dispatcher) {
+        if (closed || (!exact && capturing)) LongArray(0) else engine().videoTrail(uri, layerId, shown, tags, step)
+    }
+
+    internal suspend fun videoTrailFrame(uri: String, buffer: HardwareBuffer, layerId: Long, tag: Long, exact: Boolean,
+                                         standard: Int, range: Int, crop: Rect, accept: () -> Boolean): Boolean = withContext(dispatcher) {
+        if (closed || (!exact && capturing) || !accept()) return@withContext false
+        engine().videoTrailFrame(uri, layerId, tag, buffer, standard, range, crop)
+    }
+
+    suspend fun maxPictureSize(): Int = withContext(dispatcher) { if (closed) 1 else engine().maxPictureSize }
+
+    suspend fun setPicture(uri: String, bitmap: Bitmap?, layerId: Long = 0): Boolean = withContext(dispatcher) {
+        if (closed) return@withContext false
+        engine().setPicture(uri, bitmap, layerId).also { if (bitmap != null) pictureRevision.update { it + 1 }; renderNow() }
+    }
+
+    suspend fun setModel(uri: String, mesh: Mesh?, textures: List<Bitmap?>): Boolean = withContext(dispatcher) {
+        if (closed) return@withContext false
+        val engine = engine()
+        textures.forEachIndexed { k, bitmap -> engine.setPicture("$uri#$k", bitmap) }
+        engine.setModel(uri, mesh).also { if (mesh != null) pictureRevision.update { it + 1 }; renderNow() }
+    }
+
+    suspend fun setPicture(uri: String, buffer: HardwareBuffer, layerId: Long = 0, opaque: Boolean = true): Boolean = withContext(dispatcher) {
+        if (closed) return@withContext false
+        engine().setPicture(uri, buffer, layerId, opaque).also { pictureRevision.update { it + 1 }; renderNow() }
+    }
+
+    fun setView(view: PreviewView): Long {
+        requestedView = view
+        mediaScene?.let { videos?.update(it, view.timeMs, playing) }
+        val serial = viewSerial.incrementAndGet()
+        pendingView.set(view to serial)
+        requestRender()
+        return serial
+    }
+
+    fun restart() {
+        handler.post {
+            if (closed) return@post
+            simulateGpuLoss = true
+            runCatching { engine() }.onFailure { Log.e("AMEngine", "the engine could not restart", it) }
+            renderNow()
+        }
+    }
+
+    private fun requestRender() {
+        if (closed || !renderPosted.compareAndSet(false, true)) return
+        if (!handler.post {
+            renderPosted.set(false)
+            renderNow()
+        }) renderPosted.set(false)
+    }
+
+    internal fun videoFrameReady() = requestRender()
+
+    private fun applyPending() {
+        if (closed || capturing) return
+        pendingView.getAndSet(null)?.let { (next, serial) -> view = next; shownSerial = serial }
+        try {
+            view?.let { engine().setCameraView(it.camera); engine().setAccurateBlur(it.accurateBlur) }
+            pendingScene.take(scene)?.let { setEngineScene(it) }
+            prepareTextTime(view?.timeMs ?: 0)
+        } catch (e: IllegalArgumentException) {
+            Log.e("AMEngine", "scene rejected", e)
+        }
+    }
+
+    private var animatedText = false
+    private var textTime = Int.MIN_VALUE
+
+    private var installed: String? = null
+
+    private fun setEngineScene(xml: String, timeMs: Int = view?.timeMs ?: 0) {
+        val native = engine()
+        val parsed = sent?.takeIf { it.first.isInitialized() && it.first.value === xml }?.second
+        val prepared = fonts?.prepareText(xml, timeMs, parsed) ?: xml
+        if (prepared !== installed) {
+            native.setScene(prepared)
+            installed = prepared
+        }
+        rememberScene(xml, timeMs)
+    }
+
+    private fun rememberScene(xml: String?, timeMs: Int) {
+        scene = xml
+        animatedText = xml?.let(::animatesTextSpacing) == true
+        textTime = timeMs
+    }
+
+    private fun restoreScene(xml: String?) {
+        if (closed) return
+        if (engine?.failed == true) rememberScene(xml, view?.timeMs ?: 0)
+        else xml?.let { setEngineScene(it) }
+    }
+
+    private fun prepareTextTime(timeMs: Int) {
+        if (animatedText && textTime != timeMs) scene?.let { setEngineScene(it, timeMs) }
+    }
+
+    private fun renderNow() {
+        if (closed || capturing || mediaJob?.isActive == true) return
+        try {
+            applyPending()
+            val v = view ?: return
+            val exact = mediaScene?.let { videos?.previewReady(it, v.timeMs, playing) } != false
+            if (!exact && mediaScene?.let { videos?.previewShown(it, v.timeMs, playing) } == false) return
+            if (target != 0L) {
+                val native = engine()
+                val started = System.nanoTime()
+                if (target != 0L && native.renderScene(target, v.timeMs.toDouble(), v.scale, v.dx, v.dy, background, v.selectedId, v.handles, v) != 0) {
+                    Log.e("AMEngine", "preview rendering failed")
+                } else if (watchedFrames >= 0 && ++watchedFrames >= GOOD_FRAMES) {
+                    watchedFrames = -1
+                    gpuCheck?.survived()
+                }
+                if (RenderStats.recording) RenderStats.add((System.nanoTime() - started) / 1e6, v.timeMs)
+                renders++
+                if (exact) renderedView.value = RenderedView(shownSerial, v.timeMs)
+            }
+        } catch (e: Exception) {
+            if (!closed) Log.e("AMEngine", "preview rendering failed", e)
+        }
+        if (!closed && (lost || engine?.failed == true)) {
+            handler.removeCallbacks(retryRender)
+            handler.postDelayed(retryRender, GPU_RETRY_MS)
+        }
+    }
+
+    suspend fun capturePreviewFrame(document: Scene, timeMs: Int, width: Int, height: Int, accurateBlur: Boolean,
+                                    accept: () -> Boolean): ByteArray? {
+        if (closed || playing || mediaJob?.isActive == true || fontJob?.isActive == true || effectJob?.isActive == true || !accept() || !captureLock.tryLock()) return null
+        try {
+            return withContext(dispatcher) {
+                if (closed || capturing || playing || target == 0L || mediaScene != document || !accept()) return@withContext null
+                applyPending()
+                if (videos?.previewReady(document, timeMs, false) == false) return@withContext null
+                capturing = true
+                try {
+                    prepareTextTime(timeMs)
+                    val started = System.nanoTime()
+                    engine().previewStill(timeMs.toDouble(), width, height, accurateBlur).also { lastStillMs = (System.nanoTime() - started) / 1e6 }
+                } finally {
+                    capturing = false
+                    prepareTextTime(requestedView?.timeMs ?: 0)
+                }
+            }
+        } finally {
+            captureLock.unlock()
+        }
+    }
+
+    suspend fun layerQuad(layerId: Long, timeMs: Int): FloatArray? = captureLock.withLock {
+        withContext(dispatcher) {
+            applyPending()
+            prepareTextTime(timeMs)
+            engine().layerQuad(layerId, timeMs.toDouble())
+        }
+    }
+
+    suspend fun propertyNumbers(layerId: Long, effect: Int, name: String, timeMs: Int): FloatArray? = captureLock.withLock {
+        withContext(dispatcher) {
+            applyPending()
+            engine().propertyNumbers(layerId, effect, name, timeMs.toDouble())
+        }
+    }
+
+    suspend fun layerMatrix(layerId: Long, timeMs: Int): FloatArray? = captureLock.withLock {
+        withContext(dispatcher) {
+            applyPending()
+            prepareTextTime(timeMs)
+            engine().layerMatrix(layerId, timeMs.toDouble())
+        }
+    }
+
+    suspend fun layerBounds(layerId: Long, timeMs: Int): FloatArray? = captureLock.withLock {
+        withContext(dispatcher) {
+            applyPending()
+            prepareTextTime(timeMs)
+            engine().layerBounds(layerId, timeMs.toDouble())
+        }
+    }
+
+    suspend fun layerOutline(layerId: Long, timeMs: Int): String? = captureLock.withLock {
+        withContext(dispatcher) {
+            applyPending()
+            prepareTextTime(timeMs)
+            engine().layerOutline(layerId, timeMs.toDouble())
+        }
+    }
+
+    suspend fun hitTest(x: Float, y: Float, timeMs: Int): Long = captureLock.withLock {
+        withContext(dispatcher) {
+            applyPending()
+            prepareTextTime(timeMs)
+            engine().hitTest(x, y, timeMs.toDouble())
+        }
+    }
+
+    internal suspend fun previewForTest(width: Int, height: Int): ByteArray? = withContext(dispatcher) {
+        applyPending()
+        engine().still(0.0, width, height)
+    }
+
+    suspend fun stillPng(xml: String, timeMs: Int, width: Int, height: Int, file: File): Boolean = captureLock.withLock {
+        awaitMedia()
+        fontJob?.join()
+        effectJob?.join()
+        val document = withContext(Dispatchers.Default) { Scene.parse(xml) }
+        fonts?.let { library -> document.fontNames().forEach { library.resolve(it) } }
+        var shown: String? = null
+        try {
+            media?.pinned = document
+            media?.prepare(document)
+            withContext(dispatcher) {
+                check(!closed) { "engine closed" }
+                applyPending()
+                shown = scene
+                capturing = true
+                setEngineScene(xml, timeMs)
+            }
+            suspend fun draw(): Boolean = withContext(dispatcher) {
+                val start = System.nanoTime()
+                val pixels = engine().still(timeMs.toDouble(), width, height)
+                lastStillMs = (System.nanoTime() - start) / 1e6
+                pixels != null && writePng(pixels, width, height, file)
+            }
+            videos?.withExact(document, timeMs) { draw() } ?: draw()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e("AMVideo", "Cannot capture exact video still", e)
+            false
+        } finally {
+            media?.pinned = null
+            try {
+                withContext(NonCancellable + dispatcher) {
+                    try { restoreScene(shown) }
+                    finally { capturing = false }
+                }
+            } finally {
+                videos?.resumePreview()
+                requestRender()
+            }
+        }
+    }
+
+    inner class ExportSession internal constructor(private val document: Scene, private val smoothing: Smoothing, private val fps: Int) {
+        suspend fun still(timeMs: Int, width: Int, height: Int): ByteArray? =
+            atFrame(document, timeMs, smoothing, fps) { engine().still(timeMs.toDouble(), width, height) }
+
+        suspend fun previewStill(timeMs: Int, width: Int, height: Int, accurateBlur: Boolean): ByteArray? =
+            atFrame(document, timeMs, smoothing, fps) { engine().previewStill(timeMs.toDouble(), width, height, accurateBlur) }
+
+        suspend fun attach(surface: Surface): Long = withContext(dispatcher) { engine().attach(surface, forEncoder = true) }
+
+        suspend fun detach(target: Long) = withContext(NonCancellable + dispatcher) { engine?.detach(target) }
+
+        suspend fun render(target: Long, timeMs: Int, presentTimeNs: Long): Boolean =
+            atFrame(document, timeMs, smoothing, fps) { engine().renderFrame(target, timeMs.toDouble(), 0xFF000000.toInt(), presentTimeNs) == 0 }
+
+        suspend fun stampsPresentTime(): Boolean = withContext(dispatcher) { engine().displayTiming }
+
+        suspend fun openGl(): Boolean = withContext(dispatcher) { engine().openGl }
+
+        suspend fun renderInto(buffer: HardwareBuffer, timeMs: Int): Boolean =
+            atFrame(document, timeMs, smoothing, fps) { engine().renderBuffer(buffer, timeMs.toDouble(), 0xFF000000.toInt()) == 0 }
+
+        suspend fun releaseBuffers() = withContext(NonCancellable + dispatcher) { engine?.releaseBuffers() }
+    }
+
+    private suspend fun <T> atFrame(document: Scene, timeMs: Int, smoothing: Smoothing, fps: Int, draw: () -> T): T {
+        suspend fun run() = withContext(dispatcher) { prepareTextTime(timeMs); draw() }
+        return if (videos != null) videos.withExact(document, timeMs, smoothing, fps) { run() } else run()
+    }
+
+    suspend fun <T> exportSession(xml: String, smoothing: Smoothing = Smoothing(), fps: Int = 0,
+                                  block: suspend ExportSession.() -> T): T = captureLock.withLock {
+        awaitMedia()
+        fontJob?.join()
+        effectJob?.join()
+        val document = withContext(Dispatchers.Default) { Scene.parse(xml) }
+        fonts?.let { library -> document.fontNames().forEach { library.resolve(it) } }
+        var shown: String? = null
+        var swapped = false
+        var held: Job? = null
+        try {
+            withContext(dispatcher) { capturing = true }
+            held = videos?.hold()
+            held?.join()
+            media?.pinned = document
+            media?.prepare(document)
+            videos?.suspendPreview()
+            withContext(dispatcher) {
+                check(!closed) { "engine closed" }
+                applyPending()
+                shown = scene
+                capturing = true
+                swapped = true
+                setEngineScene(xml, 0)
+            }
+            ExportSession(document, smoothing, fps).block()
+        } finally {
+            if (held != null) videos?.release()
+            media?.pinned = null
+            var noPreview = true
+            try {
+                withContext(NonCancellable + dispatcher) {
+                    try { if (swapped) restoreScene(shown) }
+                    finally { capturing = false; noPreview = target == 0L }
+                }
+            } finally {
+                if (noPreview) videos?.suspendPreview()
+                else mediaScene?.let { videos?.update(it, requestedView?.timeMs ?: 0, playing) }
+                withContext(NonCancellable) { videos?.settle()?.join() }
+                requestRender()
+            }
+        }
+    }
+
+    suspend fun shapeIcon(xml: String, size: Int, color: Int): Bitmap? {
+        awaitMedia()
+        fontJob?.join()
+        media?.prepare(Scene.parse(xml))
+        return withContext(dispatcher) {
+            applyPending()
+            engine().shapeIcon(fonts?.prepareText(xml) ?: xml, size, color)?.let { pixels ->
+                Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888).apply { copyPixelsFromBuffer(ByteBuffer.wrap(pixels)) }
+            }
+        }
+    }
+
+    private fun writePng(pixels: ByteArray, width: Int, height: Int, file: File): Boolean {
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        bitmap.isPremultiplied = false
+        try {
+            bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(pixels))
+            return file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        } finally { bitmap.recycle() }
+    }
+
+    suspend fun timing(): String = withContext(dispatcher) { if (!closed && target != 0L && engine?.failed != true) engine().timing(target) else "{}" }
+
+    @Synchronized fun close() {
+        if (closed) return
+        closed = true
+        audio?.close()
+        mediaJob?.cancel()
+        mediaScope.launch {
+            try { videos?.close() }
+            finally {
+                handler.post {
+                    try {
+                        val previous = target
+                        target = 0L
+                        if (previous != 0L) engine?.detach(previous)
+                    } finally {
+                        try { engine?.close() }
+                        finally { engine = null; gpuCheck?.close(); thread.quitSafely() }
+                    }
+                }
+                mediaScope.cancel()
+            }
+        }
+    }
+}
+
+private val instances = java.util.concurrent.atomic.AtomicLong()
+
+private const val GPU_RETRY_MS = 1000L
+private const val SURVIVE_MS = 8000L
+private const val GOOD_FRAMES = 3
+
+internal class PendingScene {
+    private val next = AtomicReference<Lazy<String>?>(null)
+    private val fonts = AtomicBoolean(false)
+
+    fun set(xml: String) = next.set(lazyOf(xml))
+
+    fun set(xml: Lazy<String>) = next.set(xml)
+
+    fun fontsChanged() = fonts.set(true)
+
+    fun take(shown: String?): String? {
+        val again = fonts.getAndSet(false)
+        return next.getAndSet(null)?.value ?: shown.takeIf { again }
+    }
+}

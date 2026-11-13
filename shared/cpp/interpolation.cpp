@@ -1,0 +1,520 @@
+#include "interpolation.h"
+
+#ifndef AM_DESKTOP
+#include <android/log.h>
+#endif
+
+#include <algorithm>
+#include <chrono>
+#include <cstdlib>
+#include <string>
+#include <vector>
+
+#include "include/core/SkCanvas.h"
+#include "include/core/SkColorSpace.h"
+#include "include/core/SkM44.h"
+#include "include/core/SkPaint.h"
+#include "include/core/SkShader.h"
+#include "include/core/SkSurface.h"
+#include "include/effects/SkRuntimeEffect.h"
+#include "include/gpu/graphite/Context.h"
+#include "include/gpu/graphite/Recorder.h"
+#include "include/gpu/graphite/Recording.h"
+#include "include/gpu/graphite/Surface.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
+
+#ifdef AM_DESKTOP
+#define LOGE(...) ((void)0)
+#else
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "AMInterp", __VA_ARGS__)
+#endif
+
+namespace am {
+namespace {
+
+using Clock = std::chrono::steady_clock;
+
+const char* const kGrey = R"(
+uniform shader a;
+uniform shader b;
+uniform float d;
+float ga(float2 q) { return dot(a.eval(q).rgb, half3(0.2126, 0.7152, 0.0722)); }
+float gb(float2 q) { return dot(b.eval(q).rgb, half3(0.2126, 0.7152, 0.0722)); }
+half4 main(float2 p) {
+    float2 c = p * d;
+    float o = d * 0.25;
+    float x = ga(c + float2(-o, -o)) + ga(c + float2(o, -o)) + ga(c + float2(-o, o)) + ga(c + float2(o, o));
+    float y = gb(c + float2(-o, -o)) + gb(c + float2(o, -o)) + gb(c + float2(-o, o)) + gb(c + float2(o, o));
+    return half4(half(x * 0.25), half(y * 0.25), 0, 1);
+}
+)";
+
+const char* const kDown = R"(
+uniform shader src;
+half4 main(float2 p) { return src.eval(p * 2); }
+)";
+
+const char* const kDerivatives = R"(
+uniform shader pyramid;
+uniform shader flow;
+uniform float scale;
+uniform float gain;
+uniform float2 size;
+float first(float2 q, float dir) { half2 v = pyramid.eval(q).rg; return mix(v.r, v.g, dir); }
+float second(float2 q, float dir) { half2 v = pyramid.eval(q).rg; return mix(v.g, v.r, dir); }
+half4 main(float2 c) {
+    float dir = step(size.x, c.x);
+    float2 p = float2(c.x - size.x * dir, c.y);
+    float4 v = flow.eval(p * scale) * gain;
+    float2 w = mix(v.xy, v.zw, dir);
+    float2 q = p + w;
+    float2 dx = float2(1, 0);
+    float2 dy = float2(0, 1);
+    float ix = 0.25 * (second(q + dx, dir) - second(q - dx, dir) + first(p + dx, dir) - first(p - dx, dir));
+    float iy = 0.25 * (second(q + dy, dir) - second(q - dy, dir) + first(p + dy, dir) - first(p - dy, dir));
+    float it = second(q, dir) - first(p, dir);
+    float seen = step(0, q.x) * step(0, q.y) * step(q.x, size.x) * step(q.y, size.y);
+    return half4(half3(ix, iy, it - ix * w.x - iy * w.y) * half(seen), 1);
+}
+)";
+
+const char* const kJacobiHead = R"(
+uniform shader flow;
+uniform shader terms;
+uniform float scale;
+uniform float gain;
+uniform float alpha2;
+uniform float2 size;
+float4 source(float2 q) { return flow.eval(q * scale) * gain; }
+float4 relax(float2 q, float4 m) {
+    float2 c = clamp(q, float2(0.5), size - float2(0.5));
+    float3 f = terms.eval(c).rgb;
+    float3 g = terms.eval(c + float2(size.x, 0)).rgb;
+    float kf = (f.x * m.x + f.y * m.y + f.z) / (alpha2 + f.x * f.x + f.y * f.y);
+    float kb = (g.x * m.z + g.y * m.w + g.z) / (alpha2 + g.x * g.x + g.y * g.y);
+    return float4(m.xy - f.xy * kf, m.zw - g.xy * kb);
+}
+half4 main(float2 p) {
+)";
+
+const char* const kSharp = R"(
+half4 sharpNAME(float2 x) {
+    float2 c = floor(x - 0.5) + 0.5;
+    float2 f = x - c;
+    float2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+    float2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+    float2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+    float2 w3 = f * f * (-0.5 + 0.5 * f);
+    float2 w12 = w1 + w2;
+    float2 m = c + w2 / w12;
+    float2 lo = c - 1.0;
+    float2 hi = c + 2.0;
+    float4 sum = float4(NAME.eval(m)) * w12.x * w12.y
+        + float4(NAME.eval(float2(lo.x, m.y))) * w0.x * w12.y + float4(NAME.eval(float2(hi.x, m.y))) * w3.x * w12.y
+        + float4(NAME.eval(float2(m.x, lo.y))) * w12.x * w0.y + float4(NAME.eval(float2(m.x, hi.y))) * w12.x * w3.y;
+    float4 v = sum / (w12.x * w12.y + (w0.x + w3.x) * w12.y + w12.x * (w0.y + w3.y));
+    float alpha = clamp(v.a, 0.0, 1.0);
+    return half4(half3(clamp(v.rgb, float3(0.0), float3(alpha))), half(alpha));
+}
+)";
+
+const char* const kWarpHead = R"(
+uniform shader a;
+uniform shader b;
+uniform shader flow;
+uniform float t;
+uniform float d;
+uniform float2 size;
+)";
+
+const char* const kWarp = R"(
+float2 fwd(float2 x) { return flow.eval(x / d).rg * d; }
+float2 bwd(float2 x) { return flow.eval(x / d).ba * d; }
+float inside(float2 x) { return step(0, x.x) * step(0, x.y) * step(x.x, size.x) * step(x.y, size.y); }
+half4 main(float2 p) {
+    float2 pa = p - t * fwd(p);
+    pa = p - t * fwd(pa);
+    pa = p - t * fwd(pa);
+    float2 pb = p - (1 - t) * bwd(p);
+    pb = p - (1 - t) * bwd(pb);
+    pb = p - (1 - t) * bwd(pb);
+    float2 fa = fwd(pa);
+    float2 gb = bwd(pb);
+    float2 ga = bwd(pa + fa);
+    float2 fb = fwd(pb + gb);
+    float2 ra = pa + t * fa - p;
+    float2 rb = pb + (1 - t) * gb - p;
+    float la = dot(fa + ga, fa + ga) * inside(pa + fa) + dot(ra, ra);
+    float lb = dot(gb + fb, gb + fb) * inside(pb + gb) + dot(rb, rb);
+    float ka = 0.01 * (dot(fa, fa) + dot(ga, ga)) + 0.5 * d * d;
+    float kb = 0.01 * (dot(gb, gb) + dot(fb, fb)) + 0.5 * d * d;
+    float ca = (1 - smoothstep(ka, 4 * ka, la)) * inside(pa);
+    float cb = (1 - smoothstep(kb, 4 * kb, lb)) * inside(pb);
+    half4 blend = mix(a.eval(p), b.eval(p), half(t));
+    float wa = max(1 - t, 0.01) * ca;
+    float wb = max(t, 0.01) * cb;
+    if (wa + wb <= 0) { return blend; }
+    half4 warped = (sharpa(pa) * half(wa) + sharpb(pb) * half(wb)) / half(wa + wb);
+    return mix(blend, warped, half(max(ca, cb)));
+}
+)";
+
+const char* const kBlend = R"(
+uniform shader a;
+uniform shader b;
+uniform float t;
+half4 main(float2 p) { return mix(a.eval(p), b.eval(p), half(t)); }
+)";
+
+const char* const kSoft = R"(
+uniform shader p;
+uniform shader a;
+uniform shader b;
+uniform shader n;
+uniform float4 w;
+half4 main(float2 q) { return p.eval(q) * half(w.x) + a.eval(q) * half(w.y) + b.eval(q) * half(w.z) + n.eval(q) * half(w.w); }
+)";
+
+const char* const kMotionBlur = R"(
+uniform shader image;
+uniform shader flow;
+uniform float t;
+uniform float k;
+uniform float d;
+uniform float2 size;
+half4 main(float2 p) {
+    float4 f = float4(flow.eval(p / d));
+    float2 v = mix(f.rg, -f.ba, t) * d * k;
+    float4 sum = float4(0);
+    for (int i = 0; i < 16; i++) {
+        float s = (float(i) + 0.5) / 16.0 - 0.5;
+        sum += float4(image.eval(clamp(p + v * s, float2(0.5), size - float2(0.5))));
+    }
+    return half4(sum / 16.0);
+}
+)";
+
+const char* const kMoshMotion = R"(
+uniform shader flow;
+uniform shader prior;
+uniform float intensity;
+uniform float bloom;
+uniform float glitch;
+uniform float cell;
+uniform float salt;
+float hash(float2 p) { return fract(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453); }
+half4 main(float2 p) {
+    float2 id = floor(p / cell);
+    float2 c = (id + 0.5) * cell;
+    float2 m = float2(flow.eval(c).ba) * intensity + float2(prior.eval(c).rg) * bloom;
+    float h = hash(id + salt);
+    if (h < glitch * 0.15) { m += (float2(hash(id + salt + 17.0), hash(id + salt + 41.0)) - 0.5) * cell * 6.0; }
+    return half4(half2(m), 0, 1);
+}
+)";
+
+const char* const kMoshImage = R"(
+uniform shader state;
+uniform shader frame;
+uniform shader motion;
+uniform float d;
+uniform float decay;
+half4 main(float2 p) {
+    float2 m = floor(float2(motion.eval(p / d).rg) * d + 0.5);
+    return mix(state.eval(p + m), frame.eval(p), half(decay));
+}
+)";
+
+constexpr int kFused[] = {1, 2, 4};
+
+std::string Name(int step, int x, int y) {
+    auto number = [](int v) { return v < 0 ? "m" + std::to_string(-v) : std::to_string(v); };
+    return "v" + std::to_string(step) + "_" + number(x) + "_" + number(y);
+}
+
+std::string Named(std::string source, const std::string& name) {
+    for (size_t at = source.find("NAME"); at != std::string::npos; at = source.find("NAME", at)) source.replace(at, 4, name);
+    return source;
+}
+
+std::string WarpSource() { return std::string(kWarpHead) + Named(kSharp, "a") + Named(kSharp, "b") + kWarp; }
+
+std::string JacobiSource(int steps) {
+    std::string s = kJacobiHead;
+    for (int step = 0; step <= steps; step++) {
+        const int reach = steps - step;
+        for (int y = -reach; y <= reach; y++) {
+            for (int x = -reach; x <= reach; x++) {
+                const int distance = std::abs(x) + std::abs(y);
+                if (distance > reach || (reach - distance) % 2) continue;
+                const std::string at = "p + float2(" + std::to_string(x) + ", " + std::to_string(y) + ")";
+                s += "    float4 " + Name(step, x, y) + " = ";
+                if (step == 0) {
+                    s += "source(" + at + ");\n";
+                } else {
+                    s += "relax(" + at + ", 0.25 * (" + Name(step - 1, x + 1, y) + " + " + Name(step - 1, x - 1, y) + " + " +
+                         Name(step - 1, x, y + 1) + " + " + Name(step - 1, x, y - 1) + "));\n";
+                }
+            }
+        }
+    }
+    return s + "    return half4(" + Name(steps, 0, 0) + ");\n}\n";
+}
+
+struct Effects {
+    sk_sp<SkRuntimeEffect> grey, down, derivatives, warp, blend;
+    sk_sp<SkRuntimeEffect> jacobi[3];
+    bool ok() const { return grey && down && derivatives && warp && blend && jacobi[0] && jacobi[1] && jacobi[2]; }
+};
+
+sk_sp<SkRuntimeEffect> Compile(const std::string& sksl) {
+    auto result = SkRuntimeEffect::MakeForShader(SkString(sksl.c_str()));
+    if (!result.effect) LOGE("%s", result.errorText.c_str());
+    return result.effect;
+}
+
+const Effects& Shaders() {
+    static const Effects effects{Compile(kGrey), Compile(kDown), Compile(kDerivatives), Compile(WarpSource()), Compile(kBlend),
+                                 {Compile(JacobiSource(kFused[0])), Compile(JacobiSource(kFused[1])), Compile(JacobiSource(kFused[2]))}};
+    return effects;
+}
+
+sk_sp<SkShader> Sample(const sk_sp<SkImage>& image, SkFilterMode filter = SkFilterMode::kLinear) {
+    return image->makeShader(SkTileMode::kClamp, SkTileMode::kClamp, SkSamplingOptions(filter));
+}
+
+double Since(Clock::time_point start) { return std::chrono::duration<double, std::milli>(Clock::now() - start).count(); }
+
+class Gpu {
+public:
+    explicit Gpu(const GpuContext& context) : fContext(context) {}
+
+    sk_sp<SkSurface> field(int w, int h) {
+        return this->surface(SkImageInfo::Make(w, h, kRGBA_F16_SkColorType, kPremul_SkAlphaType, nullptr));
+    }
+
+    sk_sp<SkSurface> picture(int w, int h) {
+        return this->surface(SkImageInfo::Make(w, h, kRGBA_8888_SkColorType, kPremul_SkAlphaType, SkColorSpace::MakeSRGB()));
+    }
+
+    sk_sp<SkImage> draw(const sk_sp<SkSurface>& target, const SkRuntimeShaderBuilder& builder) {
+        if (!target || fFailed) { fFailed = true; return nullptr; }
+        SkPaint paint;
+        paint.setShader(builder.makeShader());
+        paint.setBlendMode(SkBlendMode::kSrc);
+        target->getCanvas()->drawPaint(paint);
+        fPasses++;
+#ifdef AM_DESKTOP
+        return target->makeImageSnapshot();
+#else
+        return fContext.ganesh ? target->makeImageSnapshot() : SkSurfaces::AsImage(target);
+#endif
+    }
+
+    bool submit() {
+        if (fFailed) return false;
+        if (fContext.ganesh) {
+            fContext.ganesh->flushAndSubmit(GrSyncCpu::kYes);
+            fFailed = fContext.ganesh->abandoned();
+            return !fFailed;
+        }
+#ifdef AM_DESKTOP
+        return true;
+#else
+        auto recording = fContext.recorder->snap();
+        if (!recording || !fContext.graphite->insertRecording({recording.get()}) ||
+            !fContext.graphite->submit(skgpu::graphite::SyncToCpu::kYes)) {
+            fFailed = true;
+        }
+        return !fFailed;
+#endif
+    }
+
+    bool failed() const { return fFailed; }
+    int passes() const { return fPasses; }
+
+private:
+    sk_sp<SkSurface> surface(const SkImageInfo& info) {
+#ifdef AM_DESKTOP
+        return fContext.ganesh ? SkSurfaces::RenderTarget(fContext.ganesh, skgpu::Budgeted::kYes, info) : SkSurfaces::Raster(info);
+#else
+        return fContext.ganesh ? SkSurfaces::RenderTarget(fContext.ganesh, skgpu::Budgeted::kYes, info)
+                               : SkSurfaces::RenderTarget(fContext.recorder, info);
+#endif
+    }
+
+    GpuContext fContext;
+    bool fFailed = false;
+    int fPasses = 0;
+};
+
+std::vector<sk_sp<SkImage>> Pyramid(Gpu& gpu, const Effects& fx, const sk_sp<SkImage>& a, const sk_sp<SkImage>& b,
+                                    int divisor, int levels) {
+    int w = (a->width() + divisor - 1) / divisor, h = (a->height() + divisor - 1) / divisor;
+    SkRuntimeShaderBuilder grey(fx.grey);
+    grey.child("a") = Sample(a);
+    grey.child("b") = Sample(b);
+    grey.uniform("d") = (float)divisor;
+    std::vector<sk_sp<SkImage>> pyramid{gpu.draw(gpu.field(w, h), grey)};
+    while ((int)pyramid.size() < levels && std::min(w, h) >= 32 && pyramid.back()) {
+        w = (w + 1) / 2;
+        h = (h + 1) / 2;
+        SkRuntimeShaderBuilder down(fx.down);
+        down.child("src") = Sample(pyramid.back());
+        pyramid.push_back(gpu.draw(gpu.field(w, h), down));
+    }
+    return pyramid;
+}
+
+int FusedIndex(int remaining, int most) {
+    for (int i = 2; i > 0; i--) {
+        if (kFused[i] <= std::min(remaining, most)) return i;
+    }
+    return 0;
+}
+
+}
+
+sk_sp<SkImage> EstimateFlow(const GpuContext& context, const sk_sp<SkImage>& a,
+                            const sk_sp<SkImage>& b, const InterpolationParams& params, FlowStats* stats) {
+    const Effects& fx = Shaders();
+    if (!fx.ok() || !a || !b) return nullptr;
+    if (context.ganesh) context.ganesh->flushAndSubmit(GrSyncCpu::kYes);
+#ifndef AM_DESKTOP
+    else context.graphite->submit(skgpu::graphite::SyncToCpu::kYes);
+#endif
+    const auto start = Clock::now();
+    Gpu gpu(context);
+    const auto pyramid = Pyramid(gpu, fx, a, b, std::max(params.divisor, 1), std::max(params.levels, 1));
+    sk_sp<SkImage> flow;
+    for (int level = (int)pyramid.size() - 1; level >= 0 && !gpu.failed() && pyramid[level]; level--) {
+        const sk_sp<SkImage>& grey = pyramid[level];
+        const int w = grey->width(), h = grey->height();
+        const SkV2 size{(float)w, (float)h};
+        sk_sp<SkSurface> terms = gpu.field(2 * w, h), ping = gpu.field(w, h), pong = gpu.field(w, h);
+        float scale = flow ? 0.5f : 1.0f, gain = flow ? 2.0f : 0.0f;
+        sk_sp<SkImage> current = flow ? flow : grey;
+        const int iterations = std::clamp(params.iterations << level, 1, 64);
+        for (int warp = 0; warp < std::max(params.warps, 1) && current; warp++) {
+            SkRuntimeShaderBuilder d(fx.derivatives);
+            d.child("pyramid") = Sample(grey);
+            d.child("flow") = Sample(current);
+            d.uniform("scale") = scale;
+            d.uniform("gain") = gain;
+            d.uniform("size") = size;
+            const sk_sp<SkImage> derivatives = gpu.draw(terms, d);
+            for (int done = 0; done < iterations && derivatives && current;) {
+                const int fused = FusedIndex(iterations - done, params.fuse);
+                SkRuntimeShaderBuilder j(fx.jacobi[fused]);
+                j.child("flow") = Sample(current, scale == 1.0f ? SkFilterMode::kNearest : SkFilterMode::kLinear);
+                j.child("terms") = Sample(derivatives, SkFilterMode::kNearest);
+                j.uniform("scale") = scale;
+                j.uniform("gain") = gain;
+                j.uniform("alpha2") = params.alpha * params.alpha;
+                j.uniform("size") = size;
+                current = gpu.draw(ping, j);
+                std::swap(ping, pong);
+                scale = 1.0f;
+                gain = 1.0f;
+                done += kFused[fused];
+            }
+        }
+        flow = current;
+    }
+    const bool ok = gpu.submit() && flow;
+    if (stats) *stats = {gpu.passes(), (int)pyramid.size(), Since(start)};
+    if (!ok) LOGE("flow estimation failed");
+    return ok ? flow : nullptr;
+}
+
+sk_sp<SkImage> SynthesizeFrame(const GpuContext& context, const sk_sp<SkImage>& a,
+                               const sk_sp<SkImage>& b, const sk_sp<SkImage>& flow, float t, int divisor, double* ms,
+                               const sk_sp<SkImage>& before, const sk_sp<SkImage>& after) {
+    static const sk_sp<SkRuntimeEffect> soft = Compile(kSoft);
+    const Effects& fx = Shaders();
+    if (!fx.ok() || !a || !b) return nullptr;
+    const bool four = !flow && before && after;
+    if (four && !soft) return nullptr;
+    const auto start = Clock::now();
+    Gpu gpu(context);
+    SkRuntimeShaderBuilder builder(four ? soft : flow ? fx.warp : fx.blend);
+    builder.child("a") = Sample(a);
+    builder.child("b") = Sample(b);
+    if (four) {
+        const float u = 1 - t;
+        builder.child("p") = Sample(before);
+        builder.child("n") = Sample(after);
+        builder.uniform("w") = SkV4{u * u * u / 6, (3 * t * t * t - 6 * t * t + 4) / 6, (-3 * t * t * t + 3 * t * t + 3 * t + 1) / 6, t * t * t / 6};
+    } else {
+        builder.uniform("t") = t;
+    }
+    if (flow) {
+        builder.child("flow") = Sample(flow);
+        builder.uniform("d") = (float)std::max(divisor, 1);
+        builder.uniform("size") = SkV2{(float)a->width(), (float)a->height()};
+    }
+    sk_sp<SkImage> out = gpu.draw(gpu.picture(a->width(), a->height()), builder);
+    if (!gpu.submit() || !out) {
+        LOGE("frame synthesis failed");
+        return nullptr;
+    }
+    if (ms) *ms = Since(start);
+    return out;
+}
+
+sk_sp<SkImage> MotionBlur(const GpuContext& context, const sk_sp<SkImage>& image,
+                          const sk_sp<SkImage>& flow, float t, float length, int divisor) {
+    static const sk_sp<SkRuntimeEffect> blur = Compile(kMotionBlur);
+    if (!blur || !image || !flow) return nullptr;
+    Gpu gpu(context);
+    SkRuntimeShaderBuilder builder(blur);
+    builder.child("image") = Sample(image);
+    builder.child("flow") = Sample(flow);
+    builder.uniform("t") = t;
+    builder.uniform("k") = length;
+    builder.uniform("d") = (float)std::max(divisor, 1);
+    builder.uniform("size") = SkV2{(float)image->width(), (float)image->height()};
+    sk_sp<SkImage> out = gpu.draw(gpu.picture(image->width(), image->height()), builder);
+    if (!gpu.submit() || !out) {
+        LOGE("motion blur failed");
+        return nullptr;
+    }
+    return out;
+}
+
+sk_sp<SkImage> MoshStep(const GpuContext& context, const sk_sp<SkImage>& state,
+                        const sk_sp<SkImage>& prior, const sk_sp<SkImage>& frame, const sk_sp<SkImage>& flow, const MoshParams& params,
+                        float salt, sk_sp<SkImage>* motion) {
+    static const sk_sp<SkRuntimeEffect> moshMotion = Compile(kMoshMotion), moshImage = Compile(kMoshImage);
+    if (!moshMotion || !moshImage || !state || !frame) return nullptr;
+    const int divisor = std::max(params.flow.divisor, 1);
+    const int fw = flow ? flow->width() : (frame->width() + divisor - 1) / divisor;
+    const int fh = flow ? flow->height() : (frame->height() + divisor - 1) / divisor;
+    const sk_sp<SkShader> none = SkShaders::Color(SK_ColorTRANSPARENT);
+    Gpu gpu(context);
+    SkRuntimeShaderBuilder field(moshMotion);
+    field.child("flow") = flow ? Sample(flow) : none;
+    field.child("prior") = prior ? Sample(prior, SkFilterMode::kNearest) : none;
+    field.uniform("intensity") = params.intensity;
+    field.uniform("bloom") = params.bloom;
+    field.uniform("glitch") = params.glitch;
+    field.uniform("cell") = std::max(params.block / divisor, 1.0f);
+    field.uniform("salt") = salt;
+    sk_sp<SkImage> moved = gpu.draw(gpu.field(fw, fh), field);
+    SkRuntimeShaderBuilder image(moshImage);
+    image.child("state") = Sample(state);
+    image.child("frame") = Sample(frame);
+    image.child("motion") = moved ? Sample(moved, params.block >= 2 * divisor ? SkFilterMode::kNearest : SkFilterMode::kLinear) : none;
+    image.uniform("d") = (float)divisor;
+    image.uniform("decay") = std::clamp(params.decay, 0.0f, 1.0f);
+    sk_sp<SkImage> out = gpu.draw(gpu.picture(state->width(), state->height()), image);
+    if (!gpu.submit() || !out || !moved) {
+        LOGE("datamosh step failed");
+        return nullptr;
+    }
+    *motion = moved;
+    return out;
+}
+
+}

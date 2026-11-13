@@ -1,0 +1,27 @@
+{
+ "id": "radialblur",
+ "name": "Zoom Blur",
+ "category": "blur",
+ "description": "Applies a radial zoom blur by averaging samples along rays from a center point with adjustable strength.",
+ "params": [
+  {
+   "id": "center",
+   "label": "Center",
+   "type": "point",
+   "default": [
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "id": "amount",
+   "label": "Strength",
+   "type": "float",
+   "default": 0.15,
+   "min": 0.0,
+   "max": 1.9,
+   "step": 0.01
+  }
+ ],
+ "sksl": "uniform shader image;\nuniform float2 size;\nuniform float time;\nuniform float amount;\nuniform float2 center;\n\nhalf4 main(float2 coord) {\n    float2 c = center * size;\n    float2 d = coord - c;\n    float s = clamp(amount, 0.0, 1.9);\n    half4 sum = half4(0);\n    for (int i = 0; i < 48; ++i) {\n        sum += image.eval(c + d * (1.0 + s * (float(i) / 47.0 - 0.5)));\n    }\n    return sum / 48.0;\n}"
+}

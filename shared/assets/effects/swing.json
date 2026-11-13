@@ -1,0 +1,57 @@
+{
+ "id": "swing",
+ "name": "Swing",
+ "category": "move",
+ "since": "3.0.0",
+ "native": true,
+ "description": "Turns the layer back and forth between two angles.",
+ "params": [
+  {
+   "id": "frequency",
+   "label": "Frequency",
+   "type": "float",
+   "default": 2,
+   "min": 0.1,
+   "max": 16,
+   "step": 0.01,
+   "unit": "Hz"
+  },
+  {
+   "id": "angle1",
+   "label": "Angle 1",
+   "type": "angle",
+   "default": -30,
+   "min": -3600,
+   "max": 3600,
+   "step": 0.1
+  },
+  {
+   "id": "angle2",
+   "label": "Angle 2",
+   "type": "angle",
+   "default": 30,
+   "min": -3600,
+   "max": 3600,
+   "step": 0.1
+  },
+  {
+   "id": "phase",
+   "label": "Phase",
+   "type": "float",
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 0.01
+  },
+  {
+   "id": "wave",
+   "label": "Wave",
+   "type": "choice",
+   "default": 0,
+   "options": [
+    "Sine",
+    "Triangle"
+   ]
+  }
+ ]
+}
