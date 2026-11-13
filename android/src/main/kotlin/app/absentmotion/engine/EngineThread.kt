@@ -482,8 +482,21 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
 
     private var installed: String? = null
 
+    fun loadEffectAsync(def: EffectDefinition) {
+        handler.post { if (!closed) runCatching { engine().loadEffect(def.runtimeXml()) } }
+    }
+
+    private fun loadSceneEffects(native: NativeEngine, xml: String) {
+        val used = Regex("<effect[^>]*id=\"([^\"]+)\"").findAll(xml).map { it.groupValues[1] }.toSet()
+        if (used.isEmpty()) return
+        for (def in effectCatalog.value.definitions) {
+            if (def.key.startsWith("am-") && def.id in used) runCatching { native.loadEffect(def.runtimeXml()) }
+        }
+    }
+
     private fun setEngineScene(xml: String, timeMs: Int = view?.timeMs ?: 0) {
         val native = engine()
+        loadSceneEffects(native, xml)
         val parsed = sent?.takeIf { it.first.isInitialized() && it.first.value === xml }?.second
         val prepared = fonts?.prepareText(xml, timeMs, parsed) ?: xml
         if (prepared !== installed) {

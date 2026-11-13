@@ -65,7 +65,7 @@ data class EffectCatalog(
             val tag = currentLanguage(context).tag
             app.absentmotion.i18n.LanguagePacks.prepare(context, tag)
             return parse(tag) { app.absentmotion.i18n.LanguagePacks.open(context, tag, "effects/$it") }
-                .let { if (it.message != null) it.copy(message = context.getString(R.string.effects_not_loaded)) else AexImporter.append(context, it) }
+                .let { if (it.message != null) it.copy(message = context.getString(R.string.effects_not_loaded)) else AmEffectImporter.append(context, AexImporter.append(context, it)) }
         }
 
         fun parse(language: String = "en", open: (String) -> InputStream): EffectCatalog = runCatching {

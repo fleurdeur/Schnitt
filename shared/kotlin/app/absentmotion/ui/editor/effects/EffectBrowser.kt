@@ -107,6 +107,7 @@ import kotlinx.coroutines.Job
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import app.absentmotion.effects.AexImporter
+import app.absentmotion.effects.AmEffectImporter
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.sign
@@ -133,7 +134,10 @@ private fun BrowserBody(state: EditorState) {
     val aexPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
-            val imported = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { AexImporter.import(context, uri) }
+            val imported = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                if (uri.lastPathSegment.orEmpty().endsWith(".xml", true)) AmEffectImporter.import(context, uri)
+                else AexImporter.import(context, uri)
+            }
             state.engine.relabelEffects(context)
             app.absentmotion.platform.Toast.makeText(
                 context,
@@ -180,6 +184,7 @@ private fun BrowserBody(state: EditorState) {
     }
     fun add(effect: EffectDefinition, preset: EffectPreset? = null) {
         if (!effect.usable(blocked)) return
+        if (effect.key.startsWith("am-")) state.engine.loadEffectAsync(effect)
         val targets = state.effectTargets
         if (targets != null) {
             val added = state.addEffectToChosen(targets, skip = { !effect.usable(blockedCategory(it)) }) { layer: app.absentmotion.model.Layer -> effect.instance(preset, layer.endTime - layer.startTime) }
