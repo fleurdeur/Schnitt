@@ -208,6 +208,7 @@ internal fun MediaTab(state: EditorState, modifier: Modifier, library: AddLibrar
     var albumsOpen by remember { mutableStateOf(false) }
     var search by remember { mutableStateOf("") }
     var searching by remember { mutableStateOf(false) }
+    var imageLibrary by remember { mutableStateOf(false) }
     val focus = LocalFocusManager.current
     BackHandler(searching) { focus.clearFocus(); searching = false }
     val query = debounced(search)
@@ -295,6 +296,7 @@ internal fun MediaTab(state: EditorState, modifier: Modifier, library: AddLibrar
                             android.widget.Toast.makeText(context, context.getString(if (ok) R.string.clipboard_added else R.string.clipboard_empty), android.widget.Toast.LENGTH_SHORT).show()
                         }
                     }
+                    MediaSquare(app.absentmotion.ui.home.HomeIcons.Folder, stringResource(R.string.image_library), false) { imageLibrary = true }
                 }
             }
             if (!full) item(key = "access", span = { GridItemSpan(maxLineSpan) }) {
@@ -328,7 +330,8 @@ internal fun MediaTab(state: EditorState, modifier: Modifier, library: AddLibrar
                 }
             }
         }
-        if (tall) androidx.compose.foundation.lazy.grid.LazyVerticalGrid(androidx.compose.foundation.lazy.grid.GridCells.Adaptive(96.dp), Modifier.fillMaxSize(), content = cells)
+        if (imageLibrary) ImageLibrarySheet(state) { imageLibrary = false }
+    if (tall) androidx.compose.foundation.lazy.grid.LazyVerticalGrid(androidx.compose.foundation.lazy.grid.GridCells.Adaptive(96.dp), Modifier.fillMaxSize(), content = cells)
         else LazyHorizontalGrid(AtLeastTwo(96.dp), Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(0.dp), content = cells)
         Presence(searching) {
             Box(Modifier.align(Alignment.TopCenter).presence(slide = -1f).fillMaxWidth().background(Am.Panel).padding(6.dp)) {

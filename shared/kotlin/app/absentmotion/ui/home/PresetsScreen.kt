@@ -1,5 +1,6 @@
 package app.absentmotion.ui.home
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +28,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -40,6 +43,8 @@ import app.absentmotion.R
 import app.absentmotion.effects.EffectCatalog
 import app.absentmotion.model.Layer
 import app.absentmotion.model.Scene
+import app.absentmotion.model.GradientStyle
+import app.absentmotion.model.withGradient
 import app.absentmotion.model.XmlNode
 import app.absentmotion.model.addEffect
 import app.absentmotion.ui.editor.SearchField
@@ -105,7 +110,7 @@ internal fun PresetsScreen(onClose: () -> Unit, onUse: (Scene) -> Unit) {
             }
             LazyColumn(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 items(shown, key = { it.id }) { preset ->
-                    PresetCard(preset, catalog) { onUse(buildScene(preset, catalog)) }
+                    PresetCard(preset, catalog) { if (catalog != null) onUse(buildScene(preset, catalog)) }
                 }
                 item { Spacer(Modifier.height(24.dp)) }
             }
@@ -118,9 +123,9 @@ private fun PresetCard(preset: PresetRecipe, catalog: EffectCatalog?, onUse: () 
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Am.Card).padding(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(72.dp).clip(RoundedCornerShape(10.dp)).background(Am.HomeBg), Alignment.Center) {
+                Image(painterResource(R.drawable.preset_placeholder), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 val effect = preset.effects.firstNotNullOfOrNull { catalog?.find(it) }
-                if (effect != null && catalog != null) Thumbnail(catalog, effect.thumbnail, Modifier.fillMaxSize())
-                else Box(Modifier.fillMaxSize().background(Color(preset.color)))
+                if (effect != null && catalog != null) Thumbnail(catalog, effect.thumbnail, Modifier.fillMaxSize().padding(5.dp).clip(RoundedCornerShape(7.dp)), ContentScale.Crop)
             }
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
                 Text(preset.name, color = Am.Navy, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -134,7 +139,7 @@ private fun PresetCard(preset: PresetRecipe, catalog: EffectCatalog?, onUse: () 
             }
             Spacer(Modifier.weight(1f))
             Box(Modifier.height(32.dp).clip(RoundedCornerShape(16.dp)).background(Am.Navy).clickable(onClick = onUse).padding(horizontal = 14.dp), Alignment.Center) {
-                Text(stringResource(R.string.presets_use), color = Am.OnNavy, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(if (catalog == null) R.string.about_loading else R.string.presets_use), color = Am.OnNavy, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -142,11 +147,20 @@ private fun PresetCard(preset: PresetRecipe, catalog: EffectCatalog?, onUse: () 
 
 private fun buildScene(preset: PresetRecipe, catalog: EffectCatalog?): Scene {
     val base = Scene.create(preset.name, 1080, 1920, 30, 0xFF101010.toInt())
+    val (start, end) = when (preset.category) {
+        "Color" -> 0xFF497C6A.toInt() to 0xFFC78C63.toInt()
+        "Shake" -> 0xFF6D7485.toInt() to 0xFF262B35.toInt()
+        "Light" -> 0xFF2A3A32.toInt() to 0xFF9ED9B0.toInt()
+        "Retro" -> 0xFF7A5B3A.toInt() to 0xFF2A1D2F.toInt()
+        "Motion" -> 0xFF3B5A78.toInt() to 0xFFB26F68.toInt()
+        else -> 0xFF556B5F.toInt() to 0xFFD6B36A.toInt()
+    }
     var layer = Layer(XmlNode("shape", linkedMapOf("id" to "${Layer.newId()}", "label" to preset.name,
-        "startTime" to "0", "endTime" to "5000", "fillType" to "color", "s" to ".rect")))
+        "startTime" to "0", "endTime" to "5000", "fillType" to "gradient", "s" to ".rect")))
         .withTransform("location", 540f, 960f, 0f)
-        .withProp("size", "vec2", 440f, 440f)
-        .withFill("color", 0xFFFFFFFF.toInt())
+        .withProp("size", "vec2", 540f, 960f)
+        .withFill("gradient")
+        .withGradient(GradientStyle("linear", start, end, 0f, 0f, 1f, 1f))
     preset.effects.forEach { id -> catalog?.find(id)?.let { layer = layer.addEffect(it.instance(null, 5000)) } }
     return base.add(layer)
 }

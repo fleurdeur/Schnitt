@@ -124,7 +124,7 @@ private var installPercent by mutableStateOf<Int?>(null)
 private val downloader = videoDownloader()
 
 @Composable
-internal fun ToolsTab(modifier: Modifier, store: ProjectStore, settings: AppSettings, onOpen: (String) -> Unit, onPreset: (app.absentmotion.model.Scene) -> Unit = {}) {
+internal fun ToolsTab(modifier: Modifier, store: ProjectStore, settings: AppSettings, onOpen: (String) -> Unit, onPreset: (app.absentmotion.model.Scene) -> Unit = {}, onImportXml: (android.net.Uri) -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val revision by downloader.revision.collectAsState()
@@ -167,6 +167,9 @@ internal fun ToolsTab(modifier: Modifier, store: ProjectStore, settings: AppSett
     val presetsCard: @Composable (Modifier) -> Unit = { m ->
         ToolCard(HomeIcons.Notes, stringResource(R.string.tools_presets), stringResource(R.string.tools_presets_about), modifier = m) { open = 6 }
     }
+    val tiktokCard: @Composable (Modifier) -> Unit = { m ->
+        ToolCard(HomeIcons.Notes, stringResource(R.string.tools_tiktok), stringResource(R.string.tools_tiktok_about), modifier = m) { open = 7 }
+    }
     val compressCard: @Composable (Modifier) -> Unit = { m ->
         ToolCard(HomeIcons.Compress, stringResource(R.string.tools_compress), stringResource(R.string.tools_compress_about), modifier = m) { compressFrom = null; open = 1 }
     }
@@ -190,10 +193,12 @@ internal fun ToolsTab(modifier: Modifier, store: ProjectStore, settings: AppSett
     }
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = if (PlatformFeatures.desktop) 28.dp else 16.dp)) {
         Spacer(Modifier.height(24.dp))
-        if (PlatformFeatures.desktop) ToolGrid(listOf(presetsCard, compressCard, trimCard, extractCard, gifCard, downloaderCard))
-        else if (LocalWide.current || app.absentmotion.ui.editor.LocalTablet.current) ToolGrid(listOf(presetsCard, compressCard, trimCard, extractCard, gifCard, downloaderCard))
+        if (PlatformFeatures.desktop) ToolGrid(listOf(presetsCard, tiktokCard, compressCard, trimCard, extractCard, gifCard, downloaderCard))
+        else if (LocalWide.current || app.absentmotion.ui.editor.LocalTablet.current) ToolGrid(listOf(presetsCard, tiktokCard, compressCard, trimCard, extractCard, gifCard, downloaderCard))
         else {
             presetsCard(Modifier)
+            Spacer(Modifier.height(12.dp))
+            tiktokCard(Modifier)
             Spacer(Modifier.height(12.dp))
             compressCard(Modifier)
             Spacer(Modifier.height(12.dp))
@@ -223,6 +228,7 @@ internal fun ToolsTab(modifier: Modifier, store: ProjectStore, settings: AppSett
         4 -> ExtractAudioScreen { open = 0 }
         5 -> GifScreen { open = 0 }
         6 -> PresetsScreen({ open = 0 }, { scene -> open = 0; onPreset(scene) })
+        7 -> TikTokScreen({ open = 0 }, onImportXml)
     }
 }
 

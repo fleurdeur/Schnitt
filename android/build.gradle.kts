@@ -211,6 +211,8 @@ dependencies {
     implementation("androidx.media3:media3-datasource-okhttp:1.6.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
+    implementation("io.coil-kt.coil3:coil-compose:3.3.0")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
     implementation("androidx.camera:camera-camera2:1.6.2")
     implementation("androidx.camera:camera-view:1.6.2")
     implementation("androidx.exifinterface:exifinterface:1.4.2")

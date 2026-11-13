@@ -226,7 +226,7 @@ fun HomeScreen(
                 TopBar(onMenu = { scope.launch { drawer.open() } }, search, page, { search = it }, settings)
                 val fill = Modifier.weight(1f)
                 if (page == 3) PluginsTab(fill)
-                else if (page == 2) ToolsTab(fill, store, settings, { id -> version++; onOpen(id) }, onTemplateProject)
+                else if (page == 2) ToolsTab(fill, store, settings, { id -> version++; onOpen(id) }, onTemplateProject, onImportFile)
                 else if (page == 1) TemplatesTab(version, onTemplate, onTemplateProject, fill, query) else ProjectsPane(
                     Modifier.weight(1f), shown, loaded, tab, { tab = it }, settings, version, onOpen, onExport, query,
                     onUpload = { picker.launch(arrayOf("text/xml", "application/xml", "application/zip", "application/octet-stream")) },

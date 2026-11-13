@@ -199,6 +199,7 @@ class EditorState(
     var pluginOpen by mutableStateOf(false)
     var beatSheetOpen by mutableStateOf(false)
     var puppetOpen by mutableStateOf(false)
+    var audioFxOpen by mutableStateOf(false)
     var recordingTransform by mutableStateOf(false)
 
     var effectBrowserOpen by mutableStateOf(false)

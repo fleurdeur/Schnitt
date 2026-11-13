@@ -2576,4 +2576,25 @@
     <string name="tools_presets">Presets</string>
     <string name="tools_presets_about">Ready-made colour, shake, light and motion recipes that open as a new project.</string>
     <string name="audio_import_json">Import audio effects JSON</string>
+<string name="tools_tiktok">TikTok</string>
+    <string name="tools_tiktok_about">Search public Alight Motion effects, colour grades, transitions and presets, preview them and import XML or audio.</string>
+    <string name="tiktok_search">Search TikTok for Alight Motion effects, CC, transitions, presets</string>
+    <string name="tiktok_search_button">Search TikTok</string>
+    <string name="tiktok_searching">Searching…</string>
+    <string name="tiktok_hint">Search for a public Alight Motion effect, colour grade, transition or preset. Results stay as links to the original creator’s post.</string>
+    <string name="tiktok_empty">No public posts matched. Try a different phrase.</string>
+    <string name="tiktok_no_xml">No XML was found in the public description. Try the original creator’s post or comments.</string>
+    <string name="tiktok_import_xml">Import XML</string>
+    <string name="tiktok_import_audio">Import audio</string>
+    <string name="tiktok_audio_saved">Audio saved to your device audio library</string>
+    <string name="tiktok_audio_failed">The audio could not be imported</string>
+    <string name="tiktok_need_ytdlp">Install yt-dlp from the Audio Library first</string>
+<string name="image_library">Image library</string>
+    <string name="image_library_title">Image library</string>
+    <string name="image_library_search">Search Pinterest or Cosmos</string>
+    <string name="image_library_search_button">Search</string>
+    <string name="image_library_loading">Searching…</string>
+    <string name="image_library_hint">Search for a public image. Tap to preview; hold to add the original to the timeline.</string>
+    <string name="image_library_empty">No public images matched. Try a different phrase.</string>
+    <string name="image_library_add">Add to timeline</string>
 </resources>

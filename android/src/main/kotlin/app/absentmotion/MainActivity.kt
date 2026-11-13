@@ -159,6 +159,13 @@ class MainActivity : ComponentActivity() {
         val started = SystemClock.elapsedRealtime()
         SystemBars.screen(this, !app.absentmotion.platform.systemDark(this))
         super.onCreate(savedInstanceState)
+        runCatching {
+            coil3.SingletonImageLoader.setSafe {
+                coil3.ImageLoader.Builder(this).components {
+                    add(coil3.network.okhttp.OkHttpNetworkFetcherFactory())
+                }.build()
+            }
+        }
         if (android.os.Build.VERSION.SDK_INT < 28) window.setSoftInputMode(window.attributes.softInputMode or android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN)
         app.absentmotion.i18n.keepLegacyLanguage(this)
         app.absentmotion.i18n.AppText.install(this)

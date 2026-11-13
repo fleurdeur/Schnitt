@@ -243,6 +243,7 @@ internal fun LowerPanels(state: EditorState, addLibrary: AddLibrary, top: Boolea
         val lower = Modifier.align(if (top) Alignment.TopCenter else Alignment.BottomCenter).fillMaxWidth().pointerInput(Unit) {}.tutorialGuard(any = true)
         val tall = top && !state.easingOpen && (state.panel == EditorPanel.Blending || state.panel == EditorPanel.Effects || state.panel == EditorPanel.MoveTransform)
         when {
+            state.audioFxOpen && state.selected?.kind == "audio" -> AudioFxShelf(state, lower.height(AddPopupHeight))
             state.puppetOpen -> PuppetPanel(state, lower.height(AddPopupHeight))
             state.drawing is app.absentmotion.editor.PointMode -> Box(lower.height(PanelHeight).background(Am.Panel).tutorialTarget("panel")) { (state.drawing as? app.absentmotion.editor.PointMode)?.let { PointPanel(state, it) } }
             state.addOpen -> AddPopup(state, lower.height(AddPopupHeight).tutorialTarget("add_panel"), addLibrary)

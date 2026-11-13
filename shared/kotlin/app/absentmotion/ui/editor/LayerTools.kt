@@ -204,7 +204,7 @@ fun LayerTools(state: EditorState, modifier: Modifier = Modifier, side: Boolean 
         val blending = Tile(Blending) { state.panel = EditorPanel.Blending }
         val rows = when (kind) {
             "audio" -> listOf(
-                listOfNotNull(presets, Tile(Effects) { openEffectBrowser(state, "audio") }, Tile(MarkBeats) {
+                listOfNotNull(presets, Tile(Effects) { state.audioFxOpen = true }, Tile(MarkBeats) {
                     state.playing = false
                     state.beatSheetOpen = true
                 }, if (app.absentmotion.platform.PlatformFeatures.ai) Tile(AiTools) { openEffectBrowser(state, "ai") } else null),
@@ -266,7 +266,7 @@ fun LayerTools(state: EditorState, modifier: Modifier = Modifier, side: Boolean 
             if (app.absentmotion.platform.PlatformFeatures.ai && video) Tile(DepthMapTool, enabled = ai.running == null,
                 active = app.absentmotion.ai.DepthAnything.installed(context)) { depthSetup = still } else null,
             Tile(LayerPlugins) { state.pluginOpen = true },
-            Tile(PuppetTool, active = still?.effects?.any { it["id"] == "absent.puppet" } == true) { openPuppet() },
+            if (still?.kind != "audio") Tile(PuppetTool, active = still?.effects?.any { it["id"] == "absent.puppet" } == true) { openPuppet() } else null,
             if (video) Tile(ScreenshotTool, enabled = !shooting) {
                 state.playing = false
                 fun shoot() {
