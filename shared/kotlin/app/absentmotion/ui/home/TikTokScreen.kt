@@ -184,7 +184,15 @@ private fun TikTokPlayer(item: TikTokItem, onClose: () -> Unit, onXml: () -> Uni
             }
         }
     }
-    LaunchedEffect(item.id) { web.loadUrl("https://www.tiktok.com/player/v1/${item.id}?autoplay=1&loop=1&music_info=1&description=1") }
+    LaunchedEffect(item.id) {
+        val direct = runCatching { TikTokWeb.playUrl(item) }.getOrNull()
+        if (direct != null) {
+            val html = "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><style>html,body{margin:0;background:#000;height:100%}video{width:100%;height:100%;object-fit:contain}</style></head><body><video src='" + direct.replace("'", "%27") + "' controls autoplay loop playsinline></video></body></html>"
+            web.loadDataWithBaseURL("https://www.tiktok.com/", html, "text/html", "utf-8", null)
+        } else {
+            web.loadUrl("https://www.tiktok.com/player/v1/${item.id}?autoplay=1&loop=1&music_info=1&description=1")
+        }
+    }
     DisposableEffect(item.id) { onDispose { web.destroy() } }
 }
 
@@ -196,12 +204,22 @@ private object TikTokWeb {
     suspend fun search(query: String): List<TikTokItem> = withContext(Dispatchers.IO) {
         cache[query]?.takeIf { System.currentTimeMillis() - it.first < 10 * 60_000 }?.let { return@withContext it.second }
         val q = URLEncoder.encode("site:tiktok.com $query (alight motion OR transition OR cc OR preset)", "UTF-8")
-        val html = fetch("https://html.duckduckgo.com/html/?q=$q") ?: return@withContext emptyList()
-        val decoded = runCatching { URLDecoder.decode(html, "UTF-8") }.getOrDefault(html)
-        val links = Regex("""https?://(?:www\.)?tiktok\.com/@[^"&<> ]+/video/\d+""").findAll(decoded).map { it.value }.distinct().take(10).toList()
-        val result = links.mapNotNull { link -> item(link) }
+        val links = LinkedHashSet<String>()
+        for (offset in listOf(0, 30)) {
+            val html = fetch("https://html.duckduckgo.com/html/?q=$q&s=$offset") ?: continue
+            val decoded = runCatching { URLDecoder.decode(html, "UTF-8") }.getOrDefault(html)
+            Regex("""https?://(?:www\.)?tiktok\.com/@[^"&<> ]+/video/\d+""").findAll(decoded).forEach { links += it.value }
+            if (links.size >= 24) break
+        }
+        val result = links.take(24).mapNotNull { link -> item(link) }
         if (result.isNotEmpty()) cache[query] = System.currentTimeMillis() to result
         result
+    }
+
+    suspend fun playUrl(item: TikTokItem): String? = withContext(Dispatchers.IO) {
+        val html = fetch(item.url) ?: return@withContext null
+        val decoded = html.replace("""\u002F""", "/").replace("""\/""", "/").replace("&amp;", "&")
+        Regex("""(?:playAddr|downloadAddr)"\s*:\s*"(https:[^"]+)""" + "\"").find(decoded)?.groupValues?.get(1)
     }
 
     private suspend fun item(url: String): TikTokItem? {
@@ -213,9 +231,13 @@ private object TikTokWeb {
     }
 
     suspend fun xml(url: String): String? = withContext(Dispatchers.IO) {
-        val html = fetch(url) ?: return@withContext null
-        val decoded = html.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&amp;", "&")
-        Regex("""<scene[\s\S]*?</scene>""").find(decoded)?.value
+        val oembed = fetch("https://www.tiktok.com/oembed?url=" + URLEncoder.encode(url, "UTF-8"))
+        val page = fetch(url)
+        val text = listOfNotNull(oembed, page).joinToString(" ")
+            .replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&amp;", "&")
+            .replace("\u003C", "<").replace("\u003E", ">")
+        Regex("""<scene[\s\S]*?</scene>""").find(text)?.value
+            ?: Regex("""<project[\s\S]*?</project>""").find(text)?.value
     }
 
     private fun fetch(url: String): String? {

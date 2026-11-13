@@ -280,6 +280,14 @@ class PluginStore(private val context: Context) {
             take("pixelate", "pixelate", "mosaic")
             take("sharpen", "sharpen", "unsharp")
             take("motionblur", "motion blur", "directional blur")
+            take("vhs", "crt", "scanline", "vhs", "retro")
+            take("chromaticzoomblur", "chromatic", "aberration", "rgb split")
+            take("autoshake", "shake", "handheld", "camera shake")
+            take("textshake", "text", "typewriter", "kinetic type")
+            take("glitch", "transition", "glitch", "dissolve")
+            take("turbulentdisplace", "warp", "distort", "mesh")
+            take("colorbalance", "color", "grade", "tint", "lut")
+            take("zoomstreaks", "zoom", "streak")
             return out.toList()
         }
     }

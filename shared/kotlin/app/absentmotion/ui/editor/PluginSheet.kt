@@ -176,7 +176,7 @@ private fun PluginDetail(state: EditorState, plugin: Plugin, catalog: EffectCata
     fun apply(id: String) {
         val layer = state.scene.layer(targetId) ?: state.selected
         if (layer == null) { onNotice(context.getString(R.string.plugins_no_layer)); return }
-        val definition = catalog?.find(id)
+        val definition = catalog?.find(id) ?: catalog?.find("absent.$id") ?: catalog?.definitions?.firstOrNull { it.key == id || it.id == id }
         if (definition == null) { onNotice(context.getString(R.string.plugins_no_effect)); return }
         state.addEffectToChosen(setOf(layer.id)) { definition.instance(null, layer.endTime - layer.startTime) }
         onNotice(context.getString(R.string.plugins_applied))
@@ -217,9 +217,19 @@ private fun PluginDetail(state: EditorState, plugin: Plugin, catalog: EffectCata
         }
         if (plugin.panel) {
             val tall = Modifier.fillMaxWidth().weight(1f)
-            PluginWebPanel(state, plugin, tall, ::apply, onNotice)
+            PluginWebPanel(state, plugin, catalog, tall, ::apply, onNotice)
         } else {
             Spacer(Modifier.height(4.dp))
+        }
+        if (plugin.effects.isEmpty()) {
+            Box(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).height(38.dp).clip(RoundedCornerShape(19.dp)).background(Am.Accent)
+                    .clickable {
+                        val fallback = if (plugin.name.contains("text", true) || plugin.name.contains("type", true)) "textshake" else "glow"
+                        apply(fallback)
+                    },
+                Alignment.Center,
+            ) { Text(stringResource(R.string.plugins_apply), color = Am.OnAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
         }
         if (plugin.effects.isNotEmpty()) {
             Text(stringResource(R.string.plugins_apply), Modifier.padding(start = 16.dp, top = 10.dp, bottom = 4.dp), color = Am.OnDarkDim, fontSize = 12.sp)
@@ -242,7 +252,7 @@ private fun PluginDetail(state: EditorState, plugin: Plugin, catalog: EffectCata
 @SuppressLint("SetJavaScriptEnabled")
 @Suppress("DEPRECATION")
 @Composable
-private fun PluginWebPanel(state: EditorState, plugin: Plugin, modifier: Modifier, applyEffect: (String) -> Unit, onNotice: (String) -> Unit) {
+private fun PluginWebPanel(state: EditorState, plugin: Plugin, catalog: EffectCatalog?, modifier: Modifier, applyEffect: (String) -> Unit, onNotice: (String) -> Unit) {
     val context = LocalContext.current
     val web = remember(plugin.id) {
         WebView(context).apply {
@@ -262,6 +272,12 @@ private fun PluginWebPanel(state: EditorState, plugin: Plugin, modifier: Modifie
     val bridge = remember(plugin.id, state) {
         object {
             @JavascriptInterface fun applyEffect(id: String) = handler.post { applyEffect(id) }
+            @JavascriptInterface fun applyEffectByName(name: String) = handler.post {
+                val wanted = name.trim()
+                val resolved = plugin.effects.firstOrNull { it.contains(wanted, true) || wanted.contains(it, true) }
+                    ?: catalog?.definitions?.firstOrNull { it.name.contains(wanted, true) || wanted.contains(it.key, true) }?.key
+                if (resolved != null) applyEffect(resolved) else onNotice("No matching effect for $wanted")
+            }
             @JavascriptInterface fun setOpacity(value: Float) = handler.post {
                 state.editSelected { it.withTransform("opacity", value.coerceIn(0f, 1f)) }
             }
@@ -318,7 +334,16 @@ private fun cepShim(plugin: Plugin): String = """
 window.__adobe_cep__ = {
   getSystemPath: function(p){ return p === 'extension' ? ${js(plugin.folder)} : ''; },
   getHostEnvironment: function(){ return JSON.stringify({appName:'Schnitt',appVersion:'1.0',appLocale:'en_US',appSkin:'dark'}); },
-  evalScript: function(s){ try { return String(eval(s)); } catch(e) { return 'EvalScript error: ' + e; } },
+  evalScript: function(s){
+    try {
+      var text = String(s);
+      var m = text.match(/(?:addProperty|applyEffect|addEffect)\s*\(\s*["']([^"']+)["']/i);
+      if (m) { Schnitt.applyEffectByName(m[1]); return 'ok'; }
+      var n = text.match(/(?:effect|preset|filter)\s*(?:name)?\s*[:=]\s*["']([^"']+)["']/i);
+      if (n) { Schnitt.applyEffectByName(n[1]); return 'ok'; }
+      return 'ok';
+    } catch(e) { Schnitt.log('EvalScript: ' + e); return 'error'; }
+  },
   addEventListener: function(){}, removeEventListener: function(){},
   getExtensions: function(ids){ return '[]'; }, requestOpenExtension: function(){},
   closeExtension: function(){}, getActiveSequence: function(){ return null; },
@@ -327,13 +352,14 @@ window.__adobe_cep__ = {
 window.cep = window.__adobe_cep__;
 window.CSInterface = window.__adobe_cep__;
 window.app = window.app || {
-  activeDocument: { width: 1080, height: 1920, name: 'Schnitt project', layers: [] },
+  activeDocument: { width: 1080, height: 1920, name: 'Schnitt project', layers: [], selectedLayers: [] },
   activeView: { zoom: 1 },
-  project: { activeItem: { name: 'Schnitt project' } },
+  project: { activeItem: { name: 'Schnitt project', selectedLayers: [], effects: { addProperty: function(n){ Schnitt.applyEffectByName(String(n)); return {}; } } } },
   alert: function(t){ Schnitt.log(String(t)); },
   beep: function(){},
   version: '1.0'
 };
+window.app.project.activeItem.selectedLayers = [{ effects: { addProperty: function(n){ Schnitt.applyEffectByName(String(n)); return {}; } } }];
 window.Schnitt = window.Schnitt || {};
 window.__schnittApply = function(id){ Schnitt.applyEffect(String(id)); };
 """.trimIndent()

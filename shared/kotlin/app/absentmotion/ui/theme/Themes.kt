@@ -46,7 +46,7 @@ object Themes {
 
     fun custom(context: Context): Theme? = runCatching { ThemeFile.parse(customFile(context).readText()) }.getOrNull()
 
-    fun resolve(id: String, systemDark: Boolean): String = if (id != SYSTEM) id else if (systemDark) "Dark" else DEFAULT
+    fun resolve(id: String, systemDark: Boolean): String = if (id != SYSTEM) id else if (systemDark) "Dark" else "Daylight"
 
     fun firstChoice(saved: String?, onboarding: Int, lookChosen: Boolean): String = saved ?: if (onboarding == 0 && !lookChosen) SYSTEM else DEFAULT
 

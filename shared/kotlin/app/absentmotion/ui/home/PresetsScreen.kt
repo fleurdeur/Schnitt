@@ -124,7 +124,7 @@ private fun PresetCard(preset: PresetRecipe, catalog: EffectCatalog?, onUse: () 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(72.dp).clip(RoundedCornerShape(10.dp)).background(Am.HomeBg), Alignment.Center) {
                 Image(painterResource(R.drawable.preset_placeholder), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                val effect = preset.effects.firstNotNullOfOrNull { catalog?.find(it) }
+                val effect = preset.effects.firstNotNullOfOrNull { id -> catalog?.let { c -> c.find("absent.$id") ?: c.definitions.firstOrNull { it.key == id } } }
                 if (effect != null && catalog != null) Thumbnail(catalog, effect.thumbnail, Modifier.fillMaxSize().padding(5.dp).clip(RoundedCornerShape(7.dp)), ContentScale.Crop)
             }
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
@@ -161,6 +161,9 @@ private fun buildScene(preset: PresetRecipe, catalog: EffectCatalog?): Scene {
         .withProp("size", "vec2", 540f, 960f)
         .withFill("gradient")
         .withGradient(GradientStyle("linear", start, end, 0f, 0f, 1f, 1f))
-    preset.effects.forEach { id -> catalog?.find(id)?.let { layer = layer.addEffect(it.instance(null, 5000)) } }
+    preset.effects.forEach { id ->
+        val definition = catalog?.find("absent.$id") ?: catalog?.definitions?.firstOrNull { it.key == id }
+        if (definition != null) layer = layer.addEffect(definition.instance(null, 5000))
+    }
     return base.add(layer)
 }

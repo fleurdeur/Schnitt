@@ -2597,4 +2597,5 @@
     <string name="image_library_hint">Search for a public image. Tap to preview; hold to add the original to the timeline.</string>
     <string name="image_library_empty">No public images matched. Try a different phrase.</string>
     <string name="image_library_add">Add to timeline</string>
+    <string name="theme_amoled">Schnitt AMOLED</string>
 </resources>

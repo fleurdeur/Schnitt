@@ -253,7 +253,7 @@ internal fun MediaTab(state: EditorState, modifier: Modifier, library: AddLibrar
     val shown = remember(media, album, query) { media.filter { (album == null || it.albumId == album) && matchesSearch(query, it.name, it.album) } }
     Box(modifier.clipToBounds()) {
         val tall = LocalSideLibrary.current
-        val cell = if (tall) Modifier.fillMaxWidth().height(96.dp) else Modifier.width(97.dp)
+        val cell = if (tall) Modifier.fillMaxWidth().height(96.dp) else Modifier.width(112.dp)
         val cells: androidx.compose.foundation.lazy.grid.LazyGridScope.() -> Unit = {
             item(key = "albums") {
                 Column(cell.padding(6.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -296,6 +296,10 @@ internal fun MediaTab(state: EditorState, modifier: Modifier, library: AddLibrar
                             android.widget.Toast.makeText(context, context.getString(if (ok) R.string.clipboard_added else R.string.clipboard_empty), android.widget.Toast.LENGTH_SHORT).show()
                         }
                     }
+                }
+            }
+            item(key = "imageLibrary") {
+                Column(cell.padding(6.dp)) {
                     MediaSquare(app.absentmotion.ui.home.HomeIcons.Folder, stringResource(R.string.image_library), false) { imageLibrary = true }
                 }
             }
@@ -367,7 +371,8 @@ private fun ColumnScope.MediaSquare(icon: ImageVector, label: String, active: Bo
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
     ) {
         Icon(icon, null, Modifier.size(18.dp), tint = tint)
-        Text(label, Modifier.padding(horizontal = 4.dp), color = tint, fontSize = 11.sp, lineHeight = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(label, Modifier.padding(horizontal = 3.dp), color = tint, fontSize = 10.sp, lineHeight = 11.5.sp, maxLines = 2,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center, overflow = TextOverflow.Ellipsis)
     }
 }
 

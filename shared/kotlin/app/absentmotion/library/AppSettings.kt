@@ -221,6 +221,7 @@ class AppSettings(private val context: Context) {
     private fun builtInThemeName(id: String) = when (id) {
         "Daylight" -> txt(R.string.theme_daylight)
         "Dark" -> txt(R.string.theme_dark)
+        "Schnitt" -> txt(R.string.theme_amoled)
         else -> txt(R.string.theme_light)
     }
 
