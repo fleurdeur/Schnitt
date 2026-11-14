@@ -20,7 +20,7 @@
 
 <br/>
 
-[**Download**](#download) · [**Features**](#features) · [**Presets**](#presets) · [**Plugins**](#plugins) · [**Build**](#build) · [**Credits**](#credits)
+[**Download**](#download) · [**Features**](#features) · [**Presets**](#presets) · [**Community**](#community) · [**Plugins**](#plugins) · [**Build**](#build) · [**Credits**](#credits)
 
 <br/>
 
@@ -46,6 +46,7 @@
 - **Keyframes and easing** for every transform, effect and audio property.
 - **Transform recording** — press record and move the layer while playback writes keys.
 - **Puppet mesh** — Pin, Mesh and Sway sections for real mesh bending.
+- **Auto Sway** — one tap adds procedural sway to puppet pins without keyframes.
 - **Speed, time remap, reverse, smoothing, captions and motion tracking.**
 - **Templates and presets** that open straight into an editable project.
 
@@ -55,6 +56,8 @@
 - **Real Depth Anything V2** depth maps for video layers with on-device ONNX inference.
 - **Effect JSON import** and an AEX metadata/porting path.
 - **Global shader effects** shared by preview, timeline and export.
+- **Native plug-in effects** — AEX, CEP, JSXBIN and .ffx packages expose editable properties and a real effect in the normal Effects library.
+- **Plugin controls** — every imported plug-in has its own property panel with sliders, switches, choices and colours.
 
     </td>
     <td width="50%" valign="top">
@@ -74,6 +77,7 @@
 - **Vulkan, Ganesh and OpenGL fallback** instead of device blacklists.
 - **AMOLED green and green Daylight themes**, high-contrast text, and theme-aware preview.
 - **No feature paywalls.** All included presets and effects are free to use.
+- **Updates on open** — check the latest GitHub release on launch, from the Home sidebar, and choose whether to skip a version.
 
     </td>
   </tr>
@@ -116,6 +120,20 @@ A free preset library lives in **Home → Tools → Presets**. Pick a recipe, op
 - **Motion** — Dream Blur, Speed Smear
 
 The presets are built from Schnitt's own free effect shaders. They are not copied paid presets, and nothing is locked behind an account or a purchase.
+
+</div>
+
+---
+
+<div align="center">
+
+<h1><a id="community"></a>Community</h1>
+
+Community presets and XML live on the **[Schnitt Community page](https://fleurdeur.github.io/Schnitt/community/)**.
+
+- Upload a preset or XML directly.
+- Every file shows **Pending** or **Approved**.
+- The app reads only approved files and keeps them in one Community section with Presets and XML tabs.
 
 </div>
 

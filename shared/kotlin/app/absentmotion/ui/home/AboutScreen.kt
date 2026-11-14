@@ -61,6 +61,7 @@ import app.absentmotion.ui.export.ExportIcons
 import app.absentmotion.ui.theme.Am
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import app.absentmotion.R
 import app.absentmotion.Tier
@@ -99,6 +100,11 @@ private fun AboutPage(onClose: () -> Unit, onLicences: () -> Unit, onWhatsNew: (
             runCatching { context.assets.open("about/fleurdeur.jpg").use { android.graphics.BitmapFactory.decodeStream(it)?.asImageBitmap() } }.getOrNull()
         }
     }
+    val appIcon by produceState<ImageBitmap?>(null) {
+        value = withContext(Dispatchers.IO) {
+            runCatching { context.assets.open("about/schnitt-icon.png").use { android.graphics.BitmapFactory.decodeStream(it)?.asImageBitmap() } }.getOrNull()
+        }
+    }
     fun open(url: String) = runCatching { links.openUri(url) }
     Column(Modifier.fillMaxSize().navigationBarsPadding()) {
         TitleBar(stringResource(R.string.settings_about), HomeIcons.Close, stringResource(R.string.action_close), onClose)
@@ -107,8 +113,9 @@ private fun AboutPage(onClose: () -> Unit, onLicences: () -> Unit, onWhatsNew: (
             Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Brush.linearGradient(listOf(Am.Card, Am.Well)))) {
                 Column(Modifier.padding(20.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(54.dp).clip(RoundedCornerShape(16.dp)).background(Am.Accent), Alignment.Center) {
-                            Text("S", color = Am.OnAccent, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                        Box(Modifier.size(54.dp).clip(RoundedCornerShape(16.dp)), Alignment.Center) {
+                            appIcon?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop) }
+                                ?: Image(painterResource(R.drawable.ic_launcher_foreground), null, Modifier.fillMaxSize().padding(9.dp), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
                         }
                         Column(Modifier.padding(start = 14.dp)) {
                             Text("Schnitt", color = Am.Navy, fontSize = 26.sp, fontWeight = FontWeight.Bold)

@@ -13,6 +13,7 @@ internal data class CommunityPreset(
     val author: String,
     val type: String,
     val url: String,
+    val status: String = "approved",
 )
 
 internal object CommunityPresets {
@@ -32,8 +33,9 @@ internal object CommunityPresets {
                 author = item.optString("author").ifBlank { "Schnitt community" },
                 type = item.optString("type", "preset").lowercase(),
                 url = if (absolute.matches(url)) url else ROOT + url.removePrefix("/"),
+                status = item.optString("status", "approved").lowercase(),
             )
-        }
+        }.filter { it.status == "approved" }
     }
 
     suspend fun scene(url: String): Scene? = withContext(Dispatchers.IO) {

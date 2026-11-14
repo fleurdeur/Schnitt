@@ -52,10 +52,11 @@ import androidx.compose.ui.window.DialogProperties
 import app.absentmotion.R
 import app.absentmotion.export.formatBytes
 import app.absentmotion.platform.LocalContext
+import app.absentmotion.library.AppSettings
 import app.absentmotion.ui.theme.Am
 
 @Composable
-internal fun UpdateDialog() {
+internal fun UpdateDialog(settings: AppSettings) {
     val context = LocalContext.current
     val step = Updater.step
     val prompt = Updater.confirm
@@ -71,6 +72,7 @@ internal fun UpdateDialog() {
     }
     val shown = Updates.answer ?: return
     val close = { Updates.answer = null }
+    val ignore = { settings.ignoredUpdate = (Updates.answer as? UpdateAnswer.Available)?.release?.version; Updates.answer = null }
     val available = shown as? UpdateAnswer.Available
     if (available == null) {
         UpdateCard(app.absentmotion.ui.editor.PanelIcons.Check, stringResource(if (shown == UpdateAnswer.Latest) R.string.update_latest else R.string.update_failed), close) {
@@ -113,6 +115,7 @@ internal fun UpdateDialog() {
         Updates.source.label?.let { Detail(it) }
         Buttons {
             Secondary(stringResource(R.string.update_changelog)) { open(release.link) }
+            Secondary("Don't show again") { ignore() }
             Secondary(stringResource(R.string.update_later), close)
             val picked = selected ?: release.apk
             if (picked != null && !available.external) Primary(stringResource(R.string.update_download_update)) { close(); Updater.start(context, release.copy(apk = picked, assets = choices)) }

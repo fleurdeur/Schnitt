@@ -131,6 +131,10 @@ fun SettingsDrawer(settings: AppSettings, drawer: androidx.compose.material3.Dra
                 color = Am.HomeInk, fontSize = 18.sp, fontWeight = FontWeight.Bold,
             )
             AppCard(settings) { whatsNew = true }
+            val context = LocalContext.current
+            LinkRow("Check for updates", if (app.absentmotion.ui.home.Updates.checking) "Checking…" else "GitHub") {
+                app.absentmotion.ui.home.Updates.check(context, settings, manual = true)
+            }
             Spacer(Modifier.height(CardGap))
             Category(R.string.settings_group_editor, HomeIcons.Pencil) { EditorSettings(settings) }
             Category(R.string.settings_group_playback, HomeIcons.ProjectsTabOff) { PlaybackSettings(settings) }

@@ -71,12 +71,13 @@ fun HelpScreen(page: String = "index.html", onClose: () -> Unit) {
     var web by remember { mutableStateOf<WebView?>(null) }
     val dark = Am.Card.luminance() < 0.5f
     val themeCss = buildString {
-        append(":root{")
+        append(":root{color-scheme:").append(if (dark) "dark" else "light").append(";")
         fun color(name: String, value: Color) { append("--$name:#${"%06X".format(value.toArgb() and 0xFFFFFF)};") }
         color("bg", Am.HomeBg); color("panel", Am.Card); color("ink", Am.Navy); color("mid", Am.HomeMid)
         color("line", Am.HomeLine); color("link", Am.HomeAccent); color("btn", Am.Accent); color("btn-ink", Am.OnAccent)
-        color("soft", Am.Well); color("code", Am.Well)
-        append("}")
+        color("soft", Am.Well); color("code", Am.Well); color("ok", Am.Accent); color("warn", Am.Warning); color("bad", Am.Warning)
+        append("}html,body{background:var(--bg)!important;color:var(--ink)!important}")
+        append("body{background-color:var(--bg)!important} a{color:var(--link)!important}")
     }
     SideEffect { client.themeCss = themeCss }
     DisposableEffect(Unit) { onDispose { web?.destroy() } }

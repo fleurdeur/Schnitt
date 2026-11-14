@@ -164,7 +164,15 @@ class AppSettings(private val context: Context) {
 
     val checkUpdates: Boolean get() = checkUpdatesState
     val updatesAsked: Boolean get() = updatesAskedState
-    val autoUpdateCheck: Boolean get() = updatesAskedState && checkUpdatesState
+    val autoUpdateCheck: Boolean get() = checkUpdatesState
+
+    private var ignoredUpdateState by mutableStateOf(prefs.getString("ignoredUpdate", null))
+    var ignoredUpdate: String?
+        get() = ignoredUpdateState
+        set(value) {
+            ignoredUpdateState = value
+            prefs.edit().putString("ignoredUpdate", value).apply()
+        }
 
     fun chooseUpdates(on: Boolean) {
         checkUpdatesState = on

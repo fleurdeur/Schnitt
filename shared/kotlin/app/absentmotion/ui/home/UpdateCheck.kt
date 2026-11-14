@@ -56,15 +56,13 @@ internal object Updates {
     var answer by mutableStateOf<UpdateAnswer?>(null)
     var installedOverride: String? = null
     var source: UpdateSource = GitHubSource
-    private var checkedAtStart = false
+    private var lastAutoAt = 0L
     private var quiet = false
     private val scope = MainScope()
 
     fun installed(context: Context): String = installedOverride ?: versionName(context)
 
     fun atStart(context: Context, settings: AppSettings) {
-        if (checkedAtStart) return
-        checkedAtStart = true
         check(context, settings, manual = false)
     }
 
@@ -84,6 +82,11 @@ internal object Updates {
         }
         if (manual && Updater.reveal()) return
         if (manual && checking) return
+        if (!manual) {
+            val now = System.currentTimeMillis()
+            if (now - lastAutoAt < 20_000) return
+            lastAutoAt = now
+        }
         if (manual) checking = true
         val current = installed(context)
         val from = source
@@ -102,7 +105,8 @@ internal object Updates {
             release?.let { settings.rememberNewest(it.version, it.link) }
             val result = offerFor(answerFor(release, current), inApp)
             if (manual) checking = false
-            if (manual || (result is UpdateAnswer.Available && !quiet)) answer = result
+            val ignored = !manual && release != null && settings.ignoredUpdate == release.version
+            if (!ignored && (manual || (result is UpdateAnswer.Available && !quiet))) answer = result
         }
     }
 

@@ -4,47 +4,54 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Schnitt Community — presets and XML</title>
-<meta name="description" content="Upload and browse community presets and XML for Schnitt. Every upload is reviewed before it appears in the app.">
+<meta name="description" content="Upload and browse community presets and XML for Schnitt. Simple upload, clear approval status, shared directly with the app.">
 <meta name="color-scheme" content="light dark">
+<link rel="icon" href="icon.png">
 <style>
-:root{--bg:#f3f1ee;--card:#fff;--ink:#161412;--mid:#5b554e;--line:#dad6d0;--accent:#c2410c;--accent-ink:#fff;--soft:#eae7e2}
-@media(prefers-color-scheme:dark){:root{--bg:#14161a;--card:#1c1e24;--ink:#f2f3f5;--mid:#a6acb8;--line:#2a2d34;--accent:#ff8f66;--accent-ink:#17181b;--soft:#25272d}}
+:root{--bg:#edf5ee;--card:#f8fbf8;--ink:#10241a;--mid:#5a6f60;--line:#cfe0d2;--accent:#2f7d58;--accent-ink:#fff;--soft:#dfeee3;--ok:#2f7d58;--wait:#9a6b12}
+@media(prefers-color-scheme:dark){:root{--bg:#07130d;--card:#0d1f15;--ink:#e7f4ea;--mid:#9fb5a5;--line:#1c3324;--accent:#7fd6a4;--accent-ink:#08130d;--soft:#12291b;--ok:#7fd6a4;--wait:#f0c36a}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:1rem/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-a{color:var(--accent)}.wrap{max-width:820px;margin:auto;padding:24px 18px 60px}
-header{display:flex;align-items:center;gap:12px;padding:8px 0 24px}.logo{width:44px;height:44px;border-radius:13px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;font-size:22px}
-h1{font-size:clamp(30px,6vw,48px);line-height:1.08;margin:0 0 10px}h2{font-size:22px;margin:30px 0 8px}h3{margin:0 0 4px;font-size:16px}
+a{color:var(--accent)}.wrap{max-width:840px;margin:auto;padding:22px 18px 60px}
+header{display:flex;align-items:center;gap:12px;padding:4px 0 24px}.logo{width:50px;height:50px;border-radius:14px;background:var(--accent);display:grid;place-items:center;overflow:hidden}.logo img{width:100%;height:100%;object-fit:cover}
+h1{font-size:clamp(30px,6vw,46px);line-height:1.08;margin:0 0 10px}h2{font-size:21px;margin:28px 0 8px}h3{margin:0 0 3px;font-size:16px}
 .lead{font-size:18px;color:var(--mid);margin:0 0 18px}.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin:12px 0}
 .btn{display:inline-block;background:var(--accent);color:var(--accent-ink);text-decoration:none;font-weight:700;border-radius:999px;padding:12px 20px}
 .btn.alt{background:transparent;color:var(--accent);border:1px solid currentColor;padding:10px 16px}
-.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.muted{color:var(--mid);font-size:14px}.tabs{display:flex;gap:8px;margin:8px 0 14px}.tab{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 14px;font:inherit;cursor:pointer}.tab[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-.item{display:flex;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:8px 0}.badge{width:48px;height:48px;border-radius:12px;background:var(--soft);display:grid;place-items:center;font-size:10px;font-weight:800;color:var(--accent)}.grow{flex:1;min-width:0}.title{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.foot{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);color:var(--mid);font-size:13px}
-code{background:var(--soft);padding:.1em .35em;border-radius:.3em;font-size:.9em}ol{padding-left:22px}li{margin:6px 0}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.muted{color:var(--mid);font-size:14px}
+.tabs{display:flex;gap:8px;margin:8px 0 14px}.tab{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 14px;font:inherit;cursor:pointer}.tab[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.item{display:flex;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:8px 0}.badge{width:48px;height:48px;border-radius:12px;background:var(--soft);display:grid;place-items:center;font-size:10px;font-weight:800;color:var(--accent)}.grow{flex:1;min-width:0}.title{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status{display:inline-block;border-radius:999px;padding:3px 9px;font-size:10px;font-weight:800;letter-spacing:.02em}.status.approved{color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent)}.status.pending{color:var(--wait);background:color-mix(in srgb,var(--wait) 16%,transparent)}
+.foot{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);color:var(--mid);font-size:13px}ol{padding-left:22px}li{margin:6px 0}
 </style>
 </head>
 <body>
 <div class="wrap">
-<header><div class="logo">S</div><div><strong>Schnitt</strong><div class="muted">Community presets and XML</div></div></header>
-<h1>Made by the community.<br>Approved for everyone.</h1>
-<p class="lead">Share a preset or a scene XML. Every upload is reviewed by wall (@fleurdeur) before it appears in the Schnitt app.</p>
-<div class="row"><a class="btn" id="upload" href="https://github.com/fleurdeur/Schnitt/issues/new?labels=community-submission&title=Community%20submission">Upload a preset or XML</a><a class="btn alt" href="https://github.com/fleurdeur/Schnitt">Schnitt on GitHub</a></div>
+<header><div class="logo"><img src="icon.png" alt="Schnitt"></div><div><strong>Schnitt</strong><div class="muted">Community presets and XML</div></div></header>
+<h1>Upload once.<br>Use it in the app.</h1>
+<p class="lead">Choose a file, upload it to the community folder and track whether it is approved. Approved files are picked up by the Schnitt app automatically.</p>
+<div class="row">
+  <a class="btn" href="https://github.com/fleurdeur/Schnitt/upload/main/docs/community/data/presets">Upload a preset</a>
+  <a class="btn" href="https://github.com/fleurdeur/Schnitt/upload/main/docs/community/data/xml">Upload XML</a>
+  <a class="btn alt" href="https://github.com/fleurdeur/Schnitt/issues/new?labels=community-submission&title=Community%20submission">Need help?</a>
+</div>
 
 <div class="card">
 <h2>How it works</h2>
 <ol>
-<li>Open the upload form and choose whether you are sharing a <strong>preset</strong> or an <strong>XML</strong> scene.</li>
-<li>Write the title and your GitHub name, then drag your file into the issue body.</li>
-<li>wall reviews the file. Adding the <strong>approved</strong> label publishes it here and in Schnitt's Presets screen.</li>
-<li>The community list in the app has two sections: Presets and XML.</li>
+<li><strong>Upload</strong> your preset or XML. GitHub opens its upload page; sign in if asked.</li>
+<li>The file is reviewed by <a href="https://github.com/fleurdeur">wall (@fleurdeur)</a>. The status below changes from <strong>Pending</strong> to <strong>Approved</strong>.</li>
+<li>The app reads only approved entries, so the Presets screen stays clean.</li>
+<li>The app shows one Community section with <strong>Presets</strong> and <strong>XML</strong> subcategories.</li>
 </ol>
-<p class="muted">Files must be non-destructive and free of personal data. Do not upload paid or copied presets you do not own.</p>
+<p class="muted">Only upload files you made or have permission to share. No personal data. Do not upload paid or copied presets.</p>
 </div>
 
-<h2>Approved by the community</h2>
-<p class="muted">Only files with the approved label are listed. The list is shared by this website and the app.</p>
+<h2>Community files</h2>
+<p class="muted">Status is shared with the app. GitHub rate limits do not block the list because the app keeps a cached copy.</p>
 <div class="tabs"><button class="tab" id="presetTab" aria-pressed="true">Presets</button><button class="tab" id="xmlTab" aria-pressed="false">XML</button></div>
-<div id="list"><div class="muted">Loading approved files…</div></div>
+<div id="list"><div class="muted">Loading community files…</div></div>
 
-<div class="foot">Schnitt is free and open source under GPLv3. Developer: <a href="https://github.com/fleurdeur">fleurdeur</a>.</div>
+<div class="foot">Developer: <a href="https://github.com/fleurdeur">fleurdeur</a> · Schnitt is free and open source under GPLv3.</div>
 </div>
 <script>
 let entries = [];
@@ -56,15 +63,17 @@ function render(){
   const shown = entries.filter(e => (e.type || "preset") === type);
   presetTab.setAttribute("aria-pressed", type === "preset");
   xmlTab.setAttribute("aria-pressed", type === "xml");
-  list.innerHTML = shown.length ? "" : '<div class="card muted">No approved ' + (type === "preset" ? "presets" : "XML files") + ' yet. Be the first to upload one.</div>';
+  list.innerHTML = shown.length ? "" : '<div class="card muted">No ' + (type === "preset" ? "presets" : "XML files") + ' yet. Upload one above.</div>';
   shown.forEach(e => {
+    const approved = (e.status || "approved") === "approved";
     const row = document.createElement("div"); row.className = "item";
     const badge = document.createElement("div"); badge.className = "badge"; badge.textContent = type === "xml" ? "XML" : "PRE";
     const grow = document.createElement("div"); grow.className = "grow";
     const title = document.createElement("div"); title.className = "title"; title.textContent = e.title || "Community file";
-    const by = document.createElement("div"); by.className = "muted"; by.textContent = e.author ? "by " + e.author : "Schnitt community";
+    const by = document.createElement("div"); by.className = "muted";
+    by.innerHTML = (e.author ? "by " + e.author + " · " : "") + "<span class='status " + (approved ? "approved" : "pending") + "'>" + (approved ? "Approved" : "Pending") + "</span>";
     grow.append(title, by);
-    const link = document.createElement("a"); link.className = "btn alt"; link.textContent = "Download"; link.href = e.url; link.rel = "noopener";
+    const link = document.createElement("a"); link.className = "btn alt"; link.textContent = "Open"; link.href = e.url; link.rel = "noopener";
     row.append(badge, grow, link); list.append(row);
   });
 }

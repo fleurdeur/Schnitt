@@ -366,7 +366,7 @@ class MainActivity : ComponentActivity() {
                 ) else if (open == null && first == null && !opening && editingTemplate == null && exportingFromList == null) {
                     val notes = whatsNew
                     if (notes != null) app.absentmotion.ui.home.WhatsNewDialog(notes) { whatsNew = null; app.absentmotion.ui.home.WhatsNewNotes.seen(this, settings) }
-                    else if (settings.updatesAsked) UpdateDialog() else UpdateAskDialog(settings)
+                    else UpdateDialog(settings)
                 }
                 app.absentmotion.ui.tutorial.TutorialHost(
                     open, store, settings,
@@ -781,6 +781,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (::settings.isInitialized) lifecycleScope.launch { app.absentmotion.ui.home.Updates.check(applicationContext, settings, manual = false) }
         app.absentmotion.ui.home.Updater.resumed(this)
         androidx.core.app.NotificationManagerCompat.from(this).cancel(app.absentmotion.ui.home.UPDATED_NOTIFICATION_ID)
         engine.refreshMedia()
