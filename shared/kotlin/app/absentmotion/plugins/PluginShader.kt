@@ -34,6 +34,8 @@ object PluginShader {
         val effectId = effectId(plugin)
         val effectKey = key(plugin)
         val displayName = plugin.name.ifBlank { "Plugin effect" }
+        val isf = isfText(plugin)?.let { IsfImporter.parse(it, effectId, effectKey, displayName) }
+        if (isf != null) return isf.also { cache[plugin.id] = Cached(stamp, it) }
         if (AexShaderPort.isTracery(displayName, text)) return AexShaderPort.tracery(effectId, effectKey, displayName, text).also { cache[plugin.id] = Cached(stamp, it) }
         if (AexExtraPort.isDeepGlow(displayName, text)) return AexExtraPort.deepGlow(effectId, effectKey, displayName, text).also { cache[plugin.id] = Cached(stamp, it) }
         if (AexExtraPort.isAutoSway(displayName, text)) return AexExtraPort.autoSway(effectId, effectKey, displayName, text).also { cache[plugin.id] = Cached(stamp, it) }
@@ -89,6 +91,14 @@ object PluginShader {
         val folder = File(plugin.folder)
         val files = folder.walkTopDown().filter { it.isFile }.sortedBy { it.name }.take(64)
         return files.joinToString("|") { "${it.name}:${it.length()}:${it.lastModified()}" } + "|" + plugin.id
+    }
+
+    private fun isfText(plugin: Plugin): String? {
+        val folder = File(plugin.folder)
+        val file = folder.walkTopDown().filter { it.isFile && it.length() in 8..(2L shl 20) }
+            .firstOrNull { it.extension.lowercase() in setOf("fs", "isf") } ?: return null
+        val text = runCatching { file.readText() }.getOrNull() ?: return null
+        return text.takeIf { it.contains("INPUTS") && it.contains("/*") }
     }
 
     private fun sourceText(plugin: Plugin): String {
@@ -239,7 +249,14 @@ object PluginShader {
             "warp" in lowered || "distort" in lowered -> 3
             "sharpen" in lowered || "sharp" in text.lowercase(Locale.US) -> 4
             "color" in lowered || "tint" in text.lowercase(Locale.US) -> 5
-            else -> (seed % 6).toInt()
+            "grid" in lowered -> 6
+            "geo" in lowered || "map" in lowered -> 7
+            "text" in lowered -> 8
+            "flow" in lowered || "speed" in lowered -> 9
+            "camera" in lowered || "3d" in lowered -> 10
+            "beat" in lowered || "audio" in lowered -> 11
+            "glass" in lowered -> 12
+            else -> (seed % 13).toInt()
         }
         val uniforms = if (params.none { it.id == "tint" }) params + EffectParam("tint", "Tint", "color", "#ffffffff") else params
         val useRadius = uniforms.any { it.id == "radius" }
@@ -295,6 +312,58 @@ object PluginShader {
                 float luma = dot(c.rgb, half3(0.2126, 0.7152, 0.0722));
                 half3 graded = mix(half3(luma), c.rgb, 1.0 + $amount) * tint.rgb;
                 return half4(clamp(mix(c.rgb, graded, 0.75), 0.0, 1.0), c.a);
+            """.trimIndent()
+            6 -> """
+                float2 uv = coord / size;
+                float cells = max(2.0, floor(4.0 + $radius * 26.0));
+                float2 g = abs(fract(uv * cells) - 0.5);
+                float line = smoothstep(0.48, 0.5, max(g.x, g.y));
+                float3 ink = mix(vec3(0.0), tint.rgb, 0.35 + 0.65 * line);
+                return half4(ink, max(line * $amount, 0.0));
+            """.trimIndent()
+            7 -> """
+                float2 uv = coord / size;
+                float2 d = uv - 0.5;
+                float rings = sin(length(d) * (24.0 + $radius * 80.0) - time * $speed * 2.0);
+                float grid = step(0.94, max(abs(fract(uv.x * 12.0) - 0.5), abs(fract(uv.y * 12.0) - 0.5)));
+                float mask = clamp((rings * 0.5 + 0.5) * 0.35 + grid * 0.65, 0.0, 1.0) * $amount;
+                half4 c = image.eval(coord);
+                return half4(mix(c.rgb, tint.rgb, mask), c.a);
+            """.trimIndent()
+            8 -> """
+                float2 uv = coord / size;
+                float scan = 0.5 + 0.5 * sin(uv.y * 140.0 + time * $speed * 4.0);
+                half4 c = image.eval(coord + float2(sin(uv.y * 18.0 + time) * $amount * 2.0, 0.0));
+                return half4(c.rgb * (0.65 + 0.35 * scan) + tint.rgb * (1.0 - scan) * 0.08, c.a);
+            """.trimIndent()
+            9 -> """
+                half4 sum = half4(0.0);
+                for (int i = 0; i < 8; i++) {
+                    float k = float(i) / 7.0;
+                    sum += image.eval(coord - float2(k * max($amount, 0.0) * 10.0, 0.0));
+                }
+                return sum / 8.0;
+            """.trimIndent()
+            10 -> """
+                float2 uv = coord / size;
+                float2 d = (uv - 0.5) * (1.0 + $amount * 0.08);
+                half4 c = image.eval(clamp(d + 0.5, float2(0.0), float2(1.0)) * size);
+                float vig = smoothstep(1.0, 0.15, length(uv - 0.5) * 1.8);
+                return half4(c.rgb * tint.rgb * vig, c.a);
+            """.trimIndent()
+            11 -> """
+                float pulse = 0.5 + 0.5 * sin(time * max($speed, 0.01) * 6.2831853);
+                half4 c = image.eval(coord);
+                return half4(c.rgb * (1.0 + $amount * pulse * 0.45), c.a);
+            """.trimIndent()
+            12 -> """
+                float2 uv = coord / size;
+                float2 d = uv - 0.5;
+                float thickness = max($radius, 0.01) * 0.06;
+                float2 q = float2(d.x + sin(d.y * 22.0 + time) * thickness, d.y + cos(d.x * 22.0 - time) * thickness);
+                half4 c = image.eval((q + 0.5) * size);
+                float shine = pow(0.5 + 0.5 * sin(d.x * 12.0 + d.y * 9.0 + time), 4.0);
+                return half4(c.rgb + tint.rgb * shine * $amount * 0.25, c.a);
             """.trimIndent()
             else -> """
                 float2 uv = coord / size;

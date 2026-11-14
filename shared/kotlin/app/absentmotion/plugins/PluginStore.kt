@@ -308,7 +308,7 @@ class PluginStore(private val context: Context) {
         private const val MAX_PLUGIN = 192L shl 20
         private const val MAX_UNPACKED = 512L shl 20
         private val NATIVE = setOf("aex", "dll", "dylib", "so", "bundle")
-        private val SHADER = setOf("frag", "glsl", "shader", "sksl")
+        private val SHADER = setOf("frag", "glsl", "shader", "sksl", "fs", "isf")
 
         fun mapEffects(text: String): List<String> {
             val t = text.lowercase()
