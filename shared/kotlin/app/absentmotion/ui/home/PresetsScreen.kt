@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +55,7 @@ import app.absentmotion.ui.editor.effects.Thumbnail
 import app.absentmotion.ui.export.ExportIcons
 import app.absentmotion.ui.theme.Am
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private data class PresetRecipe(
@@ -90,6 +92,22 @@ internal fun PresetsScreen(onClose: () -> Unit, onUse: (Scene) -> Unit) {
     }
     var search by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("All") }
+    val scope = rememberCoroutineScope()
+    val community by produceState<List<CommunityPreset>>(emptyList()) { value = CommunityPresets.load() }
+    var communityType by remember { mutableStateOf("preset") }
+    var communityBusy by remember { mutableStateOf<String?>(null) }
+    var communityNotice by remember { mutableStateOf<String?>(null) }
+    fun useCommunity(item: CommunityPreset) {
+        if (communityBusy != null) return
+        communityBusy = item.id
+        scope.launch {
+            val scene = CommunityPresets.scene(item.url)
+            if (scene == null) communityNotice = "This community file could not be opened."
+            else onUse(scene)
+            communityBusy = null
+        }
+    }
+    val communityShown = community.filter { it.type == communityType && (search.isBlank() || it.title.contains(search, true) || it.author.contains(search, true)) }
     val categories = listOf("All") + Presets.map { it.category }.distinct()
     val shown = Presets.filter { (category == "All" || it.category == category) && (search.isBlank() || it.name.contains(search, true) || it.description.contains(search, true)) }
     Dialog(onClose, DialogProperties(usePlatformDefaultWidth = false)) {
@@ -111,11 +129,59 @@ internal fun PresetsScreen(onClose: () -> Unit, onUse: (Scene) -> Unit) {
                 }
             }
             LazyColumn(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                item(key = "community-header") {
+                    Column(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Community", Modifier.weight(1f), color = Am.Navy, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text("Approved by fleurdeur", color = Am.HomeDim, fontSize = 10.sp)
+                        }
+                        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            listOf("preset" to "Presets", "xml" to "XML").forEach { (id, label) ->
+                                val on = id == communityType
+                                Box(
+                                    Modifier.height(32.dp).clip(RoundedCornerShape(16.dp)).background(if (on) Am.Navy else Am.Card)
+                                        .clickable { communityType = id }.padding(horizontal = 12.dp), Alignment.Center,
+                                ) { Text(label, color = if (on) Am.OnNavy else Am.HomeInk, fontSize = 12.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal) }
+                            }
+                        }
+                    }
+                }
+                communityNotice?.let { notice ->
+                    item(key = "community-notice") { Text(notice, Modifier.fillMaxWidth().padding(vertical = 4.dp), color = Am.HomeDim, fontSize = 12.sp) }
+                }
+                if (communityShown.isEmpty()) {
+                    item(key = "community-empty") {
+                        Text("No approved ${if (communityType == "preset") "presets" else "XML files"} yet. Upload yours on the Schnitt community page.", Modifier.fillMaxWidth().padding(vertical = 8.dp), color = Am.HomeDim, fontSize = 12.sp, lineHeight = 17.sp)
+                    }
+                } else {
+                    items(communityShown, key = { "community-" + it.id }) { item ->
+                        CommunityCard(item, communityBusy == item.id) { useCommunity(item) }
+                    }
+                }
+                item(key = "presets-header") {
+                    Text("Built-in presets", Modifier.padding(top = 12.dp), color = Am.Navy, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
                 items(shown, key = { it.id }) { preset ->
                     PresetCard(preset, catalog) { if (catalog != null) onUse(buildScene(preset, catalog)) }
                 }
                 item { Spacer(Modifier.height(24.dp)) }
             }
+        }
+    }
+}
+
+@Composable
+private fun CommunityCard(item: CommunityPreset, busy: Boolean, onUse: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Am.Card).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(48.dp).clip(RoundedCornerShape(11.dp)).background(Am.HomeBg), Alignment.Center) {
+            Text(if (item.type == "xml") "XML" else "PRE", color = Am.HomeAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        }
+        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+            Text(item.title, color = Am.Navy, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.author, Modifier.padding(top = 2.dp), color = Am.HomeDim, fontSize = 11.sp, maxLines = 1)
+        }
+        Box(Modifier.height(34.dp).clip(RoundedCornerShape(17.dp)).background(Am.Navy).clickable(enabled = !busy, onClick = onUse).padding(horizontal = 14.dp), Alignment.Center) {
+            Text(if (busy) "Opening…" else "Use", color = Am.OnNavy, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

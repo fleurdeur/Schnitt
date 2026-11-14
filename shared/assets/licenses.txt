@@ -1,7 +1,7 @@
 ABSENTMOTION: LICENCES AND NOTICES
 ==================================
 
-AbsentMotion is free and open source, licensed under the GNU General Public License, version 3 (the first part below). It includes and uses third-party software and icons under their own licences, which follow. This page is generated from the files LICENSE, NOTICE, THIRD_PARTY_NOTICES.md and docs/ICON_SOURCES.md of the source code, https://github.com/Comett1225/AbsentMotion.
+Schnitt is free and open source, licensed under the GNU General Public License, version 3 (the first part below). It includes and uses third-party software and icons under their own licences, which follow. This page is generated from the files LICENSE, NOTICE, THIRD_PARTY_NOTICES.md and docs/ICON_SOURCES.md of the source code, https://github.com/fleurdeur/Schnitt.
 
 GNU GENERAL PUBLIC LICENSE 3.0
 ==============================
@@ -684,8 +684,8 @@ Public License instead of this License.  But first, please read
 PROJECT NOTICE
 ==============
 
-AbsentMotion
-Copyright 2026 The AbsentMotion authors
+Schnitt
+Copyright 2026 The Schnitt authors
 
 From version 5.0 this product is licensed under the GNU General Public License,
 version 3 (see LICENSE). Versions 4.x and earlier were released under the
@@ -707,7 +707,7 @@ is not reproduced here.
 THIRD-PARTY NOTICES
 ===================
 
-AbsentMotion 5.0 and later is licensed under the GNU General Public License, version 3 (see LICENSE and NOTICE); 4.x and earlier versions stay under the Apache License 2.0. It contains, links against, bundles or downloads the third-party software listed below. Each entry names the component, the version the build used on 2026-10-18 (AbsentMotion 2.1.0), its licence, its copyright line, where to find it and where AbsentMotion uses it. Copyright lines are copied from the licence files that ship with the vendored or checked-out sources; where AbsentMotion has no such file the entry says "see upstream" instead of guessing.
+Schnitt 5.0 and later is licensed under the GNU General Public License, version 3 (see LICENSE and NOTICE); 4.x and earlier versions stay under the Apache License 2.0. It contains, links against, bundles or downloads the third-party software listed below. Each entry names the component, the version the build used on 2026-10-18 (Schnitt 2.1.0), its licence, its copyright line, where to find it and where Schnitt uses it. Copyright lines are copied from the licence files that ship with the vendored or checked-out sources; where Schnitt has no such file the entry says "see upstream" instead of guessing.
 
 Full licence texts for the C and C++ libraries are in the appendix at the end of this file. The Apache License 2.0 text that applies to the Apache-2.0 components is in appendix A.21; the GPL-2.0 with Classpath Exception text for the Java runtime is in A.22, which also holds the GPL-2.0 terms for FFmpeg, x264 and x265 in the macOS apps.
 
@@ -724,7 +724,7 @@ Contents
 1. ENGINE LIBRARIES
 -------------------
 
-AbsentMotion's renderer is C++ on top of Skia. Skia and the libraries it needs are built from source (see docs/BUILD.md) and linked statically into the engine library, libamengine.so. Speech recognition lives in a second library, libwhisper_jni.so, loaded only when captions are generated.
+Schnitt's renderer is C++ on top of Skia. Skia and the libraries it needs are built from source (see docs/BUILD.md) and linked statically into the engine library, libamengine.so. Speech recognition lives in a second library, libwhisper_jni.so, loaded only when captions are generated.
 
 Skia
 ----
@@ -745,7 +745,7 @@ FreeType
 --------
 
 - Version: 2.14.2 (the copy in Skia's dependency set).
-- Licence: the FreeType Licence (FTL). FreeType is dual licensed (FTL or GPL-2.0-or-later); AbsentMotion uses it under the FTL. Text in appendix A.2.
+- Licence: the FreeType Licence (FTL). FreeType is dual licensed (FTL or GPL-2.0-or-later); Schnitt uses it under the FTL. Text in appendix A.2.
 - Copyright: the FTL asks for this credit line, reproduced here as it requires: "Portions of this software are copyright © 1996-2026 The FreeType Project (https://freetype.org). All rights reserved."
 - URL: https://freetype.org/
 - Used in: the engine library (font rasterisation).
@@ -931,8 +931,8 @@ macOS (Apple silicon and Intel):
 
 - Version: 9.0.2, built for arm64 and x86_64 (minimum macOS 11) from the unchanged release source https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz (SHA-256 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e, signed with the FFmpeg release signing key).
 - Configure options: --enable-shared --disable-static --install-name-dir=@rpath --disable-doc --disable-debug --disable-ffplay --disable-sdl2 --disable-xlib --disable-libxcb --disable-sndio --enable-videotoolbox --enable-audiotoolbox --enable-avfoundation --enable-gpl --enable-libmp3lame --enable-libx264 --enable-libx265 --enable-libvpx --enable-libdav1d --enable-libopus --enable-libsvtav1 (plus --pkg-config-flags=--static and the compiler and path options; the Intel build assembles FFmpeg's x86 code with NASM). No --enable-version3 or --enable-nonfree.
-- Licence: GNU General Public License, version 2 or later (--enable-gpl, which x264 and x265 need; AbsentMotion 5.0 and later uses it under version 3, see LICENSE). FFmpeg's COPYING.GPLv2 ships next to the libraries as ffmpeg-LICENSE.txt; the same terms are in appendix A.22 (the Classpath Exception there applies only to OpenJDK). LAME (above) and the codec libraries below are linked statically into libavcodec.
-- Used in: the macOS apps. libamdesktop.dylib links the shared avformat, avcodec, avutil and swscale libraries for video decoding (VideoToolbox when available), and ffmpeg and ffprobe run export, the Tools tab, the camera and media probing. They sit in AbsentMotion.app/Contents/app/resources, so they can be replaced with another build.
+- Licence: GNU General Public License, version 2 or later (--enable-gpl, which x264 and x265 need; Schnitt 5.0 and later uses it under version 3, see LICENSE). FFmpeg's COPYING.GPLv2 ships next to the libraries as ffmpeg-LICENSE.txt; the same terms are in appendix A.22 (the Classpath Exception there applies only to OpenJDK). LAME (above) and the codec libraries below are linked statically into libavcodec.
+- Used in: the macOS apps. libamdesktop.dylib links the shared avformat, avcodec, avutil and swscale libraries for video decoding (VideoToolbox when available), and ffmpeg and ffprobe run export, the Tools tab, the camera and media probing. They sit in Schnitt.app/Contents/app/resources, so they can be replaced with another build.
 - Source: Source-FFmpeg-<version>-macos.tar, attached to every release that ships the macOS apps, holds the unchanged source archives of FFmpeg, LAME and the codec libraries below and the scripts that built them.
 
 The codec libraries in the macOS FFmpeg are built for arm64 and x86_64 (minimum macOS 11) as static libraries from the unchanged sources below; the SHA-256 sums of x265, libvpx, Opus and SVT-AV1 match the ones Homebrew pins for the same versions, dav1d matches VideoLAN's published sum and signature, and x264 is the named commit of its stable branch.
@@ -950,7 +950,7 @@ x265
 ----
 
 - Version: 4.3, x265_4.3.tar.gz from https://github.com/Multicorewareinc/x265/releases (SHA-256 83c53e4c8bbb8f1e33ed59e10a7d621d1d7801ca853910c3eb41f038b8ffb121), 8-bit build.
-- Licence: GNU General Public License, version 2 or later (text in appendix A.22, without the Classpath Exception). x265 is also offered under a commercial licence; AbsentMotion uses it under the GPL.
+- Licence: GNU General Public License, version 2 or later (text in appendix A.22, without the Classpath Exception). x265 is also offered under a commercial licence; Schnitt uses it under the GPL.
 - Copyright: Copyright (C) 2013-2020 MulticoreWare, Inc.
 - URL: https://github.com/Multicorewareinc/x265
 - Used in: HEVC software encoding (libx265), for sizes above VideoToolbox's 4096 px and when VideoToolbox fails.
@@ -1002,7 +1002,7 @@ AppImage runtime (Linux AppImage only)
 Video downloader add-on (downloaded on request, not part of the app)
 --------------------------------------------------------------------
 
-The Video Downloader in Tools needs an add-on that the user downloads once, after the app has shown its size. Nothing of it is in the APK except AbsentMotion's own small bridge library, libampy.so (Apache-2.0, The AbsentMotion authors), which loads the downloaded Python at run time, and the Python glue assets/downloader/am_dl.py (Apache-2.0). Settings can remove the add-on.
+The Video Downloader in Tools needs an add-on that the user downloads once, after the app has shown its size. Nothing of it is in the APK except Schnitt's own small bridge library, libampy.so (Apache-2.0, The Schnitt authors), which loads the downloaded Python at run time, and the Python glue assets/downloader/am_dl.py (Apache-2.0). Settings can remove the add-on.
 
 CPython
 -------
@@ -1054,7 +1054,7 @@ AI Smooth models (RIFE)
 AI Enhance models (Real-ESRGAN)
 -------------------------------
 
-- Version: realesr-general-x4v3, realesr-general-wdn-x4v3 and realesr-animevideov3 from the Real-ESRGAN release v0.2.5.0, converted to ncnn (fp16). The general models were converted for AbsentMotion; the converted files are published as assets of this repository's ai-models-1 release.
+- Version: realesr-general-x4v3, realesr-general-wdn-x4v3 and realesr-animevideov3 from the Real-ESRGAN release v0.2.5.0, converted to ncnn (fp16). The general models were converted for Schnitt; the converted files are published as assets of this repository's ai-models-1 release.
 - Licence: BSD-3-Clause (text in appendix A.19).
 - Copyright: Copyright (c) 2021, Xintao Wang.
 - URL: https://github.com/xinntao/Real-ESRGAN
@@ -1063,23 +1063,23 @@ AI Enhance models (Real-ESRGAN)
 AI background removal 2.0
 -------------------------
 
-- Version: absent-cutout.bin with absent-cutout-768.param and absent-cutout-1024.param (ncnn, fp16), published as assets of this repository's ai-models-3 release (the fourth training round, used from AbsentMotion 4.4; earlier versions download the previous round from ai-models-2).
+- Version: absent-cutout.bin with absent-cutout-768.param and absent-cutout-1024.param (ncnn, fp16), published as assets of this repository's ai-models-3 release (the fourth training round, used from Schnitt 4.4; earlier versions download the previous round from ai-models-2).
 - Licence: Apache-2.0, including the pretrained weights it contains. The Apache-2.0 text is in appendix A.21.
-- Copyright: The AbsentMotion authors.
+- Copyright: The Schnitt authors.
 - Used in: "Remove Background" on images when AI background removal 2.0 is chosen (Latest version). Downloaded once after that choice, checked against its SHA-256, and removable in Settings.
 
 Background removal model (built in)
 -----------------------------------
 
-- Version: android/src/foss/assets/absent_bg.abg (2,943,735 bytes, SHA-256 9bfbfcba996eb0b0b4f5da03d7dcbce704f5b8810101eb92f62b9e6d44465439), a small segmentation network trained for AbsentMotion; weights stored as 8-bit integers and expanded to 32-bit floats on load. Its inference code, shared/cpp/absent_bg/, is part of AbsentMotion.
+- Version: android/src/foss/assets/absent_bg.abg (2,943,735 bytes, SHA-256 9bfbfcba996eb0b0b4f5da03d7dcbce704f5b8810101eb92f62b9e6d44465439), a small segmentation network trained for Schnitt; weights stored as 8-bit integers and expanded to 32-bit floats on load. Its inference code, shared/cpp/absent_bg/, is part of Schnitt.
 - Licence: Apache-2.0 ("Original student architectures, training scripts and C++ runtime: Apache License 2.0."), subject to the source notices and the CC BY attribution below.
-- Copyright: The AbsentMotion authors.
+- Copyright: The Schnitt authors.
 - Used in: "Remove Background" on images and videos. It runs on the device and nothing is downloaded.
 - Pretrained encoder: timm/mobilenetv3_large_100.ra_in1k, revision 96f46a1c52932f27492dff66c72378eb99b443a7, Apache-2.0, by Ross Wightman and timm contributors (https://huggingface.co/timm/mobilenetv3_large_100.ra_in1k, https://github.com/huggingface/pytorch-image-models); MobileNetV3: Howard et al., "Searching for MobileNetV3" (https://arxiv.org/abs/1905.02244). ImageNet-pretrained encoder only; classifier discarded; no ImageNet images fetched. The Apache-2.0 text is in appendix A.21.
-- Training pictures: 18,615 photographs under Creative Commons Attribution licences (18,559 CC BY 2.0, https://creativecommons.org/licenses/by/2.0/, and 56 CC BY 4.0, https://creativecommons.org/licenses/by/4.0/); only explicit CC BY records were accepted, and each licence was checked at the source before use. 8,391 come from the COCO 2017 training set (https://cocodataset.org) and 10,224 from Open Images V7 (https://storage.googleapis.com/openimages/web/factsfigures_v7.html). Changes: resized; JPEG re-encoded. Image rights remain with individual creators. No picture is part of this repository or the app. The creator, title, source page and licence of every picture are listed in the file AbsentMotion-training-image-credits.txt, attached to the ai-models-3 release of this repository (https://github.com/Comett1225/AbsentMotion/releases/download/ai-models-3/AbsentMotion-training-image-credits.txt); it is not part of this repository.
+- Training pictures: 18,615 photographs under Creative Commons Attribution licences (18,559 CC BY 2.0, https://creativecommons.org/licenses/by/2.0/, and 56 CC BY 4.0, https://creativecommons.org/licenses/by/4.0/); only explicit CC BY records were accepted, and each licence was checked at the source before use. 8,391 come from the COCO 2017 training set (https://cocodataset.org) and 10,224 from Open Images V7 (https://storage.googleapis.com/openimages/web/factsfigures_v7.html). Changes: resized; JPEG re-encoded. Image rights remain with individual creators. No picture is part of this repository or the app. The creator, title, source page and licence of every picture are listed in the file Schnitt-training-image-credits.txt, attached to the ai-models-3 release of this repository (https://github.com/fleurdeur/Schnitt/releases/download/ai-models-3/Schnitt-training-image-credits.txt); it is not part of this repository.
 - COCO annotations: training/ground-truth masks are based on COCO Consortium annotations under CC BY 4.0 (union of all annotated instances, resized). Citation: Tsung-Yi Lin et al., Microsoft COCO: Common Objects in Context, ECCV 2014.
 - Open Images labels and metadata: Google LLC, CC BY 4.0; Kuznetsova et al., The Open Images Dataset V4, IJCV 2020.
-- Teacher: the training masks were made by BiRefNet_lite, revision aa62cd87eafb9cc43056d08ef3615a14628b831d (https://huggingface.co/ZhengPeng7/BiRefNet_lite), MIT License, Copyright (c) 2024 ZhengPeng. The teacher only made labels: none of its weights or code are in AbsentMotion. Its card states training on DIS-TR; no DIS images were used.
+- Teacher: the training masks were made by BiRefNet_lite, revision aa62cd87eafb9cc43056d08ef3615a14628b831d (https://huggingface.co/ZhengPeng7/BiRefNet_lite), MIT License, Copyright (c) 2024 ZhengPeng. The teacher only made labels: none of its weights or code are in Schnitt. Its card states training on DIS-TR; no DIS images were used.
 
 3. KOTLIN AND COMPOSE LIBRARIES
 -------------------------------
@@ -1143,7 +1143,7 @@ JetBrains annotations
 Desktop app (macOS, Windows and Linux)
 --------------------------------------
 
-The desktop apps (pc/) bundle the Java runtime and the jars below in the app folder (AbsentMotion.app/Contents/app on macOS, the install folder's app folder on Windows, lib/app on Linux). Versions are the ones the macOS arm64 build of 2026-11-04 resolved (./gradlew -p pc dependencies --configuration runtimeClasspath and the jars in the built app); the Intel Mac, Windows and Linux builds use the same versions with their own Skiko native jar. Skia and FFmpeg are listed in section 1.
+The desktop apps (pc/) bundle the Java runtime and the jars below in the app folder (Schnitt.app/Contents/app on macOS, the install folder's app folder on Windows, lib/app on Linux). Versions are the ones the macOS arm64 build of 2026-11-04 resolved (./gradlew -p pc dependencies --configuration runtimeClasspath and the jars in the built app); the Intel Mac, Windows and Linux builds use the same versions with their own Skiko native jar. Skia and FFmpeg are listed in section 1.
 
 Java runtime (OpenJDK 21)
 -------------------------
@@ -1152,7 +1152,7 @@ Java runtime (OpenJDK 21)
 - Licence: GNU General Public License, version 2, with the Classpath Exception (text in appendix A.22). Files of the runtime that carry a different licence are listed next.
 - Copyright: Copyright (c) Oracle and/or its affiliates and the OpenJDK contributors.
 - URL: https://openjdk.org/
-- Used in: runs the app. The runtime sits unchanged in AbsentMotion.app/Contents/runtime (macOS), runtime (Windows) and lib/runtime (Linux), so it can be replaced with another build of OpenJDK 21. Its own legal folder there holds the licence files per module (LICENSE, ADDITIONAL_LICENSE_INFO, ASSEMBLY_EXCEPTION) and the full texts of the parts below.
+- Used in: runs the app. The runtime sits unchanged in Schnitt.app/Contents/runtime (macOS), runtime (Windows) and lib/runtime (Linux), so it can be replaced with another build of OpenJDK 21. Its own legal folder there holds the licence files per module (LICENSE, ADDITIONAL_LICENSE_INFO, ASSEMBLY_EXCEPTION) and the full texts of the parts below.
 
 Third-party parts of the runtime, with the file in the legal folder that holds the licence text:
 
@@ -1201,7 +1201,7 @@ JUnit 4.13.2 (Eclipse Public License 1.0) is used by the unit tests only and is 
 Adobe Animate file format references (no code included)
 -------------------------------------------------------
 
-The importer for Adobe Animate .fla and XFL files (compat/FlaImport.kt) was written for AbsentMotion from published descriptions of the format. No code from these projects is in AbsentMotion; they are named because their descriptions were read:
+The importer for Adobe Animate .fla and XFL files (compat/FlaImport.kt) was written for Schnitt from published descriptions of the format. No code from these projects is in Schnitt; they are named because their descriptions were read:
 
 - xfl2svg, Copyright (c) 2021 PluieElectrique, MIT licence, https://github.com/PluieElectrique/xfl2svg (the shape edge format and how edges join into filled shapes).
 - JPEXS Free Flash Decompiler, Copyright (C) 2010-2026 JPEXS, GNU LGPL 3.0 or later, https://github.com/jindrapetrik/jpexs-decompiler (the layout of the bin/*.dat picture files).
@@ -1220,7 +1220,7 @@ When Settings > Editor > Emoji Style is set to Android, text layers draw emoji w
 Google Fonts
 ------------
 
-AbsentMotion contains 50 font families that work without a network connection, and offers 100 more that the app downloads from Google's font servers (fonts.googleapis.com, fonts.gstatic.com) when a user picks one. A downloaded family keeps its own licence: the SIL Open Font License 1.1, the Apache License 2.0 or the Ubuntu Font Licence 1.0, as stated for that family at https://fonts.google.com/. Text a user sets in any of these fonts belongs to the user.
+Schnitt contains 50 font families that work without a network connection, and offers 100 more that the app downloads from Google's font servers (fonts.googleapis.com, fonts.gstatic.com) when a user picks one. A downloaded family keeps its own licence: the SIL Open Font License 1.1, the Apache License 2.0 or the Ubuntu Font Licence 1.0, as stated for that family at https://fonts.google.com/. Text a user sets in any of these fonts belongs to the user.
 
 The built-in fonts are copied from the repository https://github.com/google/fonts at commit 47d54ca1ebb14fd864695f1d39dc734f39017c33. The table lists, for each family, the copyright line from the font, the licence and the licence file that ships next to the font files in the app. 35 families are modified: variable fonts were turned into static Regular and Bold instances, and every font was cut down to the Latin, Cyrillic and Vietnamese letters and (for Hindi, Thai and Arabic fonts) the writing system of that font, with tools/gen_fonts.py and fontTools. The 15 families whose copyright holders reserve the font name (Abril Fatface, Alfa Slab One, Bitter, Comfortaa, DM Serif Display, Dancing Script, Kaushan Script, Lobster, Lora, Orbitron, Playfair Display, Press Start 2P, Quicksand, Raleway, Righteous) are included exactly as published, because the SIL Open Font License does not allow a modified version to keep a reserved name. The licence text of the SIL Open Font License 1.1 is in appendix A.13; the Apache License 2.0 text is in appendix A.21.
 
@@ -3762,13 +3762,13 @@ Specification. "Specification" means the specification designated by the Allianc
 ICON SOURCES
 ============
 
-Every icon in AbsentMotion is either taken from an open icon set whose licence allows redistribution, or drawn for this project. Nothing is copied or traced from another app. This file is the single list of where each icon comes from; the third-party notices file is generated from it.
+Every icon in Schnitt is either taken from an open icon set whose licence allows redistribution, or drawn for this project. Nothing is copied or traced from another app. This file is the single list of where each icon comes from; the third-party notices file is generated from it.
 
 - Lucide (https://lucide.dev, https://github.com/lucide-icons/lucide), ISC licence, version 1.59.0 (SVG files at https://cdn.jsdelivr.net/npm/lucide-static@1.59.0/icons/<name>.svg, pages at https://lucide.dev/icons/<name>). Lucide's licence file marks a few icons as derived from Feather (https://github.com/feathericons/feather); those are also under the MIT licence below, so both notices apply to them. The Licence column says "ISC and MIT (Feather)" for those.
 - Tabler Icons (https://tabler.io/icons, https://github.com/tabler/tabler-icons), MIT licence, version 3.31.0 (SVG files at https://cdn.jsdelivr.net/npm/@tabler/icons@3.31.0/icons/outline/<name>.svg). Used the same way as the Lucide shapes.
 - Simple Icons (https://simpleicons.org, https://github.com/simple-icons/simple-icons), CC0-1.0: only the Discord logo, used as Discord publishes it, to link to the project's Discord server.
 - Material Symbols (https://github.com/google/material-design-icons, Apache-2.0): none are used.
-- Own drawing: made for AbsentMotion from circles, lines, rectangles and arcs; GPL-3.0 like the rest of the code (Apache-2.0 up to 4.x).
+- Own drawing: made for Schnitt from circles, lines, rectangles and arcs; GPL-3.0 like the rest of the code (Apache-2.0 up to 4.x).
 - Effect thumbnails are not icons: they are small renders of six CC0 photographs, listed in THIRD_PARTY_NOTICES.md (section 4, "Effect thumbnail photos").
 
 How the Lucide shapes were used: the SVG shapes (path, circle, rect, line) were joined into one path-data string on the same 24 unit grid, written with absolute commands, and tinted and stroked by the app (round caps and joins, 1.2 to 2.5 dp strokes depending on the icon). Where the Notes column says "scaled" or "mirrored" the shape was scaled about the grid centre or flipped left to right; nothing else about the geometry was changed. "Moved" means shifted to sit inside the icon's own viewport (for example a 32 dp speaker). The path strings themselves live in the *Icons.kt files.

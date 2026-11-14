@@ -10,8 +10,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,17 +21,21 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -38,12 +44,16 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -191,6 +201,11 @@ private fun PluginDetail(state: EditorState, plugin: Plugin, catalog: EffectCata
     var targetId by remember(plugin.id, state.scene) { mutableStateOf(state.selectedId ?: layers.firstOrNull()?.id ?: 0L) }
     var targetOpen by remember { mutableStateOf(false) }
     val generated = catalog?.definitions?.firstOrNull { it.id == PluginShader.effectId(plugin) }
+    val values = remember(plugin.id) { mutableStateMapOf<String, String>() }
+    androidx.compose.runtime.LaunchedEffect(generated?.key) {
+        values.clear()
+        generated?.params?.forEach { values[it.id] = it.default }
+    }
     fun apply(id: String) {
         val layer = state.scene.layer(targetId) ?: state.selected
         if (layer == null) { onNotice(context.getString(R.string.plugins_no_layer)); return }
@@ -199,7 +214,8 @@ private fun PluginDetail(state: EditorState, plugin: Plugin, catalog: EffectCata
             onNotice("The plugin shader is still being prepared. Reopen the plugin in a moment.")
             return
         }
-        state.addEffectToChosen(setOf(layer.id)) { definition.instance(null, layer.endTime - layer.startTime) }
+        val configured = definition.copy(params = definition.params.map { p -> values[p.id]?.let { p.copy(default = it) } ?: p })
+        state.addEffectToChosen(setOf(layer.id)) { configured.instance(null, layer.endTime - layer.startTime) }
         onNotice("Applied ${definition.name}")
     }
     Column(Modifier.fillMaxSize()) {
@@ -257,10 +273,11 @@ private fun PluginDetail(state: EditorState, plugin: Plugin, catalog: EffectCata
                         Icon(HomeIcons.Plugins, null, Modifier.size(18.dp), tint = Am.Accent)
                         Column(Modifier.weight(1f).padding(start = 12.dp)) {
                             Text(generated.name, color = Am.OnDark, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(if (generated.available) "SKSL shader ready" else "Shader needs attention", color = Am.OnDarkDim, fontSize = 11.sp, maxLines = 1)
+                            Text(if (generated.available) "Android controls ready" else "Shader needs attention", color = Am.OnDarkDim, fontSize = 11.sp, maxLines = 1)
                         }
                         Text(stringResource(R.string.plugins_apply), color = Am.Accent, fontSize = 12.sp)
                     }
+                    PluginParameterList(generated, values)
                 }
             }
             if (plugin.effects.isNotEmpty()) {
@@ -279,6 +296,69 @@ private fun PluginDetail(state: EditorState, plugin: Plugin, catalog: EffectCata
 }
 
 @Composable
+private fun PluginParameterList(definition: app.absentmotion.effects.EffectDefinition, values: MutableMap<String, String>) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text("Properties", Modifier.padding(top = 4.dp, bottom = 4.dp), color = Am.OnDarkDim, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        definition.params.take(40).forEach { param ->
+            when (param.kind) {
+                "switch" -> {
+                    val on = (values[param.id] ?: param.default) == "true"
+                    Row(Modifier.fillMaxWidth().height(38.dp).clickable { values[param.id] = if (on) "false" else "true" }, verticalAlignment = Alignment.CenterVertically) {
+                        Text(param.label, Modifier.weight(1f), color = Am.OnDark, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(if (on) "On" else "Off", color = if (on) Am.Accent else Am.OnDarkDim, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                "choice" -> {
+                    val selected = (values[param.id] ?: param.default).toIntOrNull() ?: 0
+                    Column(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+                        Text(param.label, color = Am.OnDark, fontSize = 12.sp, maxLines = 1)
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 3.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            param.options.forEachIndexed { index, option ->
+                                val on = index == selected
+                                Box(
+                                    Modifier.height(28.dp).clip(RoundedCornerShape(14.dp)).background(if (on) Am.Accent else Am.Well)
+                                        .clickable { values[param.id] = index.toString() }.padding(horizontal = 9.dp), Alignment.Center,
+                                ) { Text(option, color = if (on) Am.OnAccent else Am.OnDark, fontSize = 10.sp, maxLines = 1) }
+                            }
+                        }
+                    }
+                }
+                "color", "text" -> {
+                    Row(Modifier.fillMaxWidth().height(38.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(param.label, Modifier.width(110.dp), color = Am.OnDark, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        BasicTextField(
+                            value = values[param.id] ?: param.default,
+                            onValueChange = { values[param.id] = it },
+                            singleLine = true,
+                            textStyle = TextStyle(color = Am.OnDark, fontSize = 12.sp),
+                            cursorBrush = SolidColor(Am.Accent),
+                            modifier = Modifier.weight(1f).height(28.dp).clip(RoundedCornerShape(7.dp)).background(Am.Well).padding(horizontal = 8.dp, vertical = 5.dp),
+                        )
+                    }
+                }
+                else -> {
+                    val min = if (param.min.isFinite()) param.min else 0f
+                    val max = if (param.max.isFinite()) param.max else maxOf(min + 1f, 1f)
+                    val current = (values[param.id] ?: param.default).toFloatOrNull()?.coerceIn(min, max) ?: min
+                    Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(param.label, Modifier.weight(1f), color = Am.OnDark, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(String.format(java.util.Locale.US, "%.2f", current), color = Am.OnDarkDim, fontSize = 10.sp)
+                        }
+                        Slider(
+                            value = current, onValueChange = { values[param.id] = it.toString() },
+                            valueRange = min..max.coerceAtLeast(min + 0.001f),
+                            colors = SliderDefaults.colors(thumbColor = Am.Accent, activeTrackColor = Am.Accent, inactiveTrackColor = Am.Well),
+                            modifier = Modifier.fillMaxWidth().height(26.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ScriptPluginPanel(state: EditorState, plugin: Plugin, catalog: EffectCatalog?, targetId: Long, onNotice: (String) -> Unit, modifier: Modifier) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -287,7 +367,7 @@ private fun ScriptPluginPanel(state: EditorState, plugin: Plugin, catalog: Effec
     Column(modifier.padding(horizontal = 16.dp)) {
         Text(plugin.summary.ifBlank { stringResource(R.string.plugins_script_note) }, color = Am.OnDarkDim, fontSize = 11.sp, lineHeight = 15.sp)
         if (source == null) {
-            Text(stringResource(R.string.plugins_jsxbin_locked), Modifier.padding(top = 10.dp), color = Am.Warning, fontSize = 12.sp, lineHeight = 17.sp)
+            Text("Compiled JSXBIN loaded. Use the Android controls below to change its values.", Modifier.padding(top = 10.dp), color = Am.OnDarkDim, fontSize = 12.sp, lineHeight = 17.sp)
         } else {
             Text(source.take(1200), Modifier.weight(1f).padding(top = 8.dp).verticalScroll(androidx.compose.foundation.rememberScrollState()),
                 color = Am.OnDark, fontSize = 10.sp, lineHeight = 14.sp)

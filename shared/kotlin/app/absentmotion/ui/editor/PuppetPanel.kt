@@ -41,6 +41,8 @@ import app.absentmotion.editor.KeyTarget
 import app.absentmotion.editor.toggleKeyframe
 import app.absentmotion.model.PropRef
 import app.absentmotion.model.effectProperty
+import app.absentmotion.model.withEffect
+import app.absentmotion.model.withEffectProperty
 import app.absentmotion.model.effects
 import app.absentmotion.model.valueAt
 import app.absentmotion.ui.editor.panels.EffectSettings
@@ -105,6 +107,22 @@ internal fun PuppetPanel(state: EditorState, modifier: Modifier = Modifier) {
                     else -> if (filtered != null) Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                         EffectSettings(state, layer, instance, filtered, active) { active = it }
                         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Box(
+                                Modifier.weight(1f).height(34.dp).clip(RoundedCornerShape(17.dp)).background(Am.Accent)
+                                    .clickable {
+                                        state.editSelected { current ->
+                                            current.withEffect(index) { effect ->
+                                                var next = effect
+                                                for ((id, value) in listOf(
+                                                    "sway" to "1", "swayPins" to "0", "swayAmount" to "18",
+                                                    "swaySpeed" to "1", "swayDirection" to "1", "swayAngle" to "0",
+                                                )) next = next.withEffectProperty(id, "float", value, current.t, current.snap)
+                                                next
+                                            }
+                                        }
+                                    },
+                                Alignment.Center,
+                            ) { Text("Auto Sway", color = Am.OnAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
                             Box(
                                 Modifier.weight(1f).height(34.dp).clip(RoundedCornerShape(17.dp)).background(Am.Button)
                                     .clickable {

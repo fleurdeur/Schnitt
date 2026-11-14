@@ -5,12 +5,15 @@ import androidx.compose.foundation.layout.captionBar
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,9 +22,11 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
@@ -40,7 +45,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.window.Dialog
 import app.absentmotion.platform.LocalContext
 import app.absentmotion.platform.appVersion
@@ -56,7 +66,9 @@ import app.absentmotion.R
 import app.absentmotion.Tier
 
 internal const val HOME_PAGE = "https://github.com/Comett1225/AbsentMotion"
-internal const val WEBSITE = ""
+internal const val DEVELOPER_PAGE = "https://github.com/fleurdeur"
+internal const val WEBSITE = "https://fleurdeur.github.io/Schnitt/"
+internal const val COMMUNITY_PAGE = "https://fleurdeur.github.io/Schnitt/community/"
 
 internal const val LICENCES_ASSET = "licenses.txt"
 
@@ -80,41 +92,131 @@ fun AboutScreen(settings: app.absentmotion.library.AppSettings, onClose: () -> U
 private fun AboutPage(onClose: () -> Unit, onLicences: () -> Unit, onWhatsNew: () -> Unit) {
     val version = appVersion()
     val context = LocalContext.current
+    val links = LocalUriHandler.current
     val notes = remember { WhatsNewNotes.currentName(context) }
+    val avatar by produceState<ImageBitmap?>(null) {
+        value = withContext(Dispatchers.IO) {
+            runCatching { context.assets.open("about/fleurdeur.jpg").use { android.graphics.BitmapFactory.decodeStream(it)?.asImageBitmap() } }.getOrNull()
+        }
+    }
+    fun open(url: String) = runCatching { links.openUri(url) }
     Column(Modifier.fillMaxSize().navigationBarsPadding()) {
         TitleBar(stringResource(R.string.settings_about), HomeIcons.Close, stringResource(R.string.action_close), onClose)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-            Spacer(Modifier.height(24.dp))
-            Text("Schnitt", color = Am.Navy, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-            if (version.isNotEmpty()) Text(stringResource(if (Tier.compatible) R.string.about_version_compatible else R.string.about_version, version),
-                Modifier.padding(top = 2.dp), color = Am.HomeMid, fontSize = 14.sp)
-            if (notes != null) Box(
-                Modifier.padding(top = 14.dp).heightIn(min = 44.dp).clip(RoundedCornerShape(50)).background(Am.Navy)
-                    .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onWhatsNew).padding(horizontal = 20.dp, vertical = 10.dp),
-                Alignment.Center,
-            ) {
-                Text(stringResource(R.string.whats_new_see, WhatsNewNotes.key(version) ?: notes), color = Am.OnNavy, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(18.dp))
+            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Brush.linearGradient(listOf(Am.Card, Am.Well)))) {
+                Column(Modifier.padding(20.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(54.dp).clip(RoundedCornerShape(16.dp)).background(Am.Accent), Alignment.Center) {
+                            Text("S", color = Am.OnAccent, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Column(Modifier.padding(start = 14.dp)) {
+                            Text("Schnitt", color = Am.Navy, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                            Text("Motion, made on Android.", Modifier.padding(top = 2.dp), color = Am.HomeMid, fontSize = 14.sp)
+                        }
+                    }
+                    Text(
+                        "A complete mobile motion studio for keyframes, effects, 3D, AI tools, Alight Motion XML and community presets. Built to stay fast on a phone and honest about what each effect can do.",
+                        Modifier.padding(top = 16.dp), color = Am.HomeInk, fontSize = 14.sp, lineHeight = 21.sp,
+                    )
+                    Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AboutPill(if (version.isEmpty()) "Schnitt" else "v$version")
+                        AboutPill(if (Tier.compatible) "Compatible build" else "Latest build")
+                        AboutPill("GPLv3")
+                    }
+                    if (notes != null) Box(
+                        Modifier.padding(top = 16.dp).heightIn(min = 44.dp).clip(RoundedCornerShape(50)).background(Am.Navy)
+                            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onWhatsNew).padding(horizontal = 20.dp, vertical = 10.dp),
+                        Alignment.Center,
+                    ) {
+                        Text(stringResource(R.string.whats_new_see, WhatsNewNotes.key(version) ?: notes), color = Am.OnNavy, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
             }
-            Spacer(Modifier.height(20.dp))
-            Body(stringResource(R.string.about_licence_line))
-            Spacer(Modifier.height(12.dp))
-            Body(stringResource(R.string.about_independent_note))
-            Spacer(Modifier.height(12.dp))
-            Body(stringResource(R.string.about_compatibility_note))
-            compatibleNote()?.let {
-                Spacer(Modifier.height(12.dp))
-                Body(it)
-            }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(18.dp))
+            AboutHeading("Developer")
             Row(
-                Modifier.fillMaxWidth().height(44.dp).clip(RowShape).background(Am.Card).clickable(onClick = onLicences).padding(start = 15.dp, end = 7.dp),
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Am.Card).clickable { open(DEVELOPER_PAGE) }.padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(stringResource(R.string.open_source_licences), Modifier.weight(1f), color = Am.HomeInk, fontSize = 14.sp)
+                Box(Modifier.size(62.dp).clip(CircleShape).background(Am.Well), Alignment.Center) {
+                    avatar?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop) }
+                }
+                Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                    Text("wall", color = Am.Navy, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("@fleurdeur", color = Am.HomeAccent, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Text("Designer and developer of Schnitt.", Modifier.padding(top = 3.dp), color = Am.HomeMid, fontSize = 12.sp)
+                }
                 Icon(HomeIcons.ChevronRight, null, Modifier.size(24.dp), tint = Am.HomeMid)
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(18.dp))
+            AboutHeading("What Schnitt does")
+            val features = listOf(
+                "Professional timeline" to "Keyframes, easing, speed curves, bookmarks, beat marks, trimming, grouping and multi-select on a phone or tablet.",
+                "Effects and plug-ins" to "Alight Motion effects, AEX and CEP plug-ins, generated Android shaders, presets and a shape library.",
+                "Import and export" to "Alight Motion XML, .amproj packages, Adobe Animate files, project preview before the timeline and bundle export.",
+                "AI on the device" to "Captions, background removal, noise reduction, smoothing and enhance run offline. No account and no upload.",
+                "Community workflow" to "Templates, assets and presets can be shared, reviewed and published from Schnitt's community site.",
+            )
+            features.forEach { (title, body) -> AboutFeature(title, body) }
+            Spacer(Modifier.height(18.dp))
+            AboutHeading("At a glance")
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AboutStat("Offline", "AI tools")
+                AboutStat("Android", "13 and newer")
+                AboutStat("No ads", "no tracking")
+            }
+            Spacer(Modifier.height(18.dp))
+            AboutHeading("Project")
+            AboutLink("Source code", "github.com/fleurdeur/Schnitt") { open(DEVELOPER_PAGE + "/Schnitt") }
+            AboutLink("Report an issue", "Bugs and feature requests") { open(DEVELOPER_PAGE + "/Schnitt/issues") }
+            AboutLink("Community presets", "Upload or browse approved presets and XML") { open(COMMUNITY_PAGE) }
+            AboutLink(stringResource(R.string.open_source_licences), "Libraries and their licenses", onLicences)
+            Spacer(Modifier.height(20.dp))
+            Text("Made with care by wall (@fleurdeur). Thank you for using Schnitt.", Modifier.padding(bottom = 28.dp), color = Am.HomeMid, fontSize = 12.sp, lineHeight = 17.sp)
         }
+    }
+}
+
+@Composable
+private fun AboutHeading(text: String) {
+    Text(text.uppercase(), Modifier.padding(bottom = 8.dp), color = Am.HomeMid, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+}
+
+@Composable
+private fun AboutPill(text: String) {
+    Box(Modifier.clip(RoundedCornerShape(50)).background(Am.Navy.copy(alpha = 0.08f)).padding(horizontal = 10.dp, vertical = 5.dp)) {
+        Text(text, color = Am.Navy, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+    }
+}
+
+@Composable
+private fun AboutFeature(title: String, body: String) {
+    Row(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(14.dp)).background(Am.Card).padding(12.dp)) {
+        Box(Modifier.padding(top = 6.dp).size(7.dp).clip(CircleShape).background(Am.Accent))
+        Column(Modifier.padding(start = 12.dp)) {
+            Text(title, color = Am.Navy, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(body, Modifier.padding(top = 2.dp), color = Am.HomeMid, fontSize = 12.sp, lineHeight = 17.sp)
+        }
+    }
+}
+
+@Composable
+private fun RowScope.AboutStat(value: String, label: String) {
+    Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Am.Card).padding(horizontal = 10.dp, vertical = 12.dp)) {
+        Text(value, color = Am.Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(label, Modifier.padding(top = 2.dp), color = Am.HomeMid, fontSize = 10.sp, lineHeight = 13.sp)
+    }
+}
+
+@Composable
+private fun AboutLink(title: String, subtitle: String, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(14.dp)).background(Am.Card).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, color = Am.HomeInk, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(subtitle, Modifier.padding(top = 2.dp), color = Am.HomeMid, fontSize = 11.sp, maxLines = 1)
+        }
+        Icon(HomeIcons.ChevronRight, null, Modifier.size(22.dp), tint = Am.HomeMid)
     }
 }
 

@@ -1,0 +1,53 @@
+name: community_submission
+description: Submit a preset or scene XML for the Schnitt community
+title: "Community submission: "
+labels: ["community-submission"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing with Schnitt. Add the file by dragging it into the body of this issue, then submit. A maintainer must add the **approved** label before it is published.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What are you sharing?
+      options:
+        - Preset
+        - XML scene
+    validations:
+      required: true
+  - type: input
+    id: title
+    attributes:
+      label: Title
+      placeholder: Soft Film Look
+    validations:
+      required: true
+  - type: input
+    id: author
+    attributes:
+      label: Your name or GitHub handle
+      placeholder: @yourname
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Description
+      description: What does it do, and which effects or fonts does it need?
+      placeholder: A short description and any requirements.
+  - type: textarea
+    id: files
+    attributes:
+      label: File
+      description: Drag your .xml, .absproj, .zip or preset file here. Do not paste private links.
+      placeholder: Drag the file here so GitHub uploads it.
+    validations:
+      required: true
+  - type: checkboxes
+    id: ownership
+    attributes:
+      label: Permission
+      options:
+        - label: I made this file or have permission to share it, and it contains no personal data.
+          required: true

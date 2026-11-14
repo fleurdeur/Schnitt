@@ -81,6 +81,9 @@ object AexImporter {
         if (AexExtraPort.isFlex(info.name, text)) {
             return AexExtraPort.flex("aex.$id", "aex-$id", info.name, text).copy(category = "custom", since = null, shortcuts = emptyList())
         }
+        if (AexCrtPort.isCrt(info.name, text)) {
+            return AexCrtPort.crt("aex.$id", "aex-$id", info.name, text).copy(category = "custom", since = null, shortcuts = emptyList())
+        }
         return PluginShader.fromContent(
             id = "aex.$id",
             key = "aex-$id",

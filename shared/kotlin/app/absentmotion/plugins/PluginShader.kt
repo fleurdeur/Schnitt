@@ -1,5 +1,6 @@
 package app.absentmotion.plugins
 
+import app.absentmotion.effects.AexCrtPort
 import app.absentmotion.effects.AexExtraPort
 import app.absentmotion.effects.AexShaderPort
 import app.absentmotion.effects.EffectCatalog
@@ -37,6 +38,7 @@ object PluginShader {
         if (AexExtraPort.isDeepGlow(displayName, text)) return AexExtraPort.deepGlow(effectId, effectKey, displayName, text).also { cache[plugin.id] = Cached(stamp, it) }
         if (AexExtraPort.isAutoSway(displayName, text)) return AexExtraPort.autoSway(effectId, effectKey, displayName, text).also { cache[plugin.id] = Cached(stamp, it) }
         if (AexExtraPort.isFlex(displayName, text)) return AexExtraPort.flex(effectId, effectKey, displayName, text).also { cache[plugin.id] = Cached(stamp, it) }
+        if (AexCrtPort.isCrt(displayName, text)) return AexCrtPort.crt(effectId, effectKey, displayName, text).also { cache[plugin.id] = Cached(stamp, it) }
         val uniforms = uniforms(text)
         val found = embedded(text, if (uniforms.isEmpty()) generatedParams() else uniforms)
         val params = if (found != null) (if (uniforms.isEmpty()) generatedParams() else uniforms) else generatedParams()
