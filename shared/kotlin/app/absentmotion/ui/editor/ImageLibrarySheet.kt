@@ -130,7 +130,7 @@ internal fun ImageLibrarySheet(state: EditorState, onClose: () -> Unit) {
                 failed -> Box(Modifier.fillMaxSize().padding(24.dp), Alignment.Center) { Text(stringResource(R.string.image_library_empty), color = Am.OnDarkDim, fontSize = 14.sp) }
                 images.isEmpty() -> Box(Modifier.fillMaxSize().padding(24.dp), Alignment.Center) { Text(stringResource(R.string.image_library_hint), color = Am.OnDarkDim, fontSize = 14.sp) }
                 else -> LazyVerticalGrid(GridCells.Fixed(3), Modifier.fillMaxSize().padding(6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    items(images, key = { it.id }) { image ->
+                    items(images.distinctBy { it.id }, key = { it.id }) { image ->
                         Box(Modifier.aspectRatio(1f).clip(RoundedCornerShape(5.dp)).background(Am.Well)
                             .combinedClickable(onClick = { preview = image }, onLongClick = { add(image) })) {
                             var loadUrl by remember(image.id) { mutableStateOf(image.thumb) }

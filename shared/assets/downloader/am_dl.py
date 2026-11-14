@@ -173,9 +173,15 @@ def _describe(entry):
     caption = (entry.get('description') or '').strip().split('\n')[0][:120]
     if caption and (not title or title.startswith(('Video by ', 'Post by ', 'Photo by '))):
         title = caption
-    raw_url = entry.get('webpage_url') or entry.get('original_url') or entry.get('url') or ''
-    if raw_url and not str(raw_url).startswith('http') and ('youtube' in str(entry.get('extractor') or entry.get('ie_key') or '').lower()):
-        raw_url = 'https://www.youtube.com/watch?v=' + str(raw_url)
+    raw_url = str(entry.get('webpage_url') or entry.get('original_url') or entry.get('url') or '')
+    if raw_url.startswith(('ytsearch', 'ytsearchdate')):
+        raw_url = ''
+    if not raw_url:
+        identifier = str(entry.get('id') or '')
+        if identifier and not identifier.startswith(('ytsearch', 'ytsearchdate')) and ('youtube' in str(entry.get('extractor') or entry.get('ie_key') or '').lower()):
+            raw_url = 'https://www.youtube.com/watch?v=' + identifier
+    if raw_url and not raw_url.startswith('http') and ('youtube' in str(entry.get('extractor') or entry.get('ie_key') or '').lower()):
+        raw_url = 'https://www.youtube.com/watch?v=' + raw_url
     return {
         'title': title,
         'url': raw_url,

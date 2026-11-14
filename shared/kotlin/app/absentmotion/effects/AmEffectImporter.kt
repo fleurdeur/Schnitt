@@ -58,7 +58,7 @@ object AmEffectImporter {
         val key = "am-" + id.substringAfterLast('.').lowercase().replace(Regex("[^a-z0-9]+"), "") + "-" + digest(id).take(4)
         val status = if (unsupported || sksl == null) "unsupported" else "ok"
         val note = if (status == "ok") description else "$description · Requires layer/multi-pass shader support"
-        return EffectDefinition(id, key, name, mapCategory(category), note, params, sksl, status = status, page = key)
+        return EffectDefinition(id, key, name, mapCategory(category), note, params, sksl, status = status, alsoIn = listOf("external"), page = key)
     }
 
     private fun parseParams(xml: String): List<EffectParam> {

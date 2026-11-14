@@ -154,7 +154,7 @@ internal fun PresetsScreen(onClose: () -> Unit, onUse: (Scene) -> Unit) {
                         Text("No approved ${if (communityType == "preset") "presets" else "XML files"} yet. Upload yours on the Schnitt community page.", Modifier.fillMaxWidth().padding(vertical = 8.dp), color = Am.HomeDim, fontSize = 12.sp, lineHeight = 17.sp)
                     }
                 } else {
-                    items(communityShown, key = { "community-" + it.id }) { item ->
+                    items(communityShown.distinctBy { it.id }, key = { "community-" + it.id }) { item ->
                         CommunityCard(item, communityBusy == item.id) { useCommunity(item) }
                     }
                 }

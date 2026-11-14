@@ -311,7 +311,7 @@ internal fun MediaTab(state: EditorState, modifier: Modifier, library: AddLibrar
             if (shown.isEmpty() && query.isNotBlank()) item(key = "none", span = { GridItemSpan(maxLineSpan) }) {
                 NoMatches(query, R.string.search_no_photos_or_videos, if (tall) Modifier.fillMaxWidth().height(96.dp) else Modifier.width(200.dp).fillMaxHeight())
             }
-            items(shown, key = { it.uri.toString() }) { file ->
+            items(shown.distinctBy { it.uri.toString() }, key = { it.uri.toString() }) { file ->
                 val bitmap by produceState<android.graphics.Bitmap?>(cachedMediaThumbnail(file.uri), file.uri, file.modified, library.mediaRevision) { value = mediaThumbnail(context, file.uri) }
                 val press = remember { MutableInteractionSource() }
                 Box((if (tall) Modifier.fillMaxWidth() else Modifier.fillMaxHeight()).aspectRatio(1f).pressScale(press, TilePress).background(Color.Black).semantics { contentDescription = file.name }.clickable(press, LocalIndication.current, enabled = !state.addingMedia) {

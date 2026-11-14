@@ -155,7 +155,7 @@ internal fun AudioTab(state: EditorState, modifier: Modifier, library: AddLibrar
             if (shown.isEmpty() && query.isNotBlank()) item(key = "none", span = { GridItemSpan(maxLineSpan) }) {
                 NoMatches(query, R.string.search_no_sounds, if (tall) Modifier.fillMaxWidth().height(84.dp) else Modifier.width(200.dp).fillMaxHeight())
             }
-            items(shown, key = { it.uri }) { file ->
+            items(shown.distinctBy { it.uri }, key = { it.uri }) { file ->
                 val (top, bottom) = TilePalettes[file.title.hashCode().mod(TilePalettes.size)]
                 val playing = preview.uri == file.uri
                 Box(cell, Alignment.Center) {

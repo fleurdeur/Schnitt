@@ -21,7 +21,7 @@ data class OnlineSound(
     val license: String = "Royalty free",
     val viaDownloader: Boolean = false,
 ) {
-    val key: String get() = url
+    val key: String get() = id.ifBlank { url }
 }
 
 /**
@@ -49,9 +49,9 @@ object OnlineAudio {
             if (context == null || !VideoDownloader.installed(context)) return@withContext emptyList()
             return@withContext runCatching {
                 val info = VideoDownloader.search(context, url)
-                info.items.map { item ->
-                    val page = item.url.ifBlank { url }
-                    OnlineSound(page, item.title, info.site, page, page, shelf, viaDownloader = true)
+                info.items.mapIndexed { index, item ->
+                    val page = item.url.ifBlank { "ytsearch1:${item.title}" }
+                    OnlineSound("yt:$index:$page", item.title, info.site, page, page, shelf, viaDownloader = true)
                 }
             }.getOrDefault(emptyList())
         }
@@ -64,9 +64,9 @@ object OnlineAudio {
             if (found.isEmpty() && context != null && VideoDownloader.available) {
                 found = runCatching {
                     val info = VideoDownloader.check(context, url)
-                    info.items.map { item ->
-                        val page = item.url.ifBlank { url }
-                        OnlineSound(page, item.title, info.site, page, page, shelf, viaDownloader = true)
+                    info.items.mapIndexed { index, item ->
+                        val page = item.url.ifBlank { "ytsearch1:${item.title}" }
+                        OnlineSound("yt:$index:$page", item.title, info.site, page, page, shelf, viaDownloader = true)
                     }
                 }.getOrDefault(emptyList())
             }

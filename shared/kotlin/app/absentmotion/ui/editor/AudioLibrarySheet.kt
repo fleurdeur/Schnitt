@@ -234,7 +234,7 @@ internal fun AudioLibrarySheet(state: EditorState, onClose: () -> Unit) {
                     Text(stringResource(R.string.audio_library_empty), color = Am.OnDarkDim, fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 }
                 else -> LazyColumn(Modifier.fillMaxSize()) {
-                    itemsIndexed(shown, key = { _, sound -> sound.key }) { _, sound ->
+                    itemsIndexed(shown.distinctBy { it.key }, key = { index, sound -> "$index:${sound.key}" }) { _, sound ->
                         val playing = preview.uri == sound.url
                         Row(Modifier.fillMaxWidth().height(62.dp).clickable { preview.toggle(sound.url) }.padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(42.dp).clip(CircleShape).background(if (playing) Am.Accent else Am.Well), Alignment.Center) {
