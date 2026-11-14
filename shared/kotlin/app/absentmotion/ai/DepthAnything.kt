@@ -5,20 +5,21 @@ import android.graphics.Bitmap
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
+import ai.onnxruntime.providers.NNAPIFlags
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.FloatBuffer
+import java.util.EnumSet
 import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Real Depth Anything V2 small inference through ONNX Runtime.  The int8 model
- * is downloaded on demand; inference runs on the CPU/NNAPI backend that ONNX
- * Runtime selects for the phone.  No luminance placeholder is used.
+ * Real Depth Anything V2 small inference through ONNX Runtime.  The fp32 model
+ * is downloaded on demand and accelerated with NNAPI (fp16 where available),
+ * then XNNPACK, with a plain CPU session as the final fallback.
  */
 object DepthAnything {
     const val MODEL_URL = "https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model.onnx"
@@ -28,11 +29,24 @@ object DepthAnything {
     private val MEAN = floatArrayOf(0.485f, 0.456f, 0.406f)
     private val STD = floatArrayOf(0.229f, 0.224f, 0.225f)
 
+    private enum class Backend { Nnapi, Xnnpack, Cpu }
+
     @Volatile private var session: OrtSession? = null
     @Volatile private var env: OrtEnvironment? = null
+    @Volatile private var backend: Backend? = null
 
     fun file(context: Context) = File(context.filesDir, "models/depth/$MODEL_NAME")
     fun installed(context: Context) = file(context).length() == MODEL_BYTES
+
+    /** "NNAPI", "XNNPACK" or "CPU"; used by diagnostics and the depth sheet. */
+    fun backendName(context: Context): String {
+        open(context)
+        return when (backend) {
+            Backend.Nnapi -> "NNAPI"
+            Backend.Xnnpack -> "XNNPACK"
+            else -> "CPU"
+        }
+    }
 
     suspend fun download(context: Context, progress: (Float) -> Unit): File = withContext(Dispatchers.IO) {
         val target = file(context).apply { parentFile?.mkdirs() }
@@ -42,7 +56,7 @@ object DepthAnything {
             instanceFollowRedirects = true
             connectTimeout = 20_000
             readTimeout = 60_000
-            setRequestProperty("User-Agent", "Schnitt/5.1.3")
+            setRequestProperty("User-Agent", "Schnitt/5.3.0")
         }
         try {
             if (connection.responseCode !in 200..299) error("HTTP ${connection.responseCode}")
@@ -72,6 +86,7 @@ object DepthAnything {
     fun delete(context: Context) {
         runCatching { session?.close() }
         session = null
+        backend = null
         file(context).delete()
     }
 
@@ -81,27 +96,67 @@ object DepthAnything {
             session?.let { return it }
             val environment = OrtEnvironment.getEnvironment()
             env = environment
-            val options = OrtSession.SessionOptions().apply {
-                setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-                setIntraOpNumThreads(max(1, Runtime.getRuntime().availableProcessors() / 2))
-                setInterOpNumThreads(1)
+            val path = file(context).path
+            val cores = max(1, Runtime.getRuntime().availableProcessors())
+            val attempts = listOf(Backend.Nnapi, Backend.Xnnpack, Backend.Cpu)
+            var last: Throwable? = null
+            for (choice in attempts) {
+                val options = OrtSession.SessionOptions()
+                try {
+                    options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
+                    when (choice) {
+                        Backend.Nnapi -> {
+                            options.setIntraOpNumThreads(1)
+                            options.setInterOpNumThreads(1)
+                            options.addNnapi(EnumSet.of(NNAPIFlags.USE_FP16))
+                        }
+                        Backend.Xnnpack -> {
+                            options.setIntraOpNumThreads(cores)
+                            options.setInterOpNumThreads(1)
+                            options.addXnnpack(mapOf("intra_op_num_threads" to "$cores", "execution_mode" to "1"))
+                        }
+                        Backend.Cpu -> {
+                            options.setIntraOpNumThreads(cores)
+                            options.setInterOpNumThreads(1)
+                        }
+                    }
+                    val next = environment.createSession(path, options)
+                    if (choice != Backend.Cpu && !probe(environment, next)) {
+                        runCatching { next.close() }
+                        runCatching { options.close() }
+                        last = IllegalStateException("${choice.name} could not run the depth model")
+                        continue
+                    }
+                    session = next
+                    backend = choice
+                    return next
+                } catch (t: Throwable) {
+                    if (t is OutOfMemoryError) throw t
+                    last = t
+                    runCatching { options.close() }
+                }
             }
-            val next = environment.createSession(file(context).path, options)
-            session = next
-            return next
+            throw last ?: IllegalStateException("The depth model could not be opened")
         }
     }
 
+    private fun probe(environment: OrtEnvironment, active: OrtSession): Boolean = runCatching {
+        val data = FloatArray(3 * SIDE * SIDE)
+        OnnxTensor.createTensor(environment, FloatBuffer.wrap(data), longArrayOf(1, 3, SIDE.toLong(), SIDE.toLong())).use { input ->
+            active.run(mapOf(active.inputNames.first() to input)).use { result -> result.get(0).value != null }
+        }
+    }.getOrDefault(false)
+
     /** Returns inverted normalized depth: near subject dark, far background white. */
     suspend fun depthGray(context: Context, bitmap: Bitmap, width: Int, height: Int): ByteArray = withContext(Dispatchers.Default) {
-        val session = open(context)
+        val active = open(context)
         val environment = env ?: OrtEnvironment.getEnvironment()
         val scaled = Bitmap.createScaledBitmap(bitmap, SIDE, SIDE, true)
         try {
             val pixels = IntArray(SIDE * SIDE)
             scaled.getPixels(pixels, 0, SIDE, 0, 0, SIDE, SIDE)
-            val data = FloatArray(3 * SIDE * SIDE)
             val plane = SIDE * SIDE
+            val data = FloatArray(3 * plane)
             for (i in pixels.indices) {
                 val p = pixels[i]
                 val r = ((p shr 16) and 0xFF) / 255f
@@ -112,22 +167,41 @@ object DepthAnything {
                 data[2 * plane + i] = (b - MEAN[2]) / STD[2]
             }
             OnnxTensor.createTensor(environment, FloatBuffer.wrap(data), longArrayOf(1, 3, SIDE.toLong(), SIDE.toLong())).use { input ->
-                val name = session.inputNames.first()
-                session.run(mapOf(name to input)).use { result ->
-                    val output = result.get(0).value
-                    val values = flatten(output)
+                val name = active.inputNames.first()
+                active.run(mapOf(name to input)).use { result ->
+                    val values = flatten(result.get(0).value)
                     var low = Float.MAX_VALUE
                     var high = -Float.MAX_VALUE
                     for (v in values) { if (v < low) low = v; if (v > high) high = v }
                     val range = max(1e-6f, high - low)
                     val out = ByteArray(width * height)
+                    val xs0 = IntArray(width)
+                    val xs1 = IntArray(width)
+                    val xw = FloatArray(width)
+                    for (x in 0 until width) {
+                        val f = ((x + 0.5f) * SIDE / width - 0.5f).coerceIn(0f, (SIDE - 1).toFloat())
+                        val x0 = f.toInt().coerceIn(0, SIDE - 1)
+                        xs0[x] = x0
+                        xs1[x] = (x0 + 1).coerceAtMost(SIDE - 1)
+                        xw[x] = f - x0
+                    }
                     for (y in 0 until height) {
-                        val sy = ((y + 0.5f) * SIDE / height).toInt().coerceIn(0, SIDE - 1)
+                        val fy = ((y + 0.5f) * SIDE / height - 0.5f).coerceIn(0f, (SIDE - 1).toFloat())
+                        val y0 = fy.toInt().coerceIn(0, SIDE - 1)
+                        val y1 = (y0 + 1).coerceAtMost(SIDE - 1)
+                        val wy = fy - y0
+                        val row0 = y0 * SIDE
+                        val row1 = y1 * SIDE
+                        val outRow = y * width
                         for (x in 0 until width) {
-                            val sx = ((x + 0.5f) * SIDE / width).toInt().coerceIn(0, SIDE - 1)
-                            val v = values[sy * SIDE + sx]
+                            val x0 = xs0[x]
+                            val x1 = xs1[x]
+                            val wx = xw[x]
+                            val top = values[row0 + x0] + (values[row0 + x1] - values[row0 + x0]) * wx
+                            val bottom = values[row1 + x0] + (values[row1 + x1] - values[row1 + x0]) * wx
+                            val v = top + (bottom - top) * wy
                             val normalized = ((v - low) / range).coerceIn(0f, 1f)
-                            out[y * width + x] = ((1f - normalized) * 255f).roundToInt().coerceIn(0, 255).toByte()
+                            out[outRow + x] = ((1f - normalized) * 255f).roundToInt().coerceIn(0, 255).toByte()
                         }
                     }
                     out
@@ -139,16 +213,23 @@ object DepthAnything {
     }
 
     private fun flatten(value: Any?): FloatArray {
-        val list = ArrayList<Float>(SIDE * SIDE)
+        val out = FloatArray(SIDE * SIDE)
+        var at = 0
         fun walk(v: Any?) {
             when (v) {
-                is FloatArray -> for (f in v) list.add(f)
+                is FloatArray -> {
+                    val n = minOf(v.size, out.size - at)
+                    if (n > 0) {
+                        v.copyInto(out, at, 0, n)
+                        at += n
+                    }
+                }
                 is Array<*> -> for (child in v) walk(child)
-                is Float -> list.add(v)
+                is Float -> if (at < out.size) out[at++] = v
             }
         }
         walk(value)
-        if (list.size < SIDE * SIDE) error("unexpected Depth Anything output")
-        return FloatArray(SIDE * SIDE) { list[it] }
+        if (at < out.size) error("unexpected Depth Anything output")
+        return out
     }
 }

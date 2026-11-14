@@ -17,7 +17,12 @@ import app.absentmotion.ai.matteSeconds
 import app.absentmotion.ai.processFromMs
 import app.absentmotion.ai.argb
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
@@ -46,14 +51,28 @@ suspend fun EditorState.addDepthMap(context: Context, layer: Layer, progress: (F
                 MatteEncoder.open(file, width, height, fps).use { encoder ->
                     actual = encoder.width to encoder.height
                     var done = 0
-                    for (batch in stamps.chunked(8)) {
-                        reader.read(batch) { pts, yuv ->
-                            val argb = yuv.argb(encoder.width, encoder.height, reader.colorStandard, reader.fullRange)
-                            val bitmap = Bitmap.createBitmap(argb, encoder.width, encoder.height, Bitmap.Config.ARGB_8888)
-                            val depth = try { DepthAnything.depthGray(context, bitmap, encoder.width, encoder.height) } finally { bitmap.recycle() }
-                            encoder.write(pts, depth)
-                            done++
-                            progress(0.02f + 0.97f * done / stamps.size)
+                    val workers = min(8, max(2, Runtime.getRuntime().availableProcessors() / 2))
+                    for (batch in stamps.chunked(workers)) {
+                        val frames = ArrayList<Pair<Long, Bitmap>>(batch.size)
+                        try {
+                            reader.read(batch) { pts, yuv ->
+                                val argb = yuv.argb(encoder.width, encoder.height, reader.colorStandard, reader.fullRange)
+                                frames += pts to Bitmap.createBitmap(argb, encoder.width, encoder.height, Bitmap.Config.ARGB_8888)
+                            }
+                            val depths = coroutineScope {
+                                frames.map { (pts, bitmap) ->
+                                    async(Dispatchers.Default) {
+                                        pts to DepthAnything.depthGray(context, bitmap, encoder.width, encoder.height)
+                                    }
+                                }.awaitAll()
+                            }
+                            for ((pts, depth) in depths) {
+                                encoder.write(pts, depth)
+                                done++
+                                progress(0.02f + 0.97f * done / stamps.size)
+                            }
+                        } finally {
+                            for ((_, bitmap) in frames) bitmap.recycle()
                         }
                     }
                     progress(0.99f)

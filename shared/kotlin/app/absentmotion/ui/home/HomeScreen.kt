@@ -229,7 +229,7 @@ fun HomeScreen(
                 else if (page == 2) ToolsTab(fill, store, settings, { id -> version++; onOpen(id) }, onTemplateProject, onImportFile)
                 else if (page == 1) TemplatesTab(version, onTemplate, onTemplateProject, fill, query) else ProjectsPane(
                     Modifier.weight(1f), shown, loaded, tab, { tab = it }, settings, version, onOpen, onExport, query,
-                    onUpload = { picker.launch(arrayOf("text/xml", "application/xml", "application/zip", "application/octet-stream")) },
+                    onUpload = { picker.launch(arrayOf("text/xml", "application/xml", "application/zip", "application/octet-stream", "application/x-after-effects", "application/x-aep")) },
                     onDuplicate = { id -> if (!duplicating) {
                         duplicating = true
                         app.absentmotion.platform.Toast.makeText(context, context.getString(R.string.home_duplicating), app.absentmotion.platform.Toast.LENGTH_SHORT).show()

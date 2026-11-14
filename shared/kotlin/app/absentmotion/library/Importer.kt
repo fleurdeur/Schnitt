@@ -8,6 +8,7 @@ import app.absentmotion.i18n.UiText
 import app.absentmotion.i18n.txt
 import app.absentmotion.platform.Context
 import app.absentmotion.platform.Uri
+import app.absentmotion.compat.AepImport
 import app.absentmotion.compat.EffectMigration
 import app.absentmotion.compat.FlaPart
 import app.absentmotion.compat.flaPicture
@@ -87,12 +88,31 @@ class Importer(
 ) {
     fun import(open: () -> InputStream?): List<ImportReport> = try {
         fun stream() = open() ?: throw ImportFailed(txt(R.string.library_err_no_data))
-        val head = stream().use { it.readAtMost(4) }
+        val head = stream().use { it.readAtMost(12) }
+        if (head.size >= 12 && head[0] == 'R'.code.toByte() && head[1] == 'I'.code.toByte() && head[2] == 'F'.code.toByte() && head[3] == 'X'.code.toByte() &&
+            head[8] == 'E'.code.toByte() && head[9] == 'g'.code.toByte() && head[10] == 'g'.code.toByte() && head[11] == '!'.code.toByte()) {
+            val bytes = stream().use { it.readAtMost(MaxAep + 1) }
+            if (bytes.size > MaxAep) throw ImportFailed(txt(R.string.library_err_package_large, (MaxAep shr 20).toString()))
+            val scenes = AepImport.read(bytes)
+            if (scenes.isEmpty()) throw ImportFailed(txt(R.string.library_err_unsupported_type))
+            return scenes.map { root ->
+                checkScene(root)?.let { throw ImportFailed(it) }
+                add(store.newId(), root, emptyMap())
+            }
+        }
         if (head.size >= 2 && head[0] == 'P'.code.toByte() && head[1] == 'K'.code.toByte()) fromPackage(::stream)
-        else if (head.contentEquals(byteArrayOf(0xD0.toByte(), 0xCF.toByte(), 0x11, 0xE0.toByte()))) throw ImportFailed(txt(R.string.fla_err_old))
+        else if (head.size >= 4 && head[0] == 0xD0.toByte() && head[1] == 0xCF.toByte() && head[2] == 0x11.toByte() && head[3] == 0xE0.toByte()) throw ImportFailed(txt(R.string.fla_err_old))
         else {
             val text = stream().use { readText(it, MaxXml) }.removePrefix("\uFEFF")
             if (text.startsWith("PROXY-CS5")) throw ImportFailed(txt(R.string.fla_err_xfl_alone))
+            if (text.contains("AfterEffectsProject")) {
+                val scenes = AepImport.readX(text)
+                if (scenes.isEmpty()) throw ImportFailed(txt(R.string.library_err_unsupported_type))
+                return scenes.map { root ->
+                    checkScene(root)?.let { throw ImportFailed(it) }
+                    add(store.newId(), root, emptyMap())
+                }
+            }
             if (!text.trimStart().startsWith("<")) throw ImportFailed(txt(R.string.library_err_unsupported_type))
             listOf(add(store.newId(), check(text), emptyMap()))
         }
@@ -318,6 +338,7 @@ class Importer(
 
     companion object {
         private const val MaxXml = 16 shl 20
+        private const val MaxAep = 256 shl 20
         private const val MaxFlaMedia = 256 shl 20
         private const val MaxThumb = 2 shl 20
         private const val MaxSide = 16384
