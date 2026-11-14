@@ -284,26 +284,25 @@ private fun PluginDetail(state: EditorState, plugin: Plugin, catalog: EffectCata
             Alignment.Center,
         ) { Text(if (generated == null) "Preparing shader…" else stringResource(R.string.plugins_apply), color = Am.OnAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
         Text("Generated Android effect", Modifier.padding(start = 16.dp, top = 10.dp, bottom = 4.dp), color = Am.OnDarkDim, fontSize = 12.sp)
-        LazyColumn(Modifier.then(if (plugin.panel) Modifier.height(180.dp) else Modifier.weight(1f)).fillMaxWidth()) {
+        Column(
+            Modifier.then(if (plugin.panel) Modifier.heightIn(max = 280.dp) else Modifier.weight(1f)).fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+        ) {
             if (generated != null) {
-                item(key = generated.id) {
-                    Row(Modifier.fillMaxWidth().height(48.dp).clickable { apply(generated.id) }.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(HomeIcons.Plugins, null, Modifier.size(18.dp), tint = Am.Accent)
-                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                            Text(generated.name, color = Am.OnDark, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(if (generated.available) "Android controls ready" else "Shader needs attention", color = Am.OnDarkDim, fontSize = 11.sp, maxLines = 1)
-                        }
-                        Text(stringResource(R.string.plugins_apply), color = Am.Accent, fontSize = 12.sp)
+                Row(Modifier.fillMaxWidth().height(48.dp).clickable { apply(generated.id) }.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(HomeIcons.Plugins, null, Modifier.size(18.dp), tint = Am.Accent)
+                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                        Text(generated.name, color = Am.OnDark, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(if (generated.available) "Android controls ready" else "Shader needs attention", color = Am.OnDarkDim, fontSize = 11.sp, maxLines = 1)
                     }
-                    PluginParameterList(generated, values)
+                    Text(stringResource(R.string.plugins_apply), color = Am.Accent, fontSize = 12.sp)
                 }
+                PluginParameterList(generated, values)
             }
-            if (plugin.effects.isNotEmpty()) {
-                items(plugin.effects) { id ->
-                    Row(Modifier.fillMaxWidth().height(42.dp).clickable(enabled = generated != null) { apply(id) }.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(HomeIcons.Plugins, null, Modifier.size(16.dp), tint = Am.OnDarkDim)
-                        Text("Plugin preset · ${id.replace('-', ' ').replace('_', ' ')}", Modifier.weight(1f).padding(start = 12.dp), color = Am.OnDarkDim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
+            plugin.effects.forEach { id ->
+                Row(Modifier.fillMaxWidth().height(42.dp).clickable(enabled = generated != null) { apply(id) }.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(HomeIcons.Plugins, null, Modifier.size(16.dp), tint = Am.OnDarkDim)
+                    Text("Plugin preset · ${id.replace('-', ' ').replace('_', ' ')}", Modifier.weight(1f).padding(start = 12.dp), color = Am.OnDarkDim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }

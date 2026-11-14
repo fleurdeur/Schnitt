@@ -7,6 +7,7 @@ import java.io.File
 import java.io.InputStream
 import java.security.MessageDigest
 import java.util.zip.ZipInputStream
+import org.apache.commons.compress.archivers.sevenz.SevenZFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -68,8 +69,11 @@ class PluginStore(private val context: Context) {
             val id = slug(name.substringBeforeLast('.')) + "-" + digest("$name:${temp.length()}:${System.currentTimeMillis()}").take(6)
             val folder = File(root, id).apply { mkdirs() }
             val zip = temp.isZip()
-            if (zip) unpack(temp, folder) else temp.copyTo(File(folder, safeName(name)), overwrite = true)
-            val plugin = describe(id, folder, name, if (zip) "zxp" else name.substringAfterLast('.', ""))
+            val seven = temp.isSevenZ()
+            if (zip) unpack(temp, folder)
+            else if (seven) unpackSeven(temp, folder, listOf("flame", "FLAME", "Flame"))
+            else temp.copyTo(File(folder, safeName(name)), overwrite = true)
+            val plugin = describe(id, folder, name, if (zip) "zxp" else if (seven) "7z" else name.substringAfterLast('.', ""))
             if (plugin == null) {
                 folder.deleteRecursively()
                 PluginImport(null, "unsupported")
@@ -135,6 +139,39 @@ class PluginStore(private val context: Context) {
                 zip.closeEntry()
             }
         }
+    }
+
+    private fun unpackSeven(file: File, folder: File, passwords: List<String>) {
+        var last: Throwable? = null
+        for (password in passwords) {
+            try {
+                SevenZFile.builder().setFile(file).setPassword(password).get().use { seven ->
+                    var total = 0L
+                    for (entry in seven.entries) {
+                        val path = entry.name.replace('\\', '/').trimStart('/')
+                        if (path.isBlank() || path.split('/').any { it == ".." } || entry.isDirectory) continue
+                        val target = File(folder, path)
+                        if (!target.canonicalFile.startsWith(folder.canonicalFile)) continue
+                        target.parentFile?.mkdirs()
+                        target.outputStream().buffered().use { out ->
+                            val input = seven.getInputStream(entry)
+                            val buffer = ByteArray(64 * 1024)
+                            while (true) {
+                                val read = input.read(buffer)
+                                if (read <= 0) break
+                                total += read
+                                if (total > MAX_UNPACKED) throw IllegalStateException("plugin too large")
+                                out.write(buffer, 0, read)
+                            }
+                        }
+                    }
+                }
+                return
+            } catch (t: Throwable) {
+                last = t
+            }
+        }
+        throw last ?: IllegalStateException("7z extraction failed")
     }
 
     private fun describe(id: String, folder: File, fileName: String, source: String): Plugin? {
@@ -243,6 +280,14 @@ class PluginStore(private val context: Context) {
             .put("effects", JSONArray(plugin.effects)).put("source", plugin.source)
         folder.resolve(META).writeText(json.toString())
     }
+
+    private fun File.isSevenZ(): Boolean = runCatching {
+        inputStream().use { stream ->
+            val head = ByteArray(6)
+            val read = stream.read(head)
+            read >= 6 && SevenZFile.matches(head, read)
+        }
+    }.getOrDefault(false)
 
     private fun File.isZip(): Boolean = runCatching {
         inputStream().use { stream ->

@@ -214,6 +214,8 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
     implementation("org.mozilla:rhino:1.7.15")
+    implementation("org.apache.commons:commons-compress:1.27.1")
+    implementation("org.tukaani:xz:1.10")
     implementation("androidx.camera:camera-camera2:1.6.2")
     implementation("androidx.camera:camera-view:1.6.2")
     implementation("androidx.exifinterface:exifinterface:1.4.2")
