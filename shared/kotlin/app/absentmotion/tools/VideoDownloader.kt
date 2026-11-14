@@ -43,6 +43,7 @@ import java.util.zip.GZIPInputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import androidx.exifinterface.media.ExifInterface
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -295,9 +296,23 @@ object VideoDownloader : VideoFetcher {
         withContext(Dispatchers.IO) { if (installed(context)) runCatching { start(context) }.onFailure { Log.w(TAG, "the downloader did not start", it) } }
     }
 
+    private val infoCache = ConcurrentHashMap<String, Pair<Long, LinkInfo>>()
+
     override suspend fun check(context: Context, url: String): LinkInfo {
+        infoCache[url]?.takeIf { System.currentTimeMillis() - it.first < 10 * 60_000 }?.let { return it.second }
         val data = python(context, JSONObject().put("op", "check").put("url", url))
-        return parseLinkInfo(data.toString())
+        val info = parseLinkInfo(data.toString())
+        infoCache[url] = System.currentTimeMillis() to info
+        return info
+    }
+
+    suspend fun search(context: Context, url: String): LinkInfo {
+        val key = "fast:$url"
+        infoCache[key]?.takeIf { System.currentTimeMillis() - it.first < 10 * 60_000 }?.let { return it.second }
+        val data = python(context, JSONObject().put("op", "check").put("url", url).put("fast", true))
+        val info = parseLinkInfo(data.toString())
+        infoCache[key] = System.currentTimeMillis() to info
+        return info
     }
 
     override suspend fun thumbnail(urls: List<String>): ImageBitmap? = withContext(Dispatchers.IO) { urls.asSequence().take(4).firstNotNullOfOrNull { thumbnail(it, 192) } }

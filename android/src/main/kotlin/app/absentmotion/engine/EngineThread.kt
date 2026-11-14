@@ -88,7 +88,10 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
         effectLabelsJob = mediaScope.launch {
             effectJob?.join()
             val labels = EffectCatalog.read(local)
-            withContext(dispatcher) { if (!closed) effectCatalog.value = labels.withRuntimeStatusFrom(effectCatalog.value) }
+            val loaded = withContext(dispatcher) {
+                if (closed) labels else labels.loadInto { runCatching { engine().loadEffect(it) }.getOrElse { e -> "shader error: ${e.message}" } }
+            }
+            withContext(dispatcher) { if (!closed) effectCatalog.value = loaded.withRuntimeStatusFrom(effectCatalog.value) }
         }
     }
 

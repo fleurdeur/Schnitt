@@ -107,6 +107,9 @@ def _options(request, **extra):
         'overwrites': True,
         'format': lambda context: [],
     }
+    if request.get('fast'):
+        options['extract_flat'] = 'in_playlist'
+        options['playlistend'] = 24
     options.update(extra)
     return options
 
@@ -170,9 +173,12 @@ def _describe(entry):
     caption = (entry.get('description') or '').strip().split('\n')[0][:120]
     if caption and (not title or title.startswith(('Video by ', 'Post by ', 'Photo by '))):
         title = caption
+    raw_url = entry.get('webpage_url') or entry.get('original_url') or entry.get('url') or ''
+    if raw_url and not str(raw_url).startswith('http') and ('youtube' in str(entry.get('extractor') or entry.get('ie_key') or '').lower()):
+        raw_url = 'https://www.youtube.com/watch?v=' + str(raw_url)
     return {
         'title': title,
-        'url': entry.get('webpage_url') or entry.get('original_url') or entry.get('url'),
+        'url': raw_url,
         'duration': entry.get('duration'),
         'thumbnails': _previews(entry),
         'formats': rows,

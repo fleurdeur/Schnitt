@@ -84,6 +84,9 @@ internal fun AudioLibrarySheet(state: EditorState, onClose: () -> Unit) {
     var installProgress by remember { mutableStateOf(0f) }
     val query = debounced(search)
     val preview = remember { SoundPreview(context) }
+    LaunchedEffect(shelf, ytdlpReady) {
+        if (shelf == AudioShelf.YtDlp && ytdlpReady) runCatching { VideoDownloader.warmUp(context) }
+    }
     DisposableEffect(Unit) { onDispose { preview.stop() } }
     LaunchedEffect(shelf, loadedSite, reload, ytdlpReady) {
         if ((shelf == AudioShelf.Custom || shelf == AudioShelf.YtDlp) && loadedSite.isBlank()) {

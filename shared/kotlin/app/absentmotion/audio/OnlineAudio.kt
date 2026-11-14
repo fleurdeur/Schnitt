@@ -48,7 +48,7 @@ object OnlineAudio {
         if (shelf == AudioShelf.YtDlp) {
             if (context == null || !VideoDownloader.installed(context)) return@withContext emptyList()
             return@withContext runCatching {
-                val info = VideoDownloader.check(context, url)
+                val info = VideoDownloader.search(context, url)
                 info.items.map { item ->
                     val page = item.url.ifBlank { url }
                     OnlineSound(page, item.title, info.site, page, page, shelf, viaDownloader = true)

@@ -54,7 +54,7 @@ object AexExtraPort {
     )
 
     fun isFlex(name: String, text: String): Boolean =
-        name.contains("flex", true) || (text.contains("Flex") && text.contains("Corner") && text.contains("Shape"))
+        name.contains("flex", true)
 
     fun flex(id: String, key: String, name: String, text: String): EffectDefinition = EffectDefinition(
         id = id, key = key, name = name.ifBlank { "Flex" }, category = "distort",
@@ -231,7 +231,8 @@ half4 main(float2 coord) {
     p.x *= 1.0 + p.y * taper;
     float2 sample = clamp((centre + p) * size, float2(0.0), size);
     half4 c = image.eval(sample);
-    return half4(c.rgb, c.a * mask);
+    float a = float(c.a) * mask;
+    return half4(float3(c.rgb) * a, a);
 }
 """
 }

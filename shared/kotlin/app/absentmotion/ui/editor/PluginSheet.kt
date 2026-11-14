@@ -103,16 +103,34 @@ internal fun PluginSheet(state: EditorState, onClose: () -> Unit) {
             importing = false
             plugins = store.list()
             result.plugin?.let { selected = it }
-            if (result.plugin != null) catalogRevision++
+            if (result.plugin != null) {
+                catalogRevision++
+                state.engine.relabelEffects(context)
+            }
             if (result.plugin == null) notice = context.getString(R.string.plugins_import_failed)
         }
     }
     if (minimized) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopEnd) {
-            Box(
-                Modifier.padding(16.dp).clip(RoundedCornerShape(18.dp)).background(Am.Panel).border(1.dp, Am.Line, RoundedCornerShape(18.dp))
-                    .clickable { minimized = false }.padding(horizontal = 14.dp, vertical = 8.dp),
-            ) { Text("Plugins", color = Am.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            Row(
+                Modifier.padding(12.dp).width(238.dp).height(42.dp).clip(RoundedCornerShape(10.dp))
+                    .background(Am.Panel).border(1.dp, Am.Line, RoundedCornerShape(10.dp))
+                    .clickable { minimized = false }.padding(start = 10.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(HomeIcons.Plugins, null, Modifier.size(16.dp), tint = Am.Accent)
+                Text(
+                    selected?.name ?: "Plugins",
+                    Modifier.weight(1f).padding(start = 8.dp), color = Am.OnDark, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                Box(Modifier.size(30.dp).clickable { minimized = false }, Alignment.Center) {
+                    Text("□", color = Am.OnDarkDim, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+                Box(Modifier.size(30.dp).clickable { minimized = false; onClose() }, Alignment.Center) {
+                    Text("×", color = Am.OnDarkDim, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+            }
         }
         return
     }
