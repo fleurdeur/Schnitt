@@ -158,10 +158,8 @@ class Importer(
                     }
                 }
             }
-            if (sigs == null && links == null) {
-                if (files.any { leaf(it) == "DOMDocument.xml" }) return fromFla(open, files)
-                throw ImportFailed(txt(R.string.library_err_missing_manifest))
-            }
+            val genericPackage = sigs == null && links == null
+            if (genericPackage && files.any { leaf(it) == "DOMDocument.xml" }) return fromFla(open, files)
             val declaredProject = projectEntry?.let { find(it, files) ?: throw ImportFailed(txt(R.string.library_err_package_project_missing)) }
             val mediaEntries = (links.orEmpty().values + sigs.orEmpty().values).mapNotNull { find(it, files) }.toSet()
             eachEntry(open, limits) { name, input ->
@@ -176,7 +174,10 @@ class Importer(
                     }
                 }
             }
-            if (scenes.isEmpty()) throw ImportFailed(txt(R.string.library_err_no_project))
+            if (scenes.isEmpty()) {
+                if (genericPackage) throw ImportFailed(txt(R.string.library_err_missing_manifest))
+                throw ImportFailed(txt(R.string.library_err_no_project))
+            }
             repeat(scenes.size) { ids += store.newId(ids) }
             ids.forEach { File(store.mediaDir(it), ImportMarker).apply { parentFile?.mkdirs(); createNewFile() } }
             val copies = HashMap<String, MutableList<File>>()
@@ -189,6 +190,7 @@ class Importer(
                 val entries = root.storedMediaUris().mapNotNull { uri ->
                     val entry = links?.get(uri) ?: declared[uri]?.node?.get("sig")?.let { sigs?.get(it) }
                         ?: uri.substringAfter(':').takeIf { uri.startsWith("amproj:") || uri.startsWith("am-docs:") }
+                        ?: if (links == null) uri.substringAfter(':').substringAfterLast('/') else null
                     entry?.let { find(it, files) }?.let { uri to it }
                 }.toMap()
                 val names = hashSetOf(ImportMarker)

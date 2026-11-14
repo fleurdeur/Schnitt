@@ -328,6 +328,7 @@
     <string name="theme_error_no_colours">No theme colors in this file</string>
     <string name="library_err_no_data">No data received.</string>
     <string name="library_err_unsupported_type">Unsupported file type</string>
+    <string name="library_err_alight_unavailable">Alight Motion did not release this project package for download. Export the project from Alight Motion and import the ZIP instead.</string>
     <string name="import_gif_converting">Preparing the GIF…</string>
     <string name="import_gif_too_large">This GIF is too large to import. GIFs up to 2048 × 2048 pixels, 3000 frames and 10 minutes are supported.</string>
     <string name="import_gif_damaged">This GIF is damaged and cannot be imported.</string>

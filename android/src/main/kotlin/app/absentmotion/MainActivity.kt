@@ -56,6 +56,7 @@ import app.absentmotion.library.ImportFailed
 import app.absentmotion.library.ImportReport
 import app.absentmotion.i18n.txt
 import app.absentmotion.library.AlightLinks
+import app.absentmotion.library.AlightImportException
 import app.absentmotion.library.Importer
 import app.absentmotion.library.MediaKeeper
 import app.absentmotion.library.MediaRelink
@@ -404,8 +405,12 @@ class MainActivity : ComponentActivity() {
                     val job = coroutineContext.job
                     val importer = Importer.forApp(applicationContext, store)
                     for (uri in uris) try {
-                        val remote = if (AlightLinks.isShareLink(uri)) withContext(Dispatchers.IO) { AlightLinks.download(applicationContext, uri) } else null
-                        if (AlightLinks.isShareLink(uri) && remote == null) throw ImportFailed(txt(R.string.library_err_unsupported_type))
+                        val alight = AlightLinks.isShareLink(uri)
+                        val remote = if (alight) try {
+                            withContext(Dispatchers.IO) { AlightLinks.download(applicationContext, uri) }
+                        } catch (e: AlightImportException) {
+                            throw ImportFailed(txt(R.string.library_err_alight_unavailable))
+                        } else null
                         try {
                             reports += importer.import {
                                 (remote?.inputStream() ?: contentResolver.openInputStream(uri))?.let { stoppable(it, job) }

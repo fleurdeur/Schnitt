@@ -2,59 +2,73 @@ package app.absentmotion.library
 
 import android.content.Context
 import android.net.Uri
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLDecoder
 import java.util.Locale
 
 /**
  * Resolves public Alight Motion share links without requiring the Alight app.
  *
- * A short link redirects to /am/share/u/<uid>/p/<pid>.  The public metadata
- * function gives us the project package information and the download function
- * returns a signed package URL when the package is still available.
+ * Short links redirect to /am/share/u/<uid>/p/<pid>. Public metadata gives the
+ * package information, and the public download function returns a signed
+ * package URL when Alight makes it available. We never use Alight credentials,
+ * app tokens or authentication material.
  */
+class AlightImportException(message: String) : Exception(message)
+
 object AlightLinks {
     private const val METADATA = "https://us-central1-alight-creative.cloudfunctions.net/getProjectMetadata"
     private const val DOWNLOAD = "https://us-central1-alight-creative.cloudfunctions.net/requestProjectDownload"
-    private const val MAX_PACKAGE = 512L shl 20
+    private const val STORAGE = "https://firebasestorage.googleapis.com/v0/b/alight-creative.appspot.com/o/"
+    private const val MAX_PACKAGE = 3L shl 30
     private val share = Regex("""/am/share/u/([^/?#]+)/p/([^/?#]+)""", RegexOption.IGNORE_CASE)
-    private val hosts = setOf(
-        "alight.link", "alight.page.link", "alight.to", "alightcreative.com", "www.alightcreative.com",
-        "alight.creative.firebase.com", "alightmotion.com", "www.alightmotion.com", "alight-creative.firebaseapp.com",
+    private val queryShare = Regex("""(?:^|[?&])(?:u|uid)=([^&#]+).*?(?:^|[?&])(?:p|pid|project)=([^&#]+)""", RegexOption.IGNORE_CASE)
+    private val hostSuffixes = listOf(
+        "alight.link", "alight.page.link", "alight.to", "alightcreative.com",
+        "alightmotion.com", "alight.creative.firebase.com", "alight-creative.firebaseapp.com",
     )
+    private val downloadKeys = listOf("download", "downloadUri", "downloadURL", "packageUrl", "packageUri", "projectUrl", "projectUri")
 
     fun isShareLink(uri: Uri): Boolean {
         val scheme = uri.scheme?.lowercase(Locale.US) ?: return false
         if (scheme != "http" && scheme != "https") return false
         val host = uri.host?.lowercase(Locale.US) ?: return false
-        return host in hosts || host.endsWith(".alight.link") || host.endsWith(".page.link")
+        return hostSuffixes.any { host == it || host.endsWith(".$it") }
     }
 
-    suspend fun download(context: Context, uri: Uri): File? {
+    suspend fun download(context: Context, uri: Uri): File {
         val target = File(context.cacheDir, "alight-${System.nanoTime()}.zip")
-        return try {
-            val resolved = resolve(uri)
-            val metadata = metadata(resolved.first, resolved.second) ?: return null
-            val download = metadata.optString("download").takeIf { it.startsWith("http") }
-                ?: requestDownload(resolved.first, resolved.second)
-            if (download.isNullOrBlank()) return null
-            fetchTo(download, target, MAX_PACKAGE) ?: return null
-            if (!target.isFile || target.length() < 4 || target.readBytes().let { it[0] != 'P'.code.toByte() || it[1] != 'K'.code.toByte() }) {
+        try {
+            val ids = resolve(uri) ?: throw AlightImportException("not an Alight share link")
+            val metadata = metadata(ids.first, ids.second)
+            val candidates = LinkedHashSet<String>()
+            metadata?.let { firstUrl(it)?.let { url -> candidates += url } }
+            requestDownload(ids.first, ids.second)?.let { candidates += it }
+            // Public Storage objects are accepted when the owner has made them readable.
+            candidates += STORAGE + "cloud%2F${enc(ids.first)}%2F${enc(ids.second)}%2Fprojectfiles.zip?alt=media"
+            candidates += STORAGE + "share%2Fu%2F${enc(ids.first)}%2Fp%2F${enc(ids.second)}%2Fprojectfiles.zip?alt=media"
+            for (url in candidates) {
+                if (!url.startsWith("http", ignoreCase = true)) continue
+                if (fetchTo(url, target, MAX_PACKAGE) && isPackage(target)) return target
                 target.delete()
-                return null
             }
-            target
-        } catch (_: Throwable) {
+            throw AlightImportException("Alight did not provide a downloadable package for this link")
+        } catch (e: Throwable) {
             target.delete()
-            null
+            if (e is AlightImportException) throw e
+            throw AlightImportException(e.message ?: "Alight download failed")
         }
     }
 
-    private fun resolve(uri: Uri): Pair<String, String> {
-        val direct = share.find(uri.path.orEmpty())
-        if (direct != null) return direct.groupValues[1] to direct.groupValues[2]
+    private fun resolve(uri: Uri): Pair<String, String>? {
+        val text = URLDecoder.decode(uri.toString(), "UTF-8")
+        share.find(uri.path.orEmpty())?.let { return it.groupValues[1] to it.groupValues[2] }
+        share.find(text)?.let { return it.groupValues[1] to it.groupValues[2] }
+        queryShare.find(text)?.let { return it.groupValues[1] to it.groupValues[2] }
         var connection: HttpURLConnection? = null
         try {
             connection = URL(uri.toString()).openConnection() as HttpURLConnection
@@ -64,32 +78,48 @@ object AlightLinks {
             connection.setRequestProperty("User-Agent", "Mozilla/5.0 Schnitt")
             connection.requestMethod = "GET"
             connection.inputStream.use { it.readBytes() }
-            val final = connection.url.toString()
-            val found = share.find(final) ?: share.find(connection.getHeaderField("Location").orEmpty())
-            if (found != null) return found.groupValues[1] to found.groupValues[2]
+            val final = URLDecoder.decode(connection.url.toString(), "UTF-8")
+            share.find(final)?.let { return it.groupValues[1] to it.groupValues[2] }
+            share.find(connection.getHeaderField("Location").orEmpty())?.let { return it.groupValues[1] to it.groupValues[2] }
+            queryShare.find(final)?.let { return it.groupValues[1] to it.groupValues[2] }
+        } catch (_: Throwable) {
+            // The caller reports the link as unavailable.
         } finally {
             connection?.disconnect()
         }
-        throw IllegalArgumentException("not an Alight share link")
+        return null
     }
 
     private fun metadata(uid: String, pid: String): JSONObject? {
-        val body = JSONObject()
-            .put("data", JSONObject()
-                .put("uid", uid).put("pid", pid).put("platform", "android")
-                .put("appBuild", 1028417).put("acctTestMode", "normal"))
-        return post(METADATA, body)?.optJSONObject("result")?.also {
-            if (!it.optString("result").equals("success", true)) return null
-            it.optJSONObject("info")?.let { info -> it.put("download", info.optString("download")) }
-        }
+        val body = JSONObject().put("data", JSONObject()
+            .put("uid", uid).put("pid", pid).put("platform", "android")
+            .put("appBuild", 1080000).put("acctTestMode", "normal"))
+        val response = post(METADATA, body) ?: return null
+        val result = response.optJSONObject("result") ?: response
+        if (result.has("result") && !result.optString("result").equals("success", true)) return null
+        return result.optJSONObject("info") ?: result
     }
 
     private fun requestDownload(uid: String, pid: String): String? {
         val body = JSONObject().put("data", JSONObject()
             .put("uid", uid).put("pid", pid).put("platform", "android")
-            .put("appBuild", 1028417).put("liteVersion", false).put("acctTestMode", "normal"))
-        return post(DOWNLOAD, body)?.optJSONObject("result")?.takeIf { it.optString("result").equals("success", true) }
-            ?.optString("downloadUri")?.takeIf { it.startsWith("http") }
+            .put("appBuild", 1080000).put("liteVersion", false).put("acctTestMode", "normal"))
+        val response = post(DOWNLOAD, body) ?: return null
+        val result = response.optJSONObject("result") ?: response
+        if (result.has("result") && !result.optString("result").equals("success", true)) return null
+        return firstUrl(result)
+    }
+
+    private fun firstUrl(value: Any?): String? = when (value) {
+        is JSONObject -> downloadKeys.firstNotNullOfOrNull { key ->
+            value.optString(key).takeIf { it.startsWith("http") }
+                ?: firstUrl(value.opt(key))
+        } ?: value.keys().asSequence().firstNotNullOfOrNull { firstUrl(value.opt(it)) }
+        is JSONArray -> (0 until value.length()).firstNotNullOfOrNull { firstUrl(value.opt(it)) }
+        is String -> value.takeIf {
+            it.startsWith("http") && (it.contains(".zip", true) || it.contains("projectfiles", true) || it.contains("download", true))
+        }
+        else -> null
     }
 
     private fun post(endpoint: String, body: JSONObject): JSONObject? {
@@ -99,6 +129,7 @@ object AlightLinks {
             readTimeout = 45_000
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("Accept", "application/json")
             setRequestProperty("User-Agent", "Schnitt")
         }
         return try {
@@ -112,31 +143,44 @@ object AlightLinks {
         }
     }
 
-    private fun fetchTo(url: String, target: File, limit: Long): File? {
+    private fun fetchTo(url: String, target: File, limit: Long): Boolean {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 30_000
-            readTimeout = 90_000
+            readTimeout = 120_000
             instanceFollowRedirects = true
             setRequestProperty("User-Agent", "Schnitt")
+            setRequestProperty("Accept", "*/*")
         }
         return try {
-            if (connection.responseCode !in 200..299) return null
+            if (connection.responseCode !in 200..299) return false
             connection.inputStream.use { input ->
                 target.outputStream().buffered().use { output ->
-                    val buffer = ByteArray(64 * 1024)
+                    val buffer = ByteArray(128 * 1024)
                     var total = 0L
                     while (true) {
                         val read = input.read(buffer)
                         if (read <= 0) break
                         total += read
-                        if (total > limit) return null
+                        if (total > limit) return false
                         output.write(buffer, 0, read)
                     }
                 }
             }
-            target
+            target.isFile
+        } catch (_: Throwable) {
+            false
         } finally {
             connection.disconnect()
         }
     }
+
+    private fun isPackage(file: File): Boolean {
+        if (file.length() < 4) return false
+        return file.inputStream().use { input ->
+            val head = ByteArray(4)
+            input.read(head) == 4 && head[0] == 'P'.code.toByte() && head[1] == 'K'.code.toByte()
+        }
+    }
+
+    private fun enc(value: String) = Uri.encode(value)
 }
