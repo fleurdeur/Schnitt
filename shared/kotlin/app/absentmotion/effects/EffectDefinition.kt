@@ -71,6 +71,8 @@ data class EffectParam(
     }
 }
 
+data class EffectPass(val sksl: String, val target: String? = null)
+
 data class EffectShortcut(val key: String, val name: String, val description: String, val since: String? = null, val also: List<String> = emptyList())
 
 data class EffectPreset(
@@ -94,6 +96,7 @@ data class EffectDefinition(
     val shortcuts: List<EffectShortcut> = emptyList(),
     val shortcut: String? = null,
     val alsoIn: List<String> = emptyList(),
+    val passes: List<EffectPass> = emptyList(),
 ) {
     val available: Boolean get() = status == "ok"
     val thumbnail: String get() = "thumb/${shortcut ?: key}.webp"
@@ -142,7 +145,8 @@ data class EffectDefinition(
     }
 
     fun runtimeXml(): String = XmlNode("effect", listOfNotNull("id" to id, sksl?.let { "sksl" to it }).toMap(),
-        params.map { XmlNode("param", mapOf("name" to it.id, "value" to it.missingDefault)) }).toXml()
+        params.map { XmlNode("param", mapOf("name" to it.id, "value" to it.missingDefault)) } +
+            passes.map { XmlNode("pass", listOfNotNull("sksl" to it.sksl, it.target?.let { t -> "target" to t }).toMap()) }).toXml()
 
     companion object {
         fun parse(json: JSONObject): EffectDefinition {

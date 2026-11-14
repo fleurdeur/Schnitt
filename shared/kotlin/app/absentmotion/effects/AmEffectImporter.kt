@@ -56,6 +56,7 @@ object AmEffectImporter {
             ?: "Alight Motion effect"
         val category = Regex("""<effect\s+[^>]*category="([^"]+)""" + "\"").find(xml)?.groupValues?.get(1) ?: "other"
         val chained = shader?.let { if (passes.size > 1) translatePasses(it, params, passes) else null }
+        val native = shader?.let { if (passes.size > 1) nativePasses(it, params, passes) else null }
         val sksl = chained ?: shader?.let { translate(it, params) } ?: fallback(name, category, params)
         val key = "am-" + id.substringAfterLast('.').lowercase().replace(Regex("[^a-z0-9]+"), "") + "-" + digest(id).take(4)
         val note = when {
@@ -63,7 +64,8 @@ object AmEffectImporter {
             shader == null || unsupported -> "$description · Multipass converted for Android"
             else -> description
         }
-        return EffectDefinition(id, key, name, mapCategory(category), note, params, sksl, status = "ok", alsoIn = listOf("external"), page = key)
+        return EffectDefinition(id, key, name, mapCategory(category), note, params, sksl, status = "ok",
+            alsoIn = listOf("external"), page = key, passes = native.orEmpty())
     }
 
     private fun parseParams(xml: String): List<EffectParam> {
@@ -181,6 +183,89 @@ object AmEffectImporter {
      * their real intermediate data instead of being collapsed into a random
      * generic filter.
      */
+    private fun nativePasses(source: String, params: List<EffectParam>, passes: List<Pass>): List<EffectPass>? {
+        if (source.contains("acLayerToScreen") || passes.any { it.nested }) return null
+        val main = Regex("""void\s+main\s*\(\s*\)\s*\{""").find(source) ?: return null
+        val open = main.range.last
+        val close = matchingBrace(source, open) ?: return null
+        val head = nativeHead(source.substring(0, main.range.first)) ?: return null
+        val body = source.substring(open + 1, close)
+        val branches = branches(body)
+        val first = Regex("""if\s*\(\s*acPass\s*==\s*\d+\s*\)\s*\{""").find(body)?.range?.first ?: 0
+        val preamble = body.substring(0, first)
+        val suffix = body.substring(branchEnd(body) + 1)
+        val targets = passes.mapNotNull { it.target?.takeIf { t -> t.isNotBlank() && t != "image" && t != "comp" } }.distinct()
+        val targetHeader = buildString {
+            for (target in targets) if (target.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) appendLine("uniform shader $target;")
+        }
+        val out = ArrayList<EffectPass>(passes.size)
+        for (i in passes.indices) {
+            val branch = branches[i] ?: if (i == passes.lastIndex) branches[-1] else null
+            val stage = branch?.let { nativeBody(preamble + it + suffix) } ?: return null
+            val shader = uniforms(params) + targetHeader + head +
+                "half4 main(float2 coord) {\n" +
+                "float2 uv = coord / size;\n" +
+                stage + "\n}\n"
+            out += EffectPass(shader, passes[i].target?.takeIf { it.isNotBlank() })
+        }
+        return out
+    }
+
+    private fun nativeHead(head: String): String? {
+        var s = common(head)
+        s = s.replace("inputImg.size", "size")
+        s = Regex("""getTexSize\s*\([^)]*\)""").replace(s, "size")
+        return if (s.contains("texture2DCv")) nativeTextures(s) else s
+    }
+
+    private fun nativeBody(body: String): String? {
+        var s = common(body)
+        s = s.replace("acScreenNorm", "uv").replace("acLayerNorm", "uv")
+        s = s.replace("inputImg.size", "size")
+        s = Regex("""getTexSize\s*\([^)]*\)""").replace(s, "size")
+        s = nativeTextures(s) ?: return null
+        s = s.replace(Regex("""gl_FragColor\s*=\s*([^;]+);\s*return\s*;"""), "return $1;")
+        s = s.replace(Regex("""gl_FragColor\s*=\s*([^;]+);"""), "return $1;")
+        s = s.replace(Regex("""\breturn\s*;"""), "return half4(0.0);")
+        return if (s.contains("texture2DCv")) null else s
+    }
+
+    private fun nativeTextures(source: String): String? {
+        val out = StringBuilder(source.length + 32)
+        var at = 0
+        while (true) {
+            val start = source.indexOf("texture2DCv(", at)
+            if (start < 0) break
+            out.append(source, at, start)
+            var p = start + "texture2DCv(".length
+            var depth = 1
+            var comma = -1
+            val args = p
+            while (p < source.length && depth > 0) {
+                when (source[p]) {
+                    '(' -> depth++
+                    ')' -> depth--
+                    ',' -> if (depth == 1 && comma < 0) comma = p
+                }
+                if (depth == 0) break
+                p++
+            }
+            if (depth != 0 || comma < 0) return null
+            val texture = source.substring(args, comma).trim().removeSuffix(".texture").trim()
+            val coord = source.substring(comma + 1, p).trim()
+            when (texture) {
+                "inputImg", "comp" -> out.append("image.eval((").append(coord).append(")*size)")
+                else -> {
+                    if (!texture.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) return null
+                    out.append(texture).append(".eval((").append(coord).append(")*size)")
+                }
+            }
+            at = p + 1
+        }
+        out.append(source, at, source.length)
+        return out.toString()
+    }
+
     private fun translatePasses(source: String, params: List<EffectParam>, passes: List<Pass>): String? {
         if (source.contains("acLayerToScreen") || passes.any { it.nested }) return null
         val main = Regex("""void\s+main\s*\(\s*\)\s*\{""").find(source) ?: return null

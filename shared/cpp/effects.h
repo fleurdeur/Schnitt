@@ -34,8 +34,13 @@ public:
               const Upload& upload = nullptr) const;
 
 private:
+    struct Pass {
+        sk_sp<SkRuntimeEffect> shader;
+        std::string target;
+    };
     struct Definition {
         sk_sp<SkRuntimeEffect> shader;
+        std::vector<Pass> passes;
         bool blurred = false;
         bool brightPass = false;
         bool plainBlur = false;

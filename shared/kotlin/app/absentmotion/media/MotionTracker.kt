@@ -29,7 +29,7 @@ internal class MotionTracker(start: List<Pt>) : PointTracker {
         const val PATCH_RADIUS = 16
         const val SEARCH_RADIUS = 64
 
-        init { runCatching { System.loadLibrary("amengine") } }
+        init { runCatching { app.absentmotion.platform.loadEngineLibrary() } }
 
         @JvmStatic private external fun nativeCreate(points: DoubleArray, patchRadius: Int, searchRadius: Int): Long
         @JvmStatic private external fun nativeTrack(handle: Long, luma: ByteArray, width: Int, height: Int, out: DoubleArray): Boolean

@@ -20,7 +20,7 @@ internal object NativeFx {
     const val PITCH = 8
     const val MAX_BLOCK = 1024
 
-    @Volatile private var loaded = runCatching { System.loadLibrary("amengine") }.isSuccess
+    @Volatile private var loaded = runCatching { app.absentmotion.platform.loadEngineLibrary() }.isSuccess
 
     val available: Boolean get() = loaded || runCatching { nativeLatency(0L) }.isSuccess.also { loaded = it }
 

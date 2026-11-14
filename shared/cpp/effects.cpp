@@ -905,6 +905,12 @@ std::string EffectRuntime::load(const std::string& xml) {
         d.defaults[c->attr("name")] = ParseAnimNode(c.get());
         if (c->attr("value")) d.texts[c->attr("name")] = c->attr("value");
     }
+    for (const auto& c : root->children) {
+        if (c->name != "pass" || !c->attr("sksl")) continue;
+        auto result = SkRuntimeEffect::MakeForShader(SkString(c->attr("sksl")));
+        if (!result.effect || !result.effect->findChild("image")) { d.passes.clear(); break; }
+        d.passes.push_back({std::move(result.effect), c->attr("target") ? c->attr("target") : ""});
+    }
     const std::string id = root->attr("id");
     const char* sksl = root->attr("sksl");
     if (!sksl || !*sksl) {
@@ -1108,6 +1114,48 @@ sk_sp<SkImageFilter> EffectRuntime::chain(const Scene& scene, const Layer& layer
                 if (first && !lit.contains(bounds) && pointwiseAfter(k + 1)) f = SkImageFilters::Crop(lit, f);
             } else {
                 f = BuiltInFilter(e.id, value, f);
+            }
+        } else if (d && !d->passes.empty()) {
+            sk_sp<SkImageFilter> base = f;
+            std::map<std::string, sk_sp<SkImageFilter>> produced;
+            for (const auto& pass : d->passes) {
+                SkRuntimeShaderBuilder b(pass.shader);
+                for (const SkRuntimeEffect::Uniform& u : pass.shader->uniforms()) {
+                    const std::string name(u.name);
+                    const int n = (int)(u.sizeInBytes() / 4);
+                    std::vector<float> v(n);
+                    const bool automatic = !(defaults && defaults->count(name));
+                    if (automatic && name == "size") v = {area.width(), area.height()};
+                    else if (automatic && name == "time") v = {seconds};
+                    else if (automatic && name == "layer") v = {std::max(own().width(), 1.0f), std::max(own().height(), 1.0f)};
+                    else if (automatic && name == "duration") v = {(float)((layer.endTime - layer.startTime) / 1000.0)};
+                    else if (u.isColor() && n == 4) v = {Value(e, defaults, name, 1, t, 0), Value(e, defaults, name, 2, t, 0),
+                                                         Value(e, defaults, name, 3, t, 0), Value(e, defaults, name, 0, t, 1)};
+                    else for (int i = 0; i < n; i++) v[i] = Value(e, defaults, name, i, t, 0);
+                    v.resize(n);
+                    if (u.type >= SkRuntimeEffect::Uniform::Type::kInt) {
+                        std::vector<int> ints(v.begin(), v.end());
+                        b.uniform(u.name).set(ints.data(), n);
+                    } else {
+                        b.uniform(u.name).set(v.data(), n);
+                    }
+                }
+                std::vector<std::string_view> names;
+                std::vector<sk_sp<SkImageFilter>> inputs;
+                names.reserve(pass.shader->children().size());
+                inputs.reserve(pass.shader->children().size());
+                for (const SkRuntimeEffect::Child& child : pass.shader->children()) {
+                    names.push_back(child.name);
+                    if (child.name == "image") {
+                        inputs.push_back(base);
+                    } else {
+                        auto found = produced.find(std::string(child.name));
+                        inputs.push_back(found == produced.end() ? SkImageFilters::Empty() : found->second);
+                    }
+                }
+                f = pass.shader->children().empty() ? base
+                    : SkImageFilters::RuntimeShader(b, reach, names.data(), inputs.data(), (int)inputs.size());
+                if (!pass.target.empty()) produced[pass.target] = f;
             }
         } else if (d && d->shader) {
             SkRuntimeShaderBuilder b(d->shader);

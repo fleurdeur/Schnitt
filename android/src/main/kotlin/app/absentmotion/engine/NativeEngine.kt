@@ -107,7 +107,7 @@ class NativeEngine(backend: Backend) : AutoCloseable {
 
     companion object {
         init {
-            System.loadLibrary("amengine")
+            app.absentmotion.platform.loadEngineLibrary()
         }
 
         fun ease(easing: String, us: FloatArray): FloatArray = nativeEase(easing, us)

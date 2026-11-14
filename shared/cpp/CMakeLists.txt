@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 project(amengine C CXX)
+option(AM_ENGINE_ONLY "Build only the Skia render engine" OFF)
 
 get_filename_component(AM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
 add_compile_options("-ffile-prefix-map=${AM_ROOT}=." "-fdebug-prefix-map=${AM_ROOT}=.")
@@ -61,6 +62,10 @@ target_link_libraries(amengine PRIVATE
     -Wl,--start-group ${SKIA_LIBS} -Wl,--end-group
     -Wl,--gc-sections
     rnnoise absent_bg motion_tracker m vulkan android nativewindow jnigraphics mediandk EGL GLESv3 log)
+
+if(AM_ENGINE_ONLY)
+    return()
+endif()
 
 set(LAME_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/lame)
 set(LAME_SOURCES bitstream encoder fft gain_analysis id3tag lame mpglib_interface newmdct presets psymodel quantize

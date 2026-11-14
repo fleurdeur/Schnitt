@@ -60,7 +60,7 @@ private class ImageFrames(width: Int, height: Int, count: Int) : DecodedFrames {
 }
 
 internal object NdkImages {
-    init { System.loadLibrary("amengine") }
+    init { app.absentmotion.platform.loadEngineLibrary() }
     external fun open(width: Int, height: Int, count: Int): Long
     external fun surface(handle: Long): Surface?
     external fun poll(handle: Long, timeoutMs: Long): Long

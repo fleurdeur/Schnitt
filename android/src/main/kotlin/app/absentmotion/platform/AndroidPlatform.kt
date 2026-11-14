@@ -432,7 +432,27 @@ internal fun deviceSounds(context: Context): List<app.absentmotion.audio.DeviceA
 
 fun revealDeskFile(uri: android.net.Uri) {}
 
-internal fun loadNoiseLibrary() { System.loadLibrary("amengine") }
+@Volatile private var engineLoaded = false
+private val engineLock = Any()
+
+internal fun loadEngineLibrary() {
+    if (engineLoaded) return
+    synchronized(engineLock) {
+        if (engineLoaded) return
+        try {
+            System.loadLibrary("amengine")
+        } catch (first: UnsatisfiedLinkError) {
+            try {
+                System.loadLibrary("amengine_legacy")
+            } catch (_: UnsatisfiedLinkError) {
+                throw first
+            }
+        }
+        engineLoaded = true
+    }
+}
+
+internal fun loadNoiseLibrary() { loadEngineLibrary() }
 
 internal suspend fun desktopReverse(context: android.content.Context, layer: app.absentmotion.model.Layer, media: app.absentmotion.model.MediaDeclaration, progress: app.absentmotion.ai.AiProgress): app.absentmotion.ai.ReversedClip = error("Desktop only")
 
