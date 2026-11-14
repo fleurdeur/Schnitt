@@ -268,7 +268,9 @@ private fun PluginDetail(state: EditorState, plugin: Plugin, catalog: EffectCata
     val layers = state.scene.layers
     var targetId by remember(plugin.id, state.scene) { mutableStateOf(state.selectedId ?: layers.firstOrNull()?.id ?: 0L) }
     var targetOpen by remember { mutableStateOf(false) }
-    val generated = catalog?.definitions?.firstOrNull { it.id == PluginShader.effectId(plugin) }
+    val generated = (if (plugin.kind == PluginKind.Native) plugin.effects.firstNotNullOfOrNull { id -> catalog?.definitions?.firstOrNull { it.id == id } } else null)
+        ?: catalog?.definitions?.firstOrNull { it.id == PluginShader.effectId(plugin) }
+        ?: plugin.effects.firstNotNullOfOrNull { id -> catalog?.definitions?.firstOrNull { it.id == id } }
     val values = remember(plugin.id) { mutableStateMapOf<String, String>() }
     androidx.compose.runtime.LaunchedEffect(generated?.key) {
         values.clear()
@@ -278,6 +280,7 @@ private fun PluginDetail(state: EditorState, plugin: Plugin, catalog: EffectCata
         val layer = state.scene.layer(targetId) ?: state.selected
         if (layer == null) { onNotice(context.getString(R.string.plugins_no_layer)); return }
         val definition = generated ?: catalog?.definitions?.firstOrNull { it.id == PluginShader.effectId(plugin) }
+            ?: plugin.effects.firstNotNullOfOrNull { effect -> catalog?.definitions?.firstOrNull { it.id == effect } }
         if (definition == null) {
             onNotice("The plugin shader is still being prepared. Reopen the plugin in a moment.")
             return

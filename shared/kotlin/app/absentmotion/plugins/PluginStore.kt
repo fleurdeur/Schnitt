@@ -1,5 +1,6 @@
 package app.absentmotion.plugins
 
+import app.absentmotion.effects.AexImporter
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -186,7 +187,7 @@ class PluginStore(private val context: Context) {
         }
     }
 
-    private fun describe(id: String, folder: File, fileName: String, source: String): Plugin? {
+    private suspend fun describe(id: String, folder: File, fileName: String, source: String): Plugin? {
         val custom = folder.walkTopDown().firstOrNull { it.isFile && it.name.equals("plugin.json", true) }
         if (custom != null) {
             runCatching {
@@ -236,7 +237,8 @@ class PluginStore(private val context: Context) {
             shader -> PluginKind.Shader
             else -> PluginKind.Effect
         }
-        val effects = mapEffects(fileName + " " + folder.name)
+        val aex = if (chosen.extension.equals("aex", true)) AexImporter.importFile(context, chosen) else null
+        val effects = (listOfNotNull(aex?.id) + mapEffects(fileName + " " + folder.name)).distinct()
         val summary = when (kind) {
             PluginKind.Native -> "Native Adobe plug-in binary · $fileName · converted into an Android effect with its own generated shader and editable properties"
             PluginKind.Shader -> "Fragment shader · $fileName · converted into an Android effect with editable properties"

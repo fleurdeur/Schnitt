@@ -30,6 +30,16 @@ object AexImporter {
     suspend fun import(context: Context, uri: Uri): EffectDefinition? = withContext(Dispatchers.IO) {
         val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@withContext null
         val fileName = uri.lastPathSegment.orEmpty().substringAfterLast('/')
+        importBytes(context, bytes, fileName)
+    }
+
+    /** Import an already-unpacked .aex, used by the plug-in installer. */
+    suspend fun importFile(context: Context, file: File): EffectDefinition? = withContext(Dispatchers.IO) {
+        val bytes = runCatching { file.readBytes() }.getOrNull() ?: return@withContext null
+        importBytes(context, bytes, file.name)
+    }
+
+    private fun importBytes(context: Context, bytes: ByteArray, fileName: String): EffectDefinition? {
         val info = read(bytes, fileName)
         val id = digest("$fileName:${bytes.size}").take(10)
         val target = File(context.filesDir, FOLDER).apply { mkdirs() }.resolve("$id.aex")
@@ -37,18 +47,25 @@ object AexImporter {
         append(context, JSONObject()
             .put("id", id).put("name", info.name).put("vendor", info.vendor).put("version", info.version)
             .put("category", info.category).put("url", info.url).put("note", info.note).put("file", target.path))
-        custom(id, info, bytes.toString(Charsets.ISO_8859_1).take(16 shl 20))
+        return custom(id, info, bytes.toString(Charsets.ISO_8859_1).take(16 shl 20))
     }
 
     /** Reads the PiPL resource from a PE32/PE32+ file.  Falls back to strings. */
     fun read(bytes: ByteArray, fileName: String): Info {
-        val text = if (bytes.size >= 2 && bytes[0] == 'M'.code.toByte() && bytes[1] == 'Z'.code.toByte()) pipl(bytes) else ""
+        val piplText = if (bytes.size >= 2 && bytes[0] == 'M'.code.toByte() && bytes[1] == 'Z'.code.toByte()) pipl(bytes) else ""
+        val text = if (piplText.isNotBlank()) piplText + " " + bytes.toString(Charsets.ISO_8859_1) else bytes.toString(Charsets.ISO_8859_1)
         val raw = Regex("[ -~]{3,}").findAll(text).map { it.value }.toList()
+        val stem = fileName.substringBeforeLast('.').ifBlank { "Imported AEX" }
+        val noise = listOf("plugin", "uniform", "vec", "float", "http", "copyright", "adobe", "support", "program", "suite", "version", "shader", "effect")
+        val cleanName = { value: String -> value.length in 3..48 && value.any(Char::isLetter) &&
+            value.all { it.isLetterOrDigit() || it == ' ' || it == '-' || it == '_' || it == '.' } && noise.none { it in value.lowercase() } }
         val nameAt = raw.indexOfFirst { it.contains("eman") }
-        val name = raw.getOrNull(nameAt + 1)?.substringBefore("MIB8")?.substringBefore("8BIM")?.trim()
-            ?.takeIf { it.length in 3..48 && it.any(Char::isLetter) }
-            ?: fileName.substringBeforeLast('.').ifBlank { "Imported AEX" }
-        val vendor = raw.firstOrNull { it.contains("dragoy", true) || it.contains("plugin", true) || it.contains("software", true) || it.contains("studios", true) }.orEmpty()
+        val name = raw.getOrNull(nameAt + 1)?.substringBefore("MIB8")?.substringBefore("8BIM")?.trim()?.takeIf(cleanName)
+            ?: raw.firstOrNull { it.equals(stem, true) }
+            ?: raw.firstOrNull { cleanName(it) && it.first().isUpperCase() }
+            ?: stem
+        val vendor = raw.firstOrNull { it.equals("Dragoy", true) || it.contains("dragoy", true) }
+            ?: raw.firstOrNull { it.contains("studios", true) || it.contains("software", true) || it.contains("creative", true) }.orEmpty()
         val url = raw.firstOrNull { it.startsWith("http://") || it.startsWith("https://") }.orEmpty()
         val version = Regex("""\b\d+\.\d+(?:\.\d+)?\b""").find(fileName + " " + raw.joinToString(" "))?.value.orEmpty()
         val category = when {

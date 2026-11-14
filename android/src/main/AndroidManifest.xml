@@ -83,6 +83,19 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="alight.link" />
+                <data android:scheme="https" android:host="alight.page.link" />
+                <data android:scheme="https" android:host="alight.to" />
+                <data android:scheme="https" android:host="alightcreative.com" />
+                <data android:scheme="https" android:host="www.alightcreative.com" />
+                <data android:scheme="https" android:host="alightmotion.com" />
+                <data android:scheme="https" android:host="www.alightmotion.com" />
+                <data android:scheme="https" android:host="alight-creative.firebaseapp.com" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="content" />
                 <data android:scheme="file" />
                 <data android:host="*" />

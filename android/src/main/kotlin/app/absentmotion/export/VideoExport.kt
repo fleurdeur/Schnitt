@@ -93,43 +93,70 @@ internal object EncoderTrouble {
     fun blameLast() { last?.let { bad += it } }
 }
 
-internal fun openVideoEncoder(s: ExportSettings, width: Int, height: Int, hot: Boolean, note: (UiText) -> Unit = {}, bitrate: Int? = null): MediaCodec {
+internal data class OpenedVideo(val codec: MediaCodec, val width: Int, val height: Int)
+
+internal fun openVideoEncoderDetailed(s: ExportSettings, width: Int, height: Int, hot: Boolean, note: (UiText) -> Unit = {}, bitrate: Int? = null): OpenedVideo {
     val mime = s.codec.mime
     val infos = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
-        .filter { it.isEncoder && !it.alias && mime in it.supportedTypes && it.getCapabilitiesForType(mime).videoCapabilities?.isSizeSupported(width, height) == true }
+        .filter { it.isEncoder && !it.alias && mime in it.supportedTypes }
         .sortedWith(compareBy<MediaCodecInfo> { it.name in EncoderTrouble.bad }.thenByDescending { it.hardware })
     if (infos.isEmpty()) throw ExportError(txt(R.string.export_error_cannot_encode, s.codec.label, "${width}x$height"))
     var last: Throwable? = null
-    for (info in infos) {
-        if (ExportDebug.refuseHardware && info.hardware) continue
-        val caps = info.getCapabilitiesForType(mime)
-        val rated = runCatching { caps.videoCapabilities!!.getSupportedFrameRatesFor(width, height).upper }.getOrDefault(0.0)
-        val key = "${info.name} ${width}x$height ${s.fps}"
-        val high = mime == MediaFormat.MIMETYPE_VIDEO_AVC && key !in HighRefused && caps.profileLevels.any { it.profile == MediaCodecInfo.CodecProfileLevel.AVCProfileHigh }
-        val codec = try { MediaCodec.createByCodecName(info.name) } catch (e: Exception) {
-            last = e
-            Log.w("AMExport", "cannot create ${info.name}", e)
-            continue
-        }
-        var highFailed = false
-        for (bestEffort in if (hot || rated < 2.0 * s.fps) listOf(true, false) else listOf(false, true)) for (profile in if (high) listOf(true, false) else listOf(false)) {
-            try {
-                codec.configure(encoderFormat(info, caps, s, width, height, profile, bestEffort, hot, bitrate), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-                Log.i("AMExport", "encoding with ${info.name}${if (profile) " (High)" else ""}${if (bestEffort) " at best effort" else ""}; rated for ${rated.toInt()} fps at ${width}x$height")
-                if (highFailed && !profile) HighRefused += key
-                if (!info.hardware && infos.any { it.hardware }) note(txt(R.string.export_note_software))
-                EncoderTrouble.last = info.name
-                return codec
-            } catch (e: Exception) {
+    for ((tryWidth, tryHeight) in encoderSizes(width, height)) {
+        for (info in infos) {
+            if (ExportDebug.refuseHardware && info.hardware) continue
+            val caps = info.getCapabilitiesForType(mime)
+            val video = caps.videoCapabilities ?: continue
+            if (!video.isSizeSupported(tryWidth, tryHeight)) continue
+            val rated = runCatching { video.getSupportedFrameRatesFor(tryWidth, tryHeight).upper }.getOrDefault(0.0)
+            val key = "${info.name} ${tryWidth}x$tryHeight ${s.fps}"
+            val high = mime == MediaFormat.MIMETYPE_VIDEO_AVC && key !in HighRefused && caps.profileLevels.any { it.profile == MediaCodecInfo.CodecProfileLevel.AVCProfileHigh }
+            val codec = try { MediaCodec.createByCodecName(info.name) } catch (e: Exception) {
                 last = e
-                if (profile) highFailed = true
-                Log.w("AMExport", "${info.name} refused ${width}x$height at ${s.fps} fps${if (profile) " (High)" else ""}${if (bestEffort) " at best effort" else ""}", e)
-                runCatching { codec.reset() }
+                Log.w("AMExport", "cannot create ${info.name}", e)
+                continue
             }
+            var highFailed = false
+            for (bestEffort in if (hot || rated < 2.0 * s.fps) listOf(true, false) else listOf(false, true)) for (profile in if (high) listOf(true, false) else listOf(false)) {
+                try {
+                    codec.configure(encoderFormat(info, caps, s, tryWidth, tryHeight, profile, bestEffort, hot, bitrate), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                    Log.i("AMExport", "encoding with ${info.name}${if (profile) " (High)" else ""}${if (bestEffort) " at best effort" else ""}; rated for ${rated.toInt()} fps at ${tryWidth}x$tryHeight")
+                    if (highFailed && !profile) HighRefused += key
+                    if (!info.hardware && infos.any { it.hardware }) note(txt(R.string.export_note_software))
+                    if (tryWidth != width || tryHeight != height) Log.i("AMExport", "using automatic fallback size ${tryWidth}x$tryHeight for ${s.codec.label}")
+                    EncoderTrouble.last = info.name
+                    return OpenedVideo(codec, tryWidth, tryHeight)
+                } catch (e: Exception) {
+                    last = e
+                    if (profile) highFailed = true
+                    Log.w("AMExport", "${info.name} refused ${tryWidth}x$tryHeight at ${s.fps} fps${if (profile) " (High)" else ""}${if (bestEffort) " at best effort" else ""}", e)
+                    runCatching { codec.reset() }
+                }
+            }
+            codec.release()
         }
-        codec.release()
     }
     throw ExportError(txt(R.string.export_error_encoder_busy), last)
+}
+
+internal fun openVideoEncoder(s: ExportSettings, width: Int, height: Int, hot: Boolean, note: (UiText) -> Unit = {}, bitrate: Int? = null): MediaCodec =
+    openVideoEncoderDetailed(s, width, height, hot, note, bitrate).codec
+
+/** Every even, aspect-preserving size to try when the requested one is not available. */
+private fun encoderSizes(width: Int, height: Int): List<Pair<Int, Int>> {
+    val out = LinkedHashSet<Pair<Int, Int>>()
+    val w = width.coerceAtLeast(2)
+    val h = height.coerceAtLeast(2)
+    fun even(v: Int) = (v.coerceAtLeast(2) + 1) and 1.inv()
+    out += w to h
+    for (align in intArrayOf(2, 4, 8, 16)) out += (w / align * align).coerceAtLeast(16) to (h / align * align).coerceAtLeast(16)
+    for (percent in 95 downTo 10 step 5) {
+        val tw = even((w.toLong() * percent / 100).toInt())
+        val th = even((h.toLong() * percent / 100).toInt())
+        out += tw to th
+        out += (tw / 16 * 16).coerceAtLeast(16) to (th / 16 * 16).coerceAtLeast(16)
+    }
+    return out.filter { it.first > 0 && it.second > 0 }.distinct()
 }
 
 private fun encoderFormat(info: MediaCodecInfo, caps: MediaCodecInfo.CodecCapabilities, s: ExportSettings, width: Int, height: Int,
@@ -159,8 +186,11 @@ private suspend fun encode(
     hotAtStart: Boolean, pauseMs: () -> Long, note: (UiText) -> Unit, looks: (FrameLooks) -> Unit, progress: (Float) -> Unit,
 ) {
     val turn = turnsForEncoder(s, width, height)
-    val encoder = if (turn) openVideoEncoder(s, height, width, hotAtStart, note) else openVideoEncoder(s, width, height, hotAtStart, note)
-    if (turn) Log.i("AMExport", "encoding ${width}x$height as ${height}x$width turned a quarter, shown upright by the file's rotation")
+    val opened = if (turn) openVideoEncoderDetailed(s, height, width, hotAtStart, note) else openVideoEncoderDetailed(s, width, height, hotAtStart, note)
+    val encoder = opened.codec
+    val renderWidth = if (turn) opened.height else opened.width
+    val renderHeight = if (turn) opened.width else opened.height
+    if (turn) Log.i("AMExport", "encoding ${width}x$height as ${opened.width}x${opened.height} turned a quarter, shown upright by the file's rotation")
     val stop = AtomicBoolean()
     val failure = AtomicReference<Throwable>()
     fun fail(t: Throwable) { failure.compareAndSet(null, t); stop.set(true) }
@@ -213,7 +243,7 @@ private suspend fun encode(
                 Log.i("AMExport", "$frames frames in ${spent[2] / 1_000_000} ms; per frame: ${perFrame(spent[2])} ms, drawing ${perFrame(spent[0] - spent[1])} ms, waiting for copies ${perFrame(spent[1])} ms")
             }
             val buffers = turn || ExportDebug.forceBuffers || (Build.VERSION.SDK_INT < 33 && !openGl()) || !stampsPresentTime()
-            Log.i("AMExport", "rendering $frames frames at ${width}x$height through ${if (buffers) "encoder buffers" else "the swapchain"}")
+            Log.i("AMExport", "rendering $frames frames at ${renderWidth}x$renderHeight through ${if (buffers) "encoder buffers" else "the swapchain"}")
             if (buffers && !turn && Build.VERSION.SDK_INT >= 33) {
                 val writer = ImageWriter.Builder(input).setMaxImages(2).setHardwareBufferFormat(HardwareBuffer.RGBA_8888)
                     .setUsage(HardwareBuffer.USAGE_GPU_COLOR_OUTPUT or HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE).build()
@@ -235,7 +265,7 @@ private suspend fun encode(
                     writer.close()
                 }
             } else if (buffers) {
-                val feed = EncoderFeed(input, width, height, turn)
+                val feed = EncoderFeed(input, renderWidth, renderHeight, turn)
                 try {
                     eachFrame({ exportCheck(feed.flush().also { spent[1] = feed.waitedNs }) { txt(R.string.export_error_draw_frame, (frames - 1).toString()) } }) { k, presentNs ->
                         exportCheck(feed.ready().also { spent[1] = feed.waitedNs }) { txt(R.string.export_error_draw_frame, (k - 2).toString()) }

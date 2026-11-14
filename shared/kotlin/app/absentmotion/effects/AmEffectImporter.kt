@@ -38,7 +38,7 @@ object AmEffectImporter {
         val existing = catalog.definitions.map { it.key to it.id }.toSet()
         val extra = (builtIn + custom).filter { def ->
             existing.none { it.first == def.key || it.second == def.id } &&
-                catalog.definitions.none { it.key == def.key || it.id == def.id || it.name.equals(def.name, true) }
+                catalog.definitions.none { it.key == def.key || it.id == def.id }
         }.distinctBy { it.key }
         return if (extra.isEmpty()) catalog else catalog.copy(definitions = catalog.definitions + extra)
     }
@@ -80,7 +80,7 @@ object AmEffectImporter {
 
     private fun parseParams(xml: String): List<EffectParam> {
         val out = ArrayList<EffectParam>()
-        val tag = Regex("""<(spinner|slider|switch|point|color|selector|int)\s+([^>]*?)/?>""", RegexOption.DOT_MATCHES_ALL)
+        val tag = Regex("""<(spinner|slider|switch|point|xyz|color|selector|int|texture|orient|hue-disc|float)\s+([^>]*?)/?>""", RegexOption.DOT_MATCHES_ALL)
         for (m in tag.findAll(xml)) {
             val kind = m.groupValues[1]
             val attrs = m.groupValues[2]
@@ -88,7 +88,7 @@ object AmEffectImporter {
             val id = attr("id") ?: continue
             val def = attr("default").orEmpty()
             when (kind) {
-                "spinner", "slider", "int" -> {
+                "spinner", "slider", "int", "orient", "hue-disc", "float" -> {
                     val type = attr("type")
                     out += EffectParam(id, attr("label")?.substringAfterLast('/') ?: id.replace('_', ' '),
                         if (type == "angle") "angle" else "float", format(def.toFloatOrNull() ?: 0f),
@@ -96,10 +96,11 @@ object AmEffectImporter {
                         attr("step")?.toFloatOrNull() ?: 0.01f, percent = type == "percent")
                 }
                 "switch" -> out += EffectParam(id, id.replace('_', ' '), "switch", if (def == "true") "true" else "false")
-                "point" -> {
+                "point", "xyz" -> {
                     val p = def.split(',').mapNotNull { it.trim().toFloatOrNull() }
                     out += EffectParam(id, id.replace('_', ' '), "point", format(p.getOrElse(0) { 0f }) + "," + format(p.getOrElse(1) { 0f }))
                 }
+                "texture" -> out += EffectParam(id, attr("label")?.substringAfterLast('/') ?: id.replace('_', ' '), "text", def)
                 "color" -> out += EffectParam(id, id.replace('_', ' '), "color", def.takeIf { it.startsWith("#") } ?: "#ffffffff")
                 "selector" -> {
                     val block = xml.substring(m.range.last + 1).substringBefore("</selector>")

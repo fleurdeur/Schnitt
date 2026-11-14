@@ -54,6 +54,8 @@ import app.absentmotion.library.RecoveryHandler
 import app.absentmotion.library.RecoveryOffer
 import app.absentmotion.library.ImportFailed
 import app.absentmotion.library.ImportReport
+import app.absentmotion.i18n.txt
+import app.absentmotion.library.AlightLinks
 import app.absentmotion.library.Importer
 import app.absentmotion.library.MediaKeeper
 import app.absentmotion.library.MediaRelink
@@ -402,9 +404,17 @@ class MainActivity : ComponentActivity() {
                     val job = coroutineContext.job
                     val importer = Importer.forApp(applicationContext, store)
                     for (uri in uris) try {
-                        reports += importer.import { contentResolver.openInputStream(uri)?.let { stoppable(it, job) } }.map {
-                            afterImport()
-                            if (!it.template) it else templates.adopt(store, it.id, engine)?.let { id -> it.copy(id = id) } ?: it.copy(template = false)
+                        val remote = if (AlightLinks.isShareLink(uri)) withContext(Dispatchers.IO) { AlightLinks.download(applicationContext, uri) } else null
+                        if (AlightLinks.isShareLink(uri) && remote == null) throw ImportFailed(txt(R.string.library_err_unsupported_type))
+                        try {
+                            reports += importer.import {
+                                (remote?.inputStream() ?: contentResolver.openInputStream(uri))?.let { stoppable(it, job) }
+                            }.map {
+                                afterImport()
+                                if (!it.template) it else templates.adopt(store, it.id, engine)?.let { id -> it.copy(id = id) } ?: it.copy(template = false)
+                            }
+                        } finally {
+                            remote?.delete()
                         }
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e

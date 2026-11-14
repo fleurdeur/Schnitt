@@ -53,6 +53,9 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
         fun visit(node: XmlNode, dims: FloatArray): XmlNode {
             val nativeAm = if (node.name == "effect") catalog.definitions.firstOrNull { it.id == node["id"] && it.key.startsWith("am-") && it.available } else null
             if (nativeAm != null) return node
+            if (node.name == "effect" && catalog.definitions.none { it.id == node["id"] }) {
+                fallback(node)?.let { return it }
+            }
             val rule = if (node.name == "effect") rules[node["id"]]?.takeIf { r -> r.onlyWith == null || node.children.any { c -> c.name == "property" && c["name"] == r.onlyWith } } else null
             val own = rule?.let { catalog.definitions.firstOrNull { d -> d.key == it.to } }
             val older = own != null && node["id"] == own.id
@@ -69,6 +72,42 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
         val foreign = root["am"]?.startsWith("com.alightcreative") == true
         if (foreign) root = root.copy(attrs = root.attrs + ("am" to "app.absentmotion"), children = root.children.map(::squaredBlendOpacity))
         return Result(if (converted.isEmpty() && !renamed && !foreign) scene else Scene(root), converted, dropped)
+    }
+
+
+    /**
+     * An imported XML can reference an effect that this build does not ship.
+     * Match its properties against available effects, then fall back to the
+     * closest semantic family.  The effect keeps all properties it can map.
+     */
+    private fun fallback(node: XmlNode): XmlNode? {
+        val id = node["id"]?.substringAfterLast('.')?.lowercase() ?: return null
+        val props = node.children.filter { it.name == "property" }
+        val names = props.mapNotNull { it["name"] }.toSet()
+        val candidates = catalog.definitions.filter { it.available && it.id != node["id"] }
+        val scored = candidates.map { d ->
+            val paramNames = d.params.map { it.id }.toSet()
+            d to names.count { it in paramNames }
+        }.filter { it.second > 0 }.maxByOrNull { it.second }
+        val family = when {
+            "blur" in id -> "blur"
+            "glow" in id || "light" in id -> "glow"
+            "glitch" in id || "rgb" in id -> "glitch"
+            "warp" in id || "displace" in id || "distort" in id || "ripple" in id -> "distort"
+            "sharpen" in id || "clarity" in id -> "sharpen"
+            "color" in id || "hue" in id || "tint" in id -> "color"
+            "grid" in id || "mosaic" in id || "pixel" in id -> "grid"
+            "text" in id -> "text"
+            "shake" in id || "jitter" in id || "swing" in id || "spin" in id || "pulsate" in id -> "transform"
+            "glass" in id -> "distort"
+            else -> null
+        }
+        val chosen = scored?.first ?: family?.let { cat -> candidates.firstOrNull { it.category == cat } } ?: return null
+        val mapped = chosen.params.mapNotNull { p ->
+            props.firstOrNull { it["name"] == p.id }?.let { prop -> prop.copy(attrs = prop.attrs + ("type" to p.type)) }
+                ?: (if (scored == null) null else null)
+        }
+        return node.copy(attrs = node.attrs + ("id" to chosen.id), children = mapped)
     }
 
     private fun layerDims(layer: XmlNode, dims: FloatArray): FloatArray {

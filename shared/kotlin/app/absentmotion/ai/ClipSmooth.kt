@@ -25,6 +25,7 @@ import app.absentmotion.export.Smoothing
 import app.absentmotion.export.EncoderFeed
 import app.absentmotion.export.ExportSettings
 import app.absentmotion.export.openVideoEncoder
+import app.absentmotion.export.openVideoEncoderDetailed
 import app.absentmotion.export.drain
 import app.absentmotion.export.frameCount
 import app.absentmotion.export.frameTimeMs
@@ -305,7 +306,10 @@ internal object ClipSmooth {
 
     private suspend fun encode(engine: EngineThread, scene: Scene, plan: SmoothPlan, path: String, frames: Int, fromUs: Long, spanUs: Long, smoothing: Smoothing,
                                sound: Pair<MediaExtractor, Int>?, done: suspend (Int) -> Unit) {
-        val encoder = openVideoEncoder(ExportSettings(minOf(plan.width, plan.height), plan.fps), plan.width, plan.height, hot = false, bitrate = plan.bitrate)
+        val opened = openVideoEncoderDetailed(ExportSettings(minOf(plan.width, plan.height), plan.fps), plan.width, plan.height, hot = false, bitrate = plan.bitrate)
+        val encoder = opened.codec
+        val width = opened.width
+        val height = opened.height
         val failure = AtomicReference<Throwable>()
         val finished = AtomicBoolean()
         val mux = try { Mux(MuxerSink(path), if (sound != null) 2 else 1) { failure.compareAndSet(null, it); finished.set(true) } }
@@ -322,7 +326,7 @@ internal object ClipSmooth {
             engine.exportSession(scene.toXml(), smoothing, plan.fps) {
                 val writer = if (Build.VERSION.SDK_INT >= 33) ImageWriter.Builder(input).setMaxImages(2).setHardwareBufferFormat(HardwareBuffer.RGBA_8888)
                     .setUsage(HardwareBuffer.USAGE_GPU_COLOR_OUTPUT or HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE).build() else null
-                val feed = if (writer == null) EncoderFeed(input, plan.width, plan.height) else null
+                val feed = if (writer == null) EncoderFeed(input, width, height) else null
                 try {
                     for (k in 0 until frames) {
                         currentCoroutineContext().ensureActive()
