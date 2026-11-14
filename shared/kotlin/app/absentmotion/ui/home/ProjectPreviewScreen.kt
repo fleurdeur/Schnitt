@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -143,7 +146,8 @@ fun ProjectPreviewScreen(store: ProjectStore, engine: EngineThread, projectId: S
         }
     }
 
-    Column(Modifier.fillMaxSize().background(Am.HomeBg)) {
+    Box(Modifier.fillMaxSize().background(Am.HomeBg).systemBarsPadding(), contentAlignment = Alignment.TopCenter) {
+    Column(Modifier.fillMaxHeight().widthIn(max = 720.dp).fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(48.dp).clickable(onClick = onClose), contentAlignment = Alignment.Center) {
                 androidx.compose.material3.Icon(ChromeIcons.Back, stringResource(R.string.home_back), Modifier.size(24.dp), tint = Am.Navy)
@@ -240,6 +244,7 @@ fun ProjectPreviewScreen(store: ProjectStore, engine: EngineThread, projectId: S
                 }
             }
         }
+    }
     }
 }
 

@@ -49,7 +49,10 @@ object OnlineAudio {
             if (context == null || !VideoDownloader.installed(context)) return@withContext emptyList()
             return@withContext runCatching {
                 val info = VideoDownloader.check(context, url)
-                info.items.map { item -> OnlineSound(item.title, item.title, info.site, url, url, shelf, viaDownloader = true) }
+                info.items.map { item ->
+                    val page = item.url.ifBlank { url }
+                    OnlineSound(page, item.title, info.site, page, page, shelf, viaDownloader = true)
+                }
             }.getOrDefault(emptyList())
         }
         if (url.contains("mixkit.co", true)) {
@@ -61,7 +64,10 @@ object OnlineAudio {
             if (found.isEmpty() && context != null && VideoDownloader.available) {
                 found = runCatching {
                     val info = VideoDownloader.check(context, url)
-                    info.items.map { item -> OnlineSound(item.title, item.title, info.site, url, url, shelf, viaDownloader = true) }
+                    info.items.map { item ->
+                        val page = item.url.ifBlank { url }
+                        OnlineSound(page, item.title, info.site, page, page, shelf, viaDownloader = true)
+                    }
                 }.getOrDefault(emptyList())
             }
             found

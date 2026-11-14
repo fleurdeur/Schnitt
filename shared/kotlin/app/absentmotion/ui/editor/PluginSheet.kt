@@ -9,6 +9,7 @@ import android.webkit.WebViewClient
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -82,6 +83,7 @@ internal fun PluginSheet(state: EditorState, onClose: () -> Unit) {
     var plugins by remember { mutableStateOf(store.list()) }
     var selected by remember { mutableStateOf<Plugin?>(null) }
     var importing by remember { mutableStateOf(false) }
+    var minimized by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -95,8 +97,17 @@ internal fun PluginSheet(state: EditorState, onClose: () -> Unit) {
             if (result.plugin == null) notice = context.getString(R.string.plugins_import_failed)
         }
     }
+    if (minimized) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopEnd) {
+            Box(
+                Modifier.padding(16.dp).clip(RoundedCornerShape(18.dp)).background(Am.Panel).border(1.dp, Am.Line, RoundedCornerShape(18.dp))
+                    .clickable { minimized = false }.padding(horizontal = 14.dp, vertical = 8.dp),
+            ) { Text("Plugins", color = Am.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+        }
+        return
+    }
     Dialog(onClose, DialogProperties(usePlatformDefaultWidth = false)) {
-        FloatingCard("plugin-window") {
+        FloatingCard("plugin-window", onMinimize = { minimized = true }) {
         Column(Modifier.fillMaxSize().background(Am.Panel).systemBarsPadding().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(52.dp).clickable { if (selected != null) selected = null else onClose() }, Alignment.Center) {

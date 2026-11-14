@@ -101,7 +101,7 @@ internal fun FloatingCard(storageKey: String, onMinimize: (() -> Unit)? = null, 
                         Text("Drag", color = Am.OnDarkDim, fontSize = 10.sp)
                     }
                     Text("↺", Modifier.clickable { reset() }.pad(4.dp), color = Am.OnDarkDim, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Text("—", Modifier.clickable { minimized = true }.pad(4.dp), color = Am.OnDarkDim, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text("—", Modifier.clickable { if (onMinimize != null) onMinimize.invoke() else minimized = true }.pad(4.dp), color = Am.OnDarkDim, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
                 Box(Modifier.weight(1f).fillMaxWidth().clipToBounds()) { content() }
             }

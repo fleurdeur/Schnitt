@@ -33,7 +33,7 @@ data class RemoteFormat(
     val side get() = if (width > 0 && height > 0) minOf(width, height) else height
 }
 
-data class RemoteItem(val title: String, val durationSeconds: Double, val thumbnails: List<String>, val formats: List<RemoteFormat>, val pictures: List<List<String>>)
+data class RemoteItem(val title: String, val durationSeconds: Double, val thumbnails: List<String>, val formats: List<RemoteFormat>, val pictures: List<List<String>>, val url: String = "")
 
 data class LinkInfo(val title: String, val thumbnails: List<String>, val site: String, val items: List<RemoteItem>) {
     val pictures get() = items.isNotEmpty() && items.all { it.formats.isEmpty() && it.pictures.isNotEmpty() }
@@ -110,6 +110,7 @@ fun parseLinkInfo(text: String): LinkInfo {
             RemoteItem(
                 title = item.text("title").orEmpty(), durationSeconds = item.number("duration"), thumbnails = item.optJSONArray("thumbnails").texts(),
                 formats = (0 until formats.length()).map { parseFormat(formats.getJSONObject(it), it) },
+                url = item.text("url").orEmpty(),
                 pictures = (0 until pictures.length()).map { pictures.optJSONArray(it).texts() }.filter { it.isNotEmpty() },
             )
         },

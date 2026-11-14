@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -63,15 +64,33 @@ internal fun ImageLibrarySheet(state: EditorState, onClose: () -> Unit) {
     var images by remember { mutableStateOf<List<LibraryImage>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
+    var page by remember { mutableStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var moreLoading by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf<String?>(null) }
     var preview by remember { mutableStateOf<LibraryImage?>(null) }
     fun search() {
         if (query.isBlank()) return
-        loading = true; failed = false
+        loading = true; failed = false; page = 1
         scope.launch {
-            images = runCatching { WebImageLibrary.search(context, source, query) }.getOrDefault(emptyList())
-            failed = images.isEmpty()
+            val found = runCatching { WebImageLibrary.search(context, source, query, 1) }.getOrDefault(emptyList())
+            images = found
+            hasMore = found.isNotEmpty()
+            failed = found.isEmpty()
             loading = false
+        }
+    }
+    fun loadMore() {
+        if (moreLoading || loading || !hasMore || query.isBlank()) return
+        moreLoading = true
+        scope.launch {
+            val next = page + 1
+            val found = runCatching { WebImageLibrary.search(context, source, query, next) }.getOrDefault(emptyList())
+            val merged = (images + found).distinctBy { it.id }
+            hasMore = found.isNotEmpty() && merged.size > images.size
+            images = merged
+            page = next
+            moreLoading = false
         }
     }
     fun add(image: LibraryImage) {
@@ -92,7 +111,7 @@ internal fun ImageLibrarySheet(state: EditorState, onClose: () -> Unit) {
             Row(Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 8.dp)) {
                 listOf(ImageSource.Pinterest, ImageSource.Cosmos).forEach { item ->
                     val on = item == source
-                    Box(Modifier.weight(1f).fillMaxSize().clickable { source = item; images = emptyList(); failed = false }, Alignment.Center) {
+                    Box(Modifier.weight(1f).fillMaxSize().clickable { source = item; images = emptyList(); failed = false; hasMore = false; page = 1 }, Alignment.Center) {
                         Text(item.label, color = if (on) Am.Accent else Am.OnDarkDim, fontSize = 14.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
                         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.6f).height(2.dp).background(if (on) Am.Accent else androidx.compose.ui.graphics.Color.Transparent))
                     }
@@ -114,15 +133,33 @@ internal fun ImageLibrarySheet(state: EditorState, onClose: () -> Unit) {
                     items(images, key = { it.id }) { image ->
                         Box(Modifier.aspectRatio(1f).clip(RoundedCornerShape(5.dp)).background(Am.Well)
                             .combinedClickable(onClick = { preview = image }, onLongClick = { add(image) })) {
+                            var loadUrl by remember(image.id) { mutableStateOf(image.thumb) }
+                            var triedFull by remember(image.id) { mutableStateOf(false) }
                             AsyncImage(
-                                model = ImageRequest.Builder(context).data(image.thumb).crossfade(false).build(),
+                                model = ImageRequest.Builder(context).data(loadUrl).crossfade(false).build(),
                                 contentDescription = image.title,
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop,
+                                onError = {
+                                    if (!triedFull) {
+                                        triedFull = true
+                                        loadUrl = image.full
+                                    }
+                                },
                             )
                             if (adding == image.id) Box(Modifier.fillMaxSize().background(Am.Scrim.copy(alpha = 0.6f)), Alignment.Center) {
                                 Text("…", color = Am.Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                             }
+                        }
+                    }
+                    if (hasMore) item(key = "image-load-more", span = { GridItemSpan(maxLineSpan) }) {
+                        Box(
+                            Modifier.fillMaxWidth().padding(vertical = 10.dp).height(44.dp).clip(RoundedCornerShape(22.dp)).background(Am.Well)
+                                .clickable(enabled = !moreLoading) { loadMore() },
+                            Alignment.Center,
+                        ) {
+                            if (moreLoading) Text("…", color = Am.Accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            else Text("Load more", color = Am.OnDark, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -136,11 +173,19 @@ internal fun ImageLibrarySheet(state: EditorState, onClose: () -> Unit) {
                     Box(Modifier.size(52.dp).clickable { preview = null }, Alignment.Center) { Text("×", color = Am.OnDark, fontSize = 22.sp) }
                     Text(image.title, Modifier.weight(1f), color = Am.OnDark, fontSize = 15.sp, maxLines = 1)
                 }
+                var previewUrl by remember(image.id) { mutableStateOf(image.full) }
+                var previewFallback by remember(image.id) { mutableStateOf(false) }
                 AsyncImage(
-                    model = ImageRequest.Builder(context).data(image.full).crossfade(true).build(),
+                    model = ImageRequest.Builder(context).data(previewUrl).crossfade(true).build(),
                     contentDescription = image.title,
                     modifier = Modifier.weight(1f).fillMaxWidth().padding(8.dp),
                     contentScale = ContentScale.Fit,
+                    onError = {
+                        if (!previewFallback) {
+                            previewFallback = true
+                            previewUrl = image.thumb
+                        }
+                    },
                 )
                 Box(Modifier.fillMaxWidth().padding(12.dp).height(44.dp).clip(RoundedCornerShape(22.dp)).background(Am.Accent).clickable { add(image); preview = null }, Alignment.Center) {
                     Text(stringResource(R.string.image_library_add), color = Am.OnAccent, fontSize = 14.sp, fontWeight = FontWeight.Bold)

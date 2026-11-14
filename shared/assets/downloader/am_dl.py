@@ -172,6 +172,7 @@ def _describe(entry):
         title = caption
     return {
         'title': title,
+        'url': entry.get('webpage_url') or entry.get('original_url') or entry.get('url'),
         'duration': entry.get('duration'),
         'thumbnails': _previews(entry),
         'formats': rows,

@@ -20,7 +20,7 @@ import okhttp3.Request
 
 enum class ImageSource(val label: String) { Pinterest("Pinterest"), Cosmos("Cosmos") }
 
-data class LibraryImage(val id: String, val thumb: String, val full: String, val title: String, val source: ImageSource)
+data class LibraryImage(val id: String, val thumb: String, val full: String, val title: String, val source: ImageSource, val alternatives: List<String> = emptyList())
 
 /**
  * Small, cached reader for public Pinterest and Cosmos search pages. Requests
@@ -42,22 +42,24 @@ object WebImageLibrary {
             .build().also { client = it }
     }
 
-    suspend fun search(context: Context, source: ImageSource, query: String): List<LibraryImage> = withContext(Dispatchers.IO) {
+    suspend fun search(context: Context, source: ImageSource, query: String, page: Int = 1): List<LibraryImage> = withContext(Dispatchers.IO) {
         AndroidContextHolder.context = context.applicationContext
-        val key = "${source.name}:${query.trim().lowercase()}"
+        val key = "${source.name}:${query.trim().lowercase()}:$page"
         memory[key]?.takeIf { System.currentTimeMillis() - it.first < 10 * 60_000 }?.let { return@withContext it.second }
-        val page = gate.withLock {
+        val base = when (source) {
+            ImageSource.Pinterest -> "https://www.pinterest.com/search/pins/?q=" + enc(query)
+            ImageSource.Cosmos -> "https://www.cosmos.so/search?q=" + enc(query)
+        }
+        val url = if (page <= 1) base else base + (if ('?' in base) "&" else "?") + "page=" + page
+        val html = gate.withLock {
             val wait = 900L - (System.currentTimeMillis() - lastRequest)
             if (wait > 0) delay(wait)
             lastRequest = System.currentTimeMillis()
-            when (source) {
-                ImageSource.Pinterest -> fetch("https://www.pinterest.com/search/pins/?q=" + enc(query))
-                ImageSource.Cosmos -> fetch("https://www.cosmos.so/search?q=" + enc(query))
-            }
+            fetch(url)
         } ?: return@withContext emptyList()
         val found = when (source) {
-            ImageSource.Pinterest -> pinterest(page)
-            ImageSource.Cosmos -> cosmos(page)
+            ImageSource.Pinterest -> pinterest(html)
+            ImageSource.Cosmos -> cosmos(html)
         }
         if (found.isNotEmpty()) memory[key] = System.currentTimeMillis() to found
         found
@@ -69,41 +71,63 @@ object WebImageLibrary {
         val seen = LinkedHashMap<String, LibraryImage>()
         for (url in urls) {
             val path = url.substringAfter("i.pinimg.com/").substringAfter('/')
-            val full = "https://i.pinimg.com/originals/$path"
+            val full = "https://i.pinimg.com/736x/$path"
             val thumb = "https://i.pinimg.com/474x/$path"
-            if (seen.size >= 60) break
-            seen.putIfAbsent(path, LibraryImage(path, thumb, full, "Pinterest image", ImageSource.Pinterest))
+            if (seen.size >= 80) break
+            seen.putIfAbsent(path, LibraryImage(path, thumb, full, "Pinterest image", ImageSource.Pinterest,
+                listOf("https://i.pinimg.com/originals/$path", "https://i.pinimg.com/564x/$path")))
         }
         return seen.values.toList()
     }
 
     private fun cosmos(html: String): List<LibraryImage> {
-        val urls = Regex("https://cdn\\.cosmos\\.so/[A-Za-z0-9-]+\\.(?:jpg|jpeg|png|webp)")
-            .findAll(html).map { it.value }.toList()
+        val urls = Regex("""https://cdn\.cosmos\.so/[^"' )]+?\.(?:jpg|jpeg|png|webp)(?:\?[^"' )]*)?""")
+            .findAll(html.replace("""\/""", "/")).map { it.value }.toList()
         val seen = LinkedHashMap<String, LibraryImage>()
         for (url in urls) {
             val id = url.substringAfterLast('/')
-            if (seen.size >= 60) break
+            if (seen.size >= 80) break
             seen.putIfAbsent(id, LibraryImage(id, url, url, "Cosmos image", ImageSource.Cosmos))
         }
         return seen.values.toList()
     }
 
     suspend fun download(context: Context, image: LibraryImage): File? = withContext(Dispatchers.IO) {
-        val request = Request.Builder().url(image.full).header("User-Agent", UA).header("Referer", when (image.source) {
+        val referer = when (image.source) {
             ImageSource.Pinterest -> "https://www.pinterest.com/"
             ImageSource.Cosmos -> "https://www.cosmos.so/"
-        }).build()
-        val body = gate.withLock {
-            try { client(context).newCall(request).execute().use { r -> if (r.isSuccessful) r.body?.bytes() else null } }
-            catch (_: Exception) { null }
-        } ?: return@withContext null
-        if (body.size > 48 shl 20) return@withContext null
+        }
+        var saved: ByteArray? = null
+        var used = image.full
+        for (url in (listOf(image.full, image.thumb) + image.alternatives).distinct()) {
+            val request = Request.Builder().url(url).header("User-Agent", UA).header("Referer", referer).build()
+            val body = gate.withLock {
+                try { client(context).newCall(request).execute().use { r -> if (r.isSuccessful) r.body?.bytes() else null } }
+                catch (_: Exception) { null }
+            } ?: continue
+            if (body.size in 1..(48 shl 20) && pictureType(body) != null) {
+                saved = body
+                used = url
+                break
+            }
+        }
+        val body = saved ?: return@withContext null
         val folder = File(context.filesDir, "image-library").apply { mkdirs() }
-        val ext = image.full.substringBefore('?').substringAfterLast('.', "jpg").lowercase().takeIf { it in setOf("jpg", "jpeg", "png", "webp") } ?: "jpg"
-        val file = File(folder, digest(image.full).take(16) + ".$ext")
+        val ext = pictureType(body) ?: "jpg"
+        val file = File(folder, digest(used).take(16) + ".$ext")
         file.writeBytes(body)
         file
+    }
+
+    private fun pictureType(bytes: ByteArray): String? {
+        fun at(i: Int) = bytes.getOrNull(i)?.toInt()?.and(0xFF) ?: -1
+        return when {
+            at(0) == 0xFF && at(1) == 0xD8 -> "jpg"
+            at(0) == 0x89 && at(1) == 0x50 -> "png"
+            at(0) == 0x47 && at(1) == 0x49 -> "gif"
+            at(0) == 0x52 && at(1) == 0x49 && at(8) == 0x57 -> "webp"
+            else -> null
+        }
     }
 
     private fun fetch(url: String, attempt: Int = 0): String? {

@@ -28,6 +28,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -73,17 +74,35 @@ internal fun TikTokScreen(onClose: () -> Unit, onImportXml: (Uri) -> Unit) {
     var query by remember { mutableStateOf("") }
     var items by remember { mutableStateOf<List<TikTokItem>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
+    var moreLoading by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
+    var page by remember { mutableIntStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
     var open by remember { mutableStateOf<TikTokItem?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
 
     fun search() {
         if (query.isBlank()) return
-        loading = true; failed = false; notice = null
+        loading = true; failed = false; notice = null; page = 1
         scope.launch {
-            items = runCatching { TikTokWeb.search(query) }.getOrDefault(emptyList())
-            failed = items.isEmpty()
+            val found = runCatching { TikTokWeb.search(query, 1) }.getOrDefault(emptyList())
+            items = found
+            hasMore = found.isNotEmpty()
+            failed = found.isEmpty()
             loading = false
+        }
+    }
+    fun loadMore() {
+        if (moreLoading || loading || !hasMore) return
+        moreLoading = true
+        scope.launch {
+            val next = page + 1
+            val found = runCatching { TikTokWeb.search(query, next) }.getOrDefault(emptyList())
+            val merged = (items + found).distinctBy { it.id }
+            hasMore = found.isNotEmpty() && merged.size > items.size
+            items = merged
+            page = next
+            moreLoading = false
         }
     }
     fun importXml(item: TikTokItem) {
@@ -149,6 +168,15 @@ internal fun TikTokScreen(onClose: () -> Unit, onImportXml: (Uri) -> Unit) {
                             }
                             Text("XML", Modifier.padding(horizontal = 6.dp).clickable { importXml(item) }, color = Am.HomeAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             Text("♪", Modifier.padding(horizontal = 6.dp).clickable { importAudio(item) }, color = Am.HomeAccent, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    if (hasMore) item(key = "tiktok-load-more") {
+                        Box(
+                            Modifier.fillMaxWidth().padding(vertical = 10.dp).height(44.dp).clip(RoundedCornerShape(22.dp)).background(Am.Card)
+                                .clickable(enabled = !moreLoading) { loadMore() },
+                            Alignment.Center,
+                        ) {
+                            Text(if (moreLoading) "Loading…" else "Load more", color = Am.HomeAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -248,10 +276,11 @@ private object TikTokWeb {
     private var lastRequest = 0L
     private val cache = HashMap<String, Pair<Long, List<TikTokItem>>>()
 
-    suspend fun search(query: String): List<TikTokItem> = withContext(Dispatchers.IO) {
+    suspend fun search(query: String, page: Int = 1): List<TikTokItem> = withContext(Dispatchers.IO) {
         val key = query.trim()
         if (key.isEmpty()) return@withContext emptyList()
-        cache[key]?.takeIf { System.currentTimeMillis() - it.first < 10 * 60_000 }?.let { return@withContext it.second }
+        val cacheKey = "$key#$page"
+        cache[cacheKey]?.takeIf { System.currentTimeMillis() - it.first < 10 * 60_000 }?.let { return@withContext it.second }
         val links = LinkedHashSet<String>()
         fun collect(html: String?) {
             if (html == null) return
@@ -263,12 +292,14 @@ private object TikTokWeb {
             Regex("""/@[A-Za-z0-9._-]+/video/\d+""").findAll(decoded).forEach { links += "https://www.tiktok.com" + it.value }
         }
         val quoted = URLEncoder.encode("site:tiktok.com $key", "UTF-8")
-        for (offset in listOf(0, 30, 60, 90)) collect(fetch("https://html.duckduckgo.com/html/?q=$quoted&s=$offset"))
+        val start = (page - 1) * 120
+        for (offset in listOf(start, start + 30, start + 60, start + 90)) collect(fetch("https://html.duckduckgo.com/html/?q=$quoted&s=$offset"))
         val bing = URLEncoder.encode("site:tiktok.com $key", "UTF-8")
-        for (first in listOf(1, 11, 21, 31)) collect(fetch("https://www.bing.com/search?q=$bing&first=$first"))
-        collect(fetch("https://www.tiktok.com/search?q=" + URLEncoder.encode(key, "UTF-8")))
+        val firstBase = (page - 1) * 40
+        for (first in listOf(firstBase + 1, firstBase + 11, firstBase + 21, firstBase + 31)) collect(fetch("https://www.bing.com/search?q=$bing&first=$first"))
+        collect(fetch("https://www.tiktok.com/search?q=" + URLEncoder.encode(key, "UTF-8") + "&offset=" + ((page - 1) * 30)))
         val result = links.take(80).mapIndexedNotNull { index, link -> item(link, metadata = index < 24) }
-        if (result.isNotEmpty()) cache[key] = System.currentTimeMillis() to result
+        if (result.isNotEmpty()) cache[cacheKey] = System.currentTimeMillis() to result
         result
     }
 
@@ -302,19 +333,93 @@ private object TikTokWeb {
         val oembed = fetch("https://www.tiktok.com/oembed?url=" + URLEncoder.encode(url, "UTF-8"))
         val page = fetch(url)
         val text = unescape(listOfNotNull(oembed, page).joinToString(" "))
-        Regex("""<scene[\s\S]*?</scene>""").find(text)?.value
-            ?: Regex("""<project[\s\S]*?</project>""").find(text)?.value
-            ?: Regex(""""(?:scene|project)"\s*:\s*"(<[a-zA-Z][\s\S]*?</(?:scene|project)>)""").find(text)?.groupValues?.get(1)?.let(::unescape)
+        xmlIn(text)?.let { return@withContext it }
+        val candidates = Regex("""https?://[^\s"'<>]+""").findAll(text).map { it.value.trimEnd('.', ',', ')', ']', '}') }
+            .filter { candidate ->
+                candidate.contains("drive.google.com", true) || candidate.contains("drive.usercontent.google.com", true) ||
+                    candidate.contains("dropbox.com", true) || candidate.contains(".xml", true) || candidate.contains("/file/d/", true)
+            }.distinct().take(8).toList()
+        for (candidate in candidates) {
+            val direct = driveDirect(candidate) ?: candidate.replace("?dl=0", "?dl=1")
+            val bytes = fetchBytes(direct) ?: continue
+            xmlIn(bytes.toString(Charsets.UTF_8))?.let { return@withContext it }
+            xmlIn(zipText(bytes))?.let { return@withContext it }
+        }
+        null
+    }
+
+    private fun xmlIn(text: String): String? {
+        val clean = unescape(text)
+        return Regex("""<scene[\s\S]*?</scene>""").find(clean)?.value
+            ?: Regex("""<project[\s\S]*?</project>""").find(clean)?.value
+            ?: Regex("""(?:scene|project)"\s*:\s*"(<[a-zA-Z][\s\S]*?</(?:scene|project)>)""").find(clean)?.groupValues?.get(1)?.let(::unescape)
+    }
+
+    private fun driveDirect(url: String): String? {
+        val id = Regex("""/file/d/([A-Za-z0-9_-]+)""").find(url)?.groupValues?.get(1)
+            ?: Regex("""[?&]id=([A-Za-z0-9_-]+)""").find(url)?.groupValues?.get(1)
+            ?: return null
+        return "https://drive.usercontent.google.com/download?id=$id&export=download&confirm=t"
+    }
+
+    private fun zipText(bytes: ByteArray): String {
+        if (bytes.size < 4 || bytes[0] != 'P'.code.toByte() || bytes[1] != 'K'.code.toByte()) return ""
+        return runCatching {
+            java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(bytes)).use { zip ->
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+                    if (entry.isDirectory || !entry.name.endsWith(".xml", true)) continue
+                    val data = zip.readNBytes(16 shl 20)
+                    val text = data.toString(Charsets.UTF_8)
+                    if (text.contains("<scene", true) || text.contains("<project", true)) return@use text
+                }
+                ""
+            }
+        }.getOrDefault("")
+    }
+
+    private fun fetchBytes(url: String): ByteArray? {
+        val c = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 20_000
+            readTimeout = 30_000
+            setRequestProperty("User-Agent", UA)
+            setRequestProperty("Accept", "application/xml,application/zip,text/xml,application/octet-stream,*/*")
+            instanceFollowRedirects = true
+        }
+        return try {
+            if (c.responseCode !in 200..299) null else c.inputStream.use { input ->
+                val out = java.io.ByteArrayOutputStream()
+                val buffer = ByteArray(64 * 1024)
+                var total = 0
+                while (total < (16 shl 20)) {
+                    val read = input.read(buffer)
+                    if (read <= 0) break
+                    total += read
+                    out.write(buffer, 0, read)
+                }
+                out.toByteArray()
+            }
+        } catch (_: Exception) {
+            null
+        } finally {
+            c.disconnect()
+        }
     }
 
     private fun unescape(value: String): String = value
-        .replace("\\u002F", "/").replace("\\u002f", "/")
-        .replace("\\/", "/").replace("\\u003C", "<").replace("\\u003c", "<")
-        .replace("\\u003E", ">").replace("\\u003e", ">")
-        .replace("\\u0026", "&").replace("\\u0022", "\"")
-        .replace("\\u0027", "'").replace("\\n", "\n")
-        .replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"")
-        .replace("&amp;", "&")
+        .replace("\\u002F", "/")
+        .replace("\\u002f", "/")
+        .replace("\\/", "/")
+        .replace("\\u003C", "<")
+        .replace("\\u003c", "<")
+        .replace("\\u003E", ">")
+        .replace("\\u003e", ">")
+        .replace("\\u0026", "&")
+        .replace("\\u0022", "\"")
+        .replace("\\u0027", "'")
+        .replace("\\n", "\n")
+        .replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&amp;", "&")
+
     private fun fetch(url: String): String? {
         val c = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 20_000

@@ -37,7 +37,7 @@ object AexImporter {
         append(context, JSONObject()
             .put("id", id).put("name", info.name).put("vendor", info.vendor).put("version", info.version)
             .put("category", info.category).put("url", info.url).put("note", info.note).put("file", target.path))
-        custom(id, info, bytes.toString(Charsets.ISO_8859_1).take(2 shl 20))
+        custom(id, info, bytes.toString(Charsets.ISO_8859_1).take(16 shl 20))
     }
 
     /** Reads the PiPL resource from a PE32/PE32+ file.  Falls back to strings. */
@@ -62,19 +62,39 @@ object AexImporter {
         return Info(name.trim(), vendor.trim(), version, category, url.trim(), if (text.isBlank()) "Name and strings only; no PiPL resource" else "PiPL resource read from AEX")
     }
 
-    fun custom(id: String, info: Info, text: String): EffectDefinition = PluginShader.fromContent(
-        id = "aex.$id",
-        key = "aex-$id",
-        name = info.name,
-        text = text,
-        summary = "Imported AEX ${info.version} · ${info.vendor.ifBlank { "unknown vendor" }} · ${info.note}",
-    ).copy(
-        category = "custom",
-        description = "Android effect generated from AEX ${info.version} by ${info.vendor.ifBlank { "unknown vendor" }}. " +
-            "The native plug-in binary is converted into its own SKSL shader and editable properties instead of using a built-in effect.",
-        since = null,
-        shortcuts = emptyList(),
-    )
+    fun custom(id: String, info: Info, text: String): EffectDefinition {
+        if (AexShaderPort.isTracery(info.name, text)) {
+            return AexShaderPort.tracery("aex.$id", "aex-$id", info.name, text).copy(
+                category = "custom",
+                description = "Tracery AEX port: keys the chosen colour, detects markers, and draws live boxes, labels, centre markers, connections and arrows. " +
+                    "The original host-side bounding-box table is rebuilt inside the Android shader.",
+                since = null,
+                shortcuts = emptyList(),
+            )
+        }
+        if (AexExtraPort.isDeepGlow(info.name, text)) {
+            return AexExtraPort.deepGlow("aex.$id", "aex-$id", info.name, text).copy(category = "custom", since = null, shortcuts = emptyList())
+        }
+        if (AexExtraPort.isAutoSway(info.name, text)) {
+            return AexExtraPort.autoSway("aex.$id", "aex-$id", info.name, text).copy(category = "custom", since = null, shortcuts = emptyList())
+        }
+        if (AexExtraPort.isFlex(info.name, text)) {
+            return AexExtraPort.flex("aex.$id", "aex-$id", info.name, text).copy(category = "custom", since = null, shortcuts = emptyList())
+        }
+        return PluginShader.fromContent(
+            id = "aex.$id",
+            key = "aex-$id",
+            name = info.name,
+            text = text,
+            summary = "Imported AEX ${info.version} · ${info.vendor.ifBlank { "unknown vendor" }} · ${info.note}",
+        ).copy(
+            category = "custom",
+            description = "Android effect generated from AEX ${info.version} by ${info.vendor.ifBlank { "unknown vendor" }}. " +
+                "The native plug-in binary is converted into its own SKSL shader and editable properties instead of using a built-in effect.",
+            since = null,
+            shortcuts = emptyList(),
+        )
+    }
 
     fun append(context: Context, entry: JSONObject) {
         val file = File(context.filesDir, STORE)
@@ -94,7 +114,7 @@ object AexImporter {
             val info = Info(entry.optString("name", "Imported AEX"), entry.optString("vendor"), entry.optString("version"),
                 entry.optString("category"), entry.optString("url"), entry.optString("note"))
             val text = entry.optString("file").takeIf { it.isNotBlank() }?.let { path ->
-                runCatching { File(path).inputStream().use { it.readAtMost(2 shl 20) }.toString(Charsets.ISO_8859_1) }.getOrNull()
+                runCatching { File(path).inputStream().use { it.readAtMost(16 shl 20) }.toString(Charsets.ISO_8859_1) }.getOrNull()
             }.orEmpty()
             custom(id, info, text)
         }.distinctBy { it.id }

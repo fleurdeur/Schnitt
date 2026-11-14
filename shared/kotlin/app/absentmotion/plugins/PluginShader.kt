@@ -1,5 +1,7 @@
 package app.absentmotion.plugins
 
+import app.absentmotion.effects.AexExtraPort
+import app.absentmotion.effects.AexShaderPort
 import app.absentmotion.effects.EffectCatalog
 import app.absentmotion.effects.EffectDefinition
 import app.absentmotion.effects.EffectParam
@@ -28,6 +30,13 @@ object PluginShader {
         val stamp = stamp(plugin)
         cache[plugin.id]?.takeIf { it.stamp == stamp }?.let { return it.definition }
         val text = sourceText(plugin)
+        val effectId = effectId(plugin)
+        val effectKey = key(plugin)
+        val displayName = plugin.name.ifBlank { "Plugin effect" }
+        if (AexShaderPort.isTracery(displayName, text)) return AexShaderPort.tracery(effectId, effectKey, displayName, text).also { cache[plugin.id] = Cached(stamp, it) }
+        if (AexExtraPort.isDeepGlow(displayName, text)) return AexExtraPort.deepGlow(effectId, effectKey, displayName, text).also { cache[plugin.id] = Cached(stamp, it) }
+        if (AexExtraPort.isAutoSway(displayName, text)) return AexExtraPort.autoSway(effectId, effectKey, displayName, text).also { cache[plugin.id] = Cached(stamp, it) }
+        if (AexExtraPort.isFlex(displayName, text)) return AexExtraPort.flex(effectId, effectKey, displayName, text).also { cache[plugin.id] = Cached(stamp, it) }
         val uniforms = uniforms(text)
         val found = embedded(text, if (uniforms.isEmpty()) generatedParams() else uniforms)
         val params = if (found != null) (if (uniforms.isEmpty()) generatedParams() else uniforms) else generatedParams()
@@ -149,9 +158,30 @@ object PluginShader {
             Regex("""(?:fragmentShader|shaderSource|glsl|sksl)\s*=\s*`([^`]+)`""", RegexOption.DOT_MATCHES_ALL).find(text)?.groupValues?.get(1),
         ).firstOrNull { it != null }
         val source = direct?.let(::unescape)?.takeIf { it.contains("main") }
+            ?: rawFragment(text)
             ?: text.takeIf { it.contains("gl_FragColor") || it.contains("half4 main") || it.contains("void mainImage") }
         if (source == null) return null
         return translate(source, params)
+    }
+
+    private fun rawFragment(text: String): String? {
+        for (match in Regex("""void\s+main\s*\(\s*(?:void)?\s*\)\s*\{""").findAll(text)) {
+            val tail = text.substring((match.range.last + 1).coerceAtMost(text.length))
+            if (!tail.contains("colourOut") && !tail.contains("gl_FragColor") && !tail.contains("fragColor")) continue
+            var depth = 1
+            var at = match.range.last + 1
+            while (at < text.length && depth > 0) {
+                when (text[at]) {
+                    '{' -> depth++
+                    '}' -> depth--
+                }
+                at++
+            }
+            if (depth != 0) continue
+            val start = text.lastIndexOf("#version", match.range.first).takeIf { it >= 0 && match.range.first - it < 3000 } ?: match.range.first
+            return text.substring(start, at)
+        }
+        return null
     }
 
     private fun translate(source: String, params: List<EffectParam>): String? {
@@ -178,8 +208,9 @@ object PluginShader {
             val coord = match.groupValues[2]
             if (name in samplers || name == "image") "$name.eval(($coord) * size)" else "image.eval(($coord) * size)"
         }
+        s = Regex("""texture\s*\(\s*\w+\s*,\s*([^)]*)\)""").replace(s) { "image.eval((${it.groupValues[1]}) * size)" }
         s = s.replace(Regex("""void\s+main\s*\(\s*(?:void)?\s*\)"""), "half4 main(float2 coord)")
-        s = s.replace(Regex("""gl_FragColor\s*=\s*([^;]+);"""), "return $1;")
+        s = s.replace(Regex("""fragColor\s*=\s*([^;]+);"""), "return $1;")
         if (!s.contains("half4 main") || !s.contains("return")) return null
         val header = buildString {
             if (!Regex("""uniform\s+shader\s+image""").containsMatchIn(s)) appendLine("uniform shader image;")

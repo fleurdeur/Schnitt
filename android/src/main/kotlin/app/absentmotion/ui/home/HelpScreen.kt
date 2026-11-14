@@ -13,11 +13,13 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
@@ -68,6 +70,15 @@ fun HelpScreen(page: String = "index.html", onClose: () -> Unit) {
     val client = remember { HelpClient(tag, context.applicationContext) { url -> runCatching { links.openUri(url) } } }
     var web by remember { mutableStateOf<WebView?>(null) }
     val dark = Am.Card.luminance() < 0.5f
+    val themeCss = buildString {
+        append(":root{")
+        fun color(name: String, value: Color) { append("--$name:#${"%06X".format(value.toArgb() and 0xFFFFFF)};") }
+        color("bg", Am.HomeBg); color("panel", Am.Card); color("ink", Am.Navy); color("mid", Am.HomeMid)
+        color("line", Am.HomeLine); color("link", Am.HomeAccent); color("btn", Am.Accent); color("btn-ink", Am.OnAccent)
+        color("soft", Am.Well); color("code", Am.Well)
+        append("}")
+    }
+    SideEffect { client.themeCss = themeCss }
     DisposableEffect(Unit) { onDispose { web?.destroy() } }
     LaunchedEffect(tag, web) {
         val view = web ?: return@LaunchedEffect
@@ -80,7 +91,7 @@ fun HelpScreen(page: String = "index.html", onClose: () -> Unit) {
         PhoneScreen(fillWidth = 1000.dp) {
             DialogStatusBarIcons(darkIcons = !dark)
             Column(Modifier.fillMaxSize().background(Am.SheetBg)) {
-                TitleBar("Schnitt", HomeIcons.Close, stringResource(R.string.action_close), onClose)
+                TitleBar("Schnitt Guide", HomeIcons.Close, stringResource(R.string.action_close), onClose)
                 AndroidView(
                     factory = { base ->
                         val night = if (dark) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO
@@ -109,6 +120,7 @@ fun HelpScreen(page: String = "index.html", onClose: () -> Unit) {
 
 private class HelpClient(var tag: String, private val context: android.content.Context, private val openExternal: (String) -> Unit) : WebViewClient() {
     var clearHistory = false
+    var themeCss = ""
 
     override fun onRenderProcessGone(view: android.webkit.WebView, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
         runCatching { view.destroy() }
@@ -130,6 +142,16 @@ private class HelpClient(var tag: String, private val context: android.content.C
 
     override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
         val url = request.url.toString()
+        if (url.startsWith(HELP_ROOT) && !url.contains("..") && url.substringBefore('?').endsWith("/assets/site.css")) {
+            val relative = url.removePrefix(HELP_ROOT).substringBefore('?').substringBefore('#')
+            val path = "help/$relative"
+            val stream = relative.split('/').getOrNull(1)?.takeIf { it in HELP_LANGUAGES }?.let { app.absentmotion.i18n.LanguagePacks.file(context, it, path)?.inputStream() }
+                ?: runCatching { context.assets.open(path) }.getOrNull()
+            if (stream != null) {
+                val css = stream.bufferedReader().use { it.readText() } + "\n" + themeCss
+                return WebResourceResponse("text/css", "utf-8", ByteArrayInputStream(css.toByteArray()))
+            }
+        }
         if (helpAllowed(url)) {
             val path = "help/" + url.removePrefix(HELP_ROOT).substringBefore('#').substringBefore('?')
             val unpacked = path.split('/').getOrNull(1)?.takeIf { it in HELP_LANGUAGES }?.let { app.absentmotion.i18n.LanguagePacks.file(context, it, path) }

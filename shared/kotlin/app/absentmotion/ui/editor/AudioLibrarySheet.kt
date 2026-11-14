@@ -111,8 +111,15 @@ internal fun AudioLibrarySheet(state: EditorState, onClose: () -> Unit) {
             moreLoading = false
         }
     }
-    val shown = remember(items, query) {
-        items.filter { matchesSearch(query, it.title, it.artist, it.license) }
+    val shown = remember(items, query, shelf) {
+        if (shelf == AudioShelf.YtDlp) items else items.filter { matchesSearch(query, it.title, it.artist, it.license) }
+    }
+    fun loadYtdlp() {
+        val text = search.trim()
+        if (text.isBlank()) return
+        val target = if (text.startsWith("http://") || text.startsWith("https://")) text else "ytsearch12:$text"
+        loadedSite = target
+        reload++
     }
     fun add(sound: OnlineSound) {
         if (adding != null) return
@@ -149,9 +156,9 @@ internal fun AudioLibrarySheet(state: EditorState, onClose: () -> Unit) {
                 ShelfTab(stringResource(R.string.audio_library_sfx), shelf == AudioShelf.Sfx, Modifier.weight(1f)) { shelf = AudioShelf.Sfx; search = "" }
                 ShelfTab(stringResource(R.string.audio_library_music), shelf == AudioShelf.Music, Modifier.weight(1f)) { shelf = AudioShelf.Music; search = "" }
                 ShelfTab(stringResource(R.string.audio_library_custom), shelf == AudioShelf.Custom, Modifier.weight(1f)) { shelf = AudioShelf.Custom; search = "" }
-                ShelfTab("yt-dlp", shelf == AudioShelf.YtDlp, Modifier.weight(1f)) { shelf = AudioShelf.YtDlp; search = "" }
+                ShelfTab("yt-dlp", shelf == AudioShelf.YtDlp, Modifier.weight(1f)) { shelf = AudioShelf.YtDlp; search = ""; loadedSite = "" }
             }
-            if (shelf == AudioShelf.Custom || shelf == AudioShelf.YtDlp) {
+            if (shelf == AudioShelf.Custom) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp)) {
                     Text(stringResource(R.string.audio_library_custom_hint), color = Am.OnDarkDim, fontSize = 12.sp, lineHeight = 17.sp)
                     Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -196,8 +203,19 @@ internal fun AudioLibrarySheet(state: EditorState, onClose: () -> Unit) {
                     }, Alignment.Center) { Text(if (installing) "Installing…" else "Download yt-dlp", color = Am.OnAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
                 }
             }
-            if (shelf != AudioShelf.Custom && shelf != AudioShelf.YtDlp || loadedSite.isNotBlank()) {
-                SearchField(search, { search = it }, Modifier.padding(horizontal = 10.dp, vertical = 6.dp).fillMaxWidth().height(38.dp), hint = stringResource(R.string.audio_library_search, ""))
+            Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                SearchField(
+                    search, { search = it }, Modifier.weight(1f).height(38.dp),
+                    hint = if (shelf == AudioShelf.YtDlp) "Search YouTube or paste a link" else stringResource(R.string.audio_library_search, ""),
+                )
+                if (shelf == AudioShelf.YtDlp) {
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        Modifier.height(38.dp).clip(RoundedCornerShape(19.dp)).background(Am.Accent)
+                            .clickable(enabled = search.isNotBlank() && ytdlpReady) { loadYtdlp() }.padding(horizontal = 14.dp),
+                        Alignment.Center,
+                    ) { Text("Search", color = Am.OnAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                }
             }
             when {
                 loading && items.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {

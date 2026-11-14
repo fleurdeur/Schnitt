@@ -145,7 +145,7 @@ private fun EditorBody(state: EditorState, onExit: () -> Unit) {
         SlideOver(state.effectBrowserOpen) { PhoneScreen(fillWidth = if (wide && LocalConfiguration.current.screenWidthDp >= 900) Dp.Infinity else 720.dp) { app.absentmotion.ui.editor.effects.EffectBrowser(state) } }
         SlideOver(state.presetsOpen) { PhoneScreen { PresetScreen(state) } }
         SlideOver(state.toolOpen != 0) { PhoneScreen(fillWidth = 720.dp) { EditorTools(state, LocalEditorScope.current) } }
-        SlideOver(state.pluginOpen) { PluginSheet(state) { state.pluginOpen = false } }
+        SlideOver(state.pluginOpen, blockTouches = false) { PluginSheet(state) { state.pluginOpen = false } }
         if (state.beatSheetOpen) BeatSheet(state) { state.beatSheetOpen = false }
     }
 }
@@ -178,13 +178,13 @@ internal fun EditorTools(state: EditorState, scope: kotlinx.coroutines.Coroutine
 
 
 @Composable
-private fun SlideOver(open: Boolean, content: @Composable () -> Unit) {
+private fun SlideOver(open: Boolean, blockTouches: Boolean = true, content: @Composable () -> Unit) {
     androidx.compose.animation.AnimatedVisibility(
         open,
         enter = androidx.compose.animation.slideInHorizontally(tween(320, easing = Motion.EaseOut)) { it },
         exit = androidx.compose.animation.slideOutHorizontally(tween(260, easing = Motion.EaseIn)) { it },
     ) {
-        Box(Modifier.fillMaxSize().pointerInput(Unit) {}) { content() }
+        Box(Modifier.fillMaxSize().then(if (blockTouches) Modifier.pointerInput(Unit) {} else Modifier)) { content() }
     }
 }
 
