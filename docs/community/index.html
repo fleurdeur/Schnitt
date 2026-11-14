@@ -30,20 +30,29 @@ h1{font-size:clamp(30px,6vw,46px);line-height:1.08;margin:0 0 10px}h2{font-size:
 <h1>Upload once.<br>Use it in the app.</h1>
 <p class="lead">Choose a file, upload it to the community folder and track whether it is approved. Approved files are picked up by the Schnitt app automatically.</p>
 <div class="row">
-  <a class="btn" href="https://github.com/fleurdeur/Schnitt/upload/main/docs/community/data/presets">Upload a preset</a>
-  <a class="btn" href="https://github.com/fleurdeur/Schnitt/upload/main/docs/community/data/xml">Upload XML</a>
-  <a class="btn alt" href="https://github.com/fleurdeur/Schnitt/issues/new?labels=community-submission&title=Community%20submission">Need help?</a>
+  <a class="btn" id="uploadPreset" href="https://github.com/fleurdeur/Schnitt/issues/new?template=community_submission.yml&labels=community-submission&title=Community%20submission%3A%20Preset">Upload a preset</a>
+  <a class="btn" id="uploadXml" href="https://github.com/fleurdeur/Schnitt/issues/new?template=community_submission.yml&labels=community-submission&title=Community%20submission%3A%20XML">Upload XML</a>
+  <a class="btn alt" href="#uploadHelp">How upload works</a>
 </div>
 
 <div class="card">
 <h2>How it works</h2>
 <ol>
-<li><strong>Upload</strong> your preset or XML. GitHub opens its upload page; sign in if asked.</li>
+<li><strong>Upload</strong> your preset or XML through the GitHub issue form. You only need a GitHub account, not write access to the repository.</li>
+<li><strong>Attach the file</strong> by dragging it into the issue's File field. The form accepts XML, .absproj and ZIP packages.</li>
 <li>The file is reviewed by <a href="https://github.com/fleurdeur">wall (@fleurdeur)</a>. The status below changes from <strong>Pending</strong> to <strong>Approved</strong>.</li>
 <li>The app reads only approved entries, so the Presets screen stays clean.</li>
 <li>The app shows one Community section with <strong>Presets</strong> and <strong>XML</strong> subcategories.</li>
 </ol>
-<p class="muted">Only upload files you made or have permission to share. No personal data. Do not upload paid or copied presets.</p>
+<p class="muted" id="uploadHelp">GitHub Pages is static and cannot safely write files into the repository for anonymous visitors. The issue attachment is the direct upload step: it needs no repository write permission, and only approved submissions are copied into <strong>docs/community/data/presets</strong> or <strong>docs/community/data/xml</strong>. Only upload files you made or have permission to share. No personal data. Do not upload paid or copied presets.</p>
+</div>
+
+<div class="card">
+<h2>Direct upload</h2>
+<p class="muted">Choose a file here to check its type and size, then continue to the GitHub attachment form. The file is not stored on this page.</p>
+<input id="filePick" type="file" accept=".xml,.absproj,.zip,.json" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--ink)">
+<p id="fileInfo" class="muted" aria-live="polite"></p>
+<a class="btn" id="fileGo" href="https://github.com/fleurdeur/Schnitt/issues/new?template=community_submission.yml&labels=community-submission&title=Community%20submission%3A%20File">Continue with this file</a>
 </div>
 
 <h2>Community files</h2>
@@ -56,6 +65,19 @@ h1{font-size:clamp(30px,6vw,46px);line-height:1.08;margin:0 0 10px}h2{font-size:
 <script>
 let entries = [];
 let type = "preset";
+const pick = document.getElementById("filePick");
+const info = document.getElementById("fileInfo");
+const go = document.getElementById("fileGo");
+pick.onchange = () => {
+  const f = pick.files && pick.files[0];
+  if (!f) { info.textContent = ""; return; }
+  const ok = /\.(xml|absproj|zip|json)$/i.test(f.name);
+  const sizeOk = f.size <= 8 * 1024 * 1024;
+  info.textContent = (ok && sizeOk ? "Ready: " : "Not accepted: ") + f.name + " · " + Math.ceil(f.size / 1024) + " KB" +
+    (ok && sizeOk ? " — continue and drag it into the File field." : " — use XML, .absproj, ZIP or JSON under 8 MB.");
+  go.href = "https://github.com/fleurdeur/Schnitt/issues/new?template=community_submission.yml&labels=community-submission&title=" +
+    encodeURIComponent("Community submission: " + f.name.replace(/\.[^.]+$/, ""));
+};
 const list = document.getElementById("list");
 const presetTab = document.getElementById("presetTab");
 const xmlTab = document.getElementById("xmlTab");

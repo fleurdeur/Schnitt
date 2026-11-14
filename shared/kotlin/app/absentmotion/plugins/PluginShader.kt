@@ -105,7 +105,7 @@ object PluginShader {
         val folder = File(plugin.folder)
         val files = folder.walkTopDown()
             .filter { it.isFile && it.length() in 1..(2L shl 20) }
-            .sortedWith(compareByDescending<File> { it.extension.lowercase() in setOf("frag", "glsl", "sksl", "shader") }.thenBy { it.name })
+            .sortedWith(compareByDescending<File> { it.extension.lowercase() in setOf("frag", "glsl", "sksl", "shader", "hlsl", "wgsl", "isf", "fs") }.thenBy { it.name })
             .take(24)
         val out = StringBuilder()
         for (file in files) {
@@ -171,9 +171,9 @@ object PluginShader {
         ).firstOrNull { it != null }
         val source = direct?.let(::unescape)?.takeIf { it.contains("main") }
             ?: rawFragment(text)
-            ?: text.takeIf { it.contains("gl_FragColor") || it.contains("half4 main") || it.contains("void mainImage") }
+            ?: text.takeIf { it.contains("gl_FragColor") || it.contains("half4 main") || it.contains("void mainImage") || it.contains("@fragment") || it.contains("SV_Target") }
         if (source == null) return null
-        return translate(source, params)
+        return ShaderTranspiler.translate(source, params) ?: translate(source, params)
     }
 
     private fun rawFragment(text: String): String? {

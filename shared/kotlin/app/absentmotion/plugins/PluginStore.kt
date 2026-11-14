@@ -7,6 +7,7 @@ import java.io.File
 import java.io.InputStream
 import java.security.MessageDigest
 import java.util.zip.ZipInputStream
+import org.apache.commons.compress.PasswordRequiredException
 import org.apache.commons.compress.archivers.sevenz.SevenZFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -36,7 +37,7 @@ data class Plugin(
     val entryFile: File get() = File(folder, entry.orEmpty())
 }
 
-data class PluginImport(val plugin: Plugin?, val error: String? = null)
+data class PluginImport(val plugin: Plugin?, val error: String? = null, val needsPassword: Boolean = false)
 
 class PluginStore(private val context: Context) {
     private val root: File get() = File(context.filesDir, "plugins").also { it.mkdirs() }
@@ -62,17 +63,30 @@ class PluginStore(private val context: Context) {
         if (folder.parentFile?.canonicalFile == root.canonicalFile) folder.deleteRecursively()
     }
 
-    suspend fun import(uri: Uri, displayName: String?): PluginImport = withContext(Dispatchers.IO) {
+    suspend fun import(uri: Uri, displayName: String?, password: String? = null, progress: (Float) -> Unit = {}): PluginImport = withContext(Dispatchers.IO) {
         val temp = File(context.cacheDir, "schnitt-plugin-${System.nanoTime()}.bin")
         try {
+            progress(0.02f)
             val name = copyToTemp(uri, temp, displayName) ?: return@withContext PluginImport(null, "empty")
+            progress(0.12f)
             val id = slug(name.substringBeforeLast('.')) + "-" + digest("$name:${temp.length()}:${System.currentTimeMillis()}").take(6)
             val folder = File(root, id).apply { mkdirs() }
             val zip = temp.isZip()
             val seven = temp.isSevenZ()
             if (zip) unpack(temp, folder)
-            else if (seven) unpackSeven(temp, folder, listOf("flame", "FLAME", "Flame"))
+            else if (seven) {
+                try {
+                    unpackSeven(temp, folder, password, progress)
+                } catch (e: PasswordRequiredException) {
+                    folder.deleteRecursively()
+                    return@withContext PluginImport(null, "password", true)
+                } catch (e: Throwable) {
+                    folder.deleteRecursively()
+                    return@withContext PluginImport(null, e.message ?: "password", true)
+                }
+            }
             else temp.copyTo(File(folder, safeName(name)), overwrite = true)
+            progress(0.85f)
             val plugin = describe(id, folder, name, if (zip) "zxp" else if (seven) "7z" else name.substringAfterLast('.', ""))
             if (plugin == null) {
                 folder.deleteRecursively()
@@ -80,6 +94,7 @@ class PluginStore(private val context: Context) {
             } else {
                 list().firstOrNull { it.name.equals(plugin.name, true) && it.id != plugin.id }?.let { remove(it.id) }
                 writeMeta(folder, plugin.copy(effects = plugin.effects.distinct()))
+                progress(1f)
                 PluginImport(plugin)
             }
         } catch (t: Throwable) {
@@ -141,37 +156,34 @@ class PluginStore(private val context: Context) {
         }
     }
 
-    private fun unpackSeven(file: File, folder: File, passwords: List<String>) {
-        var last: Throwable? = null
-        for (password in passwords) {
-            try {
-                SevenZFile.builder().setFile(file).setPassword(password).get().use { seven ->
-                    var total = 0L
-                    for (entry in seven.entries) {
-                        val path = entry.name.replace('\\', '/').trimStart('/')
-                        if (path.isBlank() || path.split('/').any { it == ".." } || entry.isDirectory) continue
-                        val target = File(folder, path)
-                        if (!target.canonicalFile.startsWith(folder.canonicalFile)) continue
-                        target.parentFile?.mkdirs()
-                        target.outputStream().buffered().use { out ->
-                            val input = seven.getInputStream(entry)
-                            val buffer = ByteArray(64 * 1024)
-                            while (true) {
-                                val read = input.read(buffer)
-                                if (read <= 0) break
-                                total += read
-                                if (total > MAX_UNPACKED) throw IllegalStateException("plugin too large")
-                                out.write(buffer, 0, read)
-                            }
-                        }
+    private fun unpackSeven(file: File, folder: File, password: String?, progress: (Float) -> Unit) {
+        val builder = SevenZFile.builder().setFile(file)
+        if (!password.isNullOrEmpty()) builder.setPassword(password)
+        builder.get().use { seven ->
+            val entries = seven.entries.toList()
+            var total = 0L
+            var done = 0
+            for (entry in entries) {
+                val path = entry.name.replace('\\', '/').trimStart('/')
+                if (path.isBlank() || path.split('/').any { it == ".." } || entry.isDirectory) continue
+                val target = File(folder, path)
+                if (!target.canonicalFile.startsWith(folder.canonicalFile)) continue
+                target.parentFile?.mkdirs()
+                target.outputStream().buffered().use { out ->
+                    val input = seven.getInputStream(entry)
+                    val buffer = ByteArray(64 * 1024)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read <= 0) break
+                        total += read
+                        if (total > MAX_UNPACKED) throw IllegalStateException("plugin too large")
+                        out.write(buffer, 0, read)
                     }
                 }
-                return
-            } catch (t: Throwable) {
-                last = t
+                done++
+                progress(0.12f + 0.7f * done / entries.size.coerceAtLeast(1))
             }
         }
-        throw last ?: IllegalStateException("7z extraction failed")
     }
 
     private fun describe(id: String, folder: File, fileName: String, source: String): Plugin? {
@@ -308,7 +320,7 @@ class PluginStore(private val context: Context) {
         private const val MAX_PLUGIN = 192L shl 20
         private const val MAX_UNPACKED = 512L shl 20
         private val NATIVE = setOf("aex", "dll", "dylib", "so", "bundle")
-        private val SHADER = setOf("frag", "glsl", "shader", "sksl", "fs", "isf")
+        private val SHADER = setOf("frag", "glsl", "shader", "sksl", "fs", "isf", "hlsl", "wgsl")
 
         fun mapEffects(text: String): List<String> {
             val t = text.lowercase()

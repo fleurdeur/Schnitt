@@ -40,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -93,14 +94,26 @@ internal fun PluginSheet(state: EditorState, onClose: () -> Unit) {
     var plugins by remember { mutableStateOf(store.list()) }
     var selected by remember { mutableStateOf<Plugin?>(null) }
     var importing by remember { mutableStateOf(false) }
+    var readProgress by remember { mutableFloatStateOf(0f) }
     var minimized by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
+    var passwordOpen by remember { mutableStateOf(false) }
+    var pendingUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var password by remember { mutableStateOf("") }
+    var passwordWrong by remember { mutableStateOf(false) }
+    fun beginImport(uri: android.net.Uri, pass: String?) {
         importing = true
+        readProgress = 0f
         scope.launch {
-            val result = store.import(uri, uri.lastPathSegment)
+            val result = store.import(uri, uri.lastPathSegment, pass) { readProgress = it }
             importing = false
+            if (result.needsPassword) {
+                pendingUri = uri
+                passwordWrong = pass != null
+                passwordOpen = true
+                notice = null
+                return@launch
+            }
             plugins = store.list()
             result.plugin?.let { selected = it }
             if (result.plugin != null) {
@@ -109,6 +122,9 @@ internal fun PluginSheet(state: EditorState, onClose: () -> Unit) {
             }
             if (result.plugin == null) notice = context.getString(R.string.plugins_import_failed)
         }
+    }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) beginImport(uri, null)
     }
     if (minimized) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopEnd) {
@@ -134,6 +150,35 @@ internal fun PluginSheet(state: EditorState, onClose: () -> Unit) {
         }
         return
     }
+    if (passwordOpen) {
+        Dialog({ passwordOpen = false; pendingUri = null }, DialogProperties(usePlatformDefaultWidth = true)) {
+            Column(Modifier.width(340.dp).clip(RoundedCornerShape(18.dp)).background(Am.Panel).padding(18.dp)) {
+                Text("Encrypted plug-in", color = Am.OnDark, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text("Enter the archive password to continue reading the plug-in.", Modifier.padding(top = 6.dp), color = Am.OnDarkDim, fontSize = 12.sp, lineHeight = 17.sp)
+                BasicTextField(
+                    value = password,
+                    onValueChange = { password = it; passwordWrong = false },
+                    singleLine = true,
+                    textStyle = TextStyle(color = Am.OnDark, fontSize = 14.sp),
+                    cursorBrush = SolidColor(Am.Accent),
+                    modifier = Modifier.fillMaxWidth().height(38.dp).clip(RoundedCornerShape(8.dp)).background(Am.Well).padding(horizontal = 10.dp, vertical = 9.dp),
+                )
+                if (passwordWrong) Text("Wrong password. Try again.", Modifier.padding(top = 7.dp), color = Am.Warning, fontSize = 12.sp)
+                Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.End) {
+                    Text("Cancel", Modifier.clickable { passwordOpen = false; pendingUri = null }.padding(8.dp), color = Am.OnDarkDim, fontSize = 13.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.height(34.dp).clip(RoundedCornerShape(17.dp)).background(Am.Accent).clickable {
+                        val uri = pendingUri ?: return@clickable
+                        passwordOpen = false
+                        beginImport(uri, password)
+                        pendingUri = null
+                    }.padding(horizontal = 14.dp), Alignment.Center) {
+                        Text("Continue", color = Am.OnAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
     Dialog(onClose, DialogProperties(usePlatformDefaultWidth = false)) {
         FloatingCard("plugin-window", onMinimize = { minimized = true }) {
         Column(Modifier.fillMaxSize().background(Am.Panel).systemBarsPadding().navigationBarsPadding()) {
@@ -155,6 +200,11 @@ internal fun PluginSheet(state: EditorState, onClose: () -> Unit) {
                         Spacer(Modifier.width(6.dp))
                         Text(if (importing) stringResource(R.string.plugins_importing) else stringResource(R.string.plugins_import), color = Am.OnAccent, fontSize = 13.sp, maxLines = 1)
                     }
+                }
+            }
+            if (importing) {
+                Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(Am.Well)) {
+                    Box(Modifier.fillMaxWidth(readProgress.coerceIn(0f, 1f)).height(3.dp).background(Am.Accent))
                 }
             }
             notice?.let {

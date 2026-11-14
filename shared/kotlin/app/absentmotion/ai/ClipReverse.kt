@@ -26,6 +26,7 @@ import app.absentmotion.media.VideoSources
 import app.absentmotion.media.Yuv
 import app.absentmotion.media.YuvEncoder
 import app.absentmotion.media.estimatedFps
+import app.absentmotion.media.h264Size
 import app.absentmotion.media.visibleSize
 import app.absentmotion.model.Easing
 import app.absentmotion.model.Layer
@@ -157,10 +158,12 @@ internal object ClipReverse {
         val stamps = VideoSources.timestamps(context, uri)
         val (syncs, format) = syncTimes(context, uri)
         val (visibleWidth, visibleHeight) = visibleSize(format)
-        val width = visibleWidth and 1.inv()
-        val height = visibleHeight and 1.inv()
-        check(width >= 2 && height >= 2) { AppText.get(R.string.ai_unable_to_process) }
         val fps = format.numberOf(MediaFormat.KEY_FRAME_RATE)?.toFloat()?.takeIf { it > 0 } ?: estimatedFps(stamps) ?: 30f
+        val target = h264Size(visibleWidth, visibleHeight, fps.roundToInt().coerceIn(1, 240))
+            ?: throw IllegalStateException(AppText.get(R.string.ai_unable_to_process))
+        val width = target.first
+        val height = target.second
+        check(width >= 2 && height >= 2) { AppText.get(R.string.ai_unable_to_process) }
         val end = stamps.last() + if (stamps.size > 1) stamps.last() - stamps[stamps.size - 2] else (1_000_000 / fps).toLong()
         val used = layer.usedMediaMs()
         val whole = end <= WHOLE_SOURCE_US
@@ -174,6 +177,8 @@ internal object ClipReverse {
             ?: (width.toLong() * height * fps / 5).toInt()).coerceIn(1_000_000, 100_000_000)
         val frameBytes = width * height * 3 / 2
         val held = (HELD_BYTES / frameBytes).toInt().coerceIn(1, MAX_HELD_FRAMES).coerceAtMost(last - first)
+        val memoryBytes = 64L shl 20
+        val inMemory = (last - first).toLong() * frameBytes <= memoryBytes
         val file = aiFile(context, "mp4")
         val decoder = runCatching { PcmDecoder(context, uri) }.getOrNull()
         val yuvFile = File(context.cacheDir, "reverse-${UUID.randomUUID()}.yuv")
@@ -196,6 +201,7 @@ internal object ClipReverse {
             RandomAccessFile(yuvFile, "rw").use { store ->
                 val channel = store.channel
                 val frame = ByteBuffer.allocateDirect(frameBytes)
+                val memoryFrames = if (inMemory) arrayOfNulls<ByteArray>(last - first) else null
                 FrameReader(context, uri).use { reader ->
                     for (piece in reversePieces(stamps, syncs, first, last, held)) {
                         job.ensureActive()
@@ -203,14 +209,30 @@ internal object ClipReverse {
                         reader.read(piece.map { stamps[it] }) { _, yuv ->
                             check(yuv.width >= width && yuv.height >= height) { AppText.get(R.string.ai_unable_to_process) }
                             yuv.packInto(frame, width, height)
-                            channel.writeAll(frame, got.toLong() * frameBytes)
+                            if (memoryFrames != null) {
+                                val bytes = ByteArray(frameBytes)
+                                frame.clear()
+                                frame.get(bytes)
+                                memoryFrames[got] = bytes
+                            } else {
+                                channel.writeAll(frame, got.toLong() * frameBytes)
+                            }
                             got++
                         }
                         check(got > 0 || done > 0) { AppText.get(R.string.ai_unable_to_process) }
                         for (k in piece.last downTo piece.first) {
                             job.ensureActive()
                             val slot = k - piece.first
-                            if (slot < got) channel.readAll(frame, slot.toLong() * frameBytes)
+                            if (slot < got) {
+                                val bytes = memoryFrames?.get(slot)
+                                if (bytes != null) {
+                                    frame.clear()
+                                    frame.put(bytes)
+                                    frame.flip()
+                                } else {
+                                    channel.readAll(frame, slot.toLong() * frameBytes)
+                                }
+                            }
                             val video = encoder ?: YuvEncoder.open(output, width, height, fps.roundToInt().coerceIn(1, 240), bitrate,
                                 if (reader.fullRange) MediaFormat.COLOR_RANGE_FULL else MediaFormat.COLOR_RANGE_LIMITED,
                                 reader.colorStandard.takeIf { it == MediaFormat.COLOR_STANDARD_BT601_PAL || it == MediaFormat.COLOR_STANDARD_BT601_NTSC }

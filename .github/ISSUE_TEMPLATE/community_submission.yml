@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for sharing with Schnitt. Add the file by dragging it into the body of this issue, then submit. A maintainer must add the **approved** label before it is published.
+        Thanks for sharing with Schnitt. This form is the direct upload path: you do not need repository write access. Drag your file into the **File** field below, then submit. A maintainer adds the **approved** label before it is published into the presets or XML folder.
   - type: dropdown
     id: kind
     attributes:

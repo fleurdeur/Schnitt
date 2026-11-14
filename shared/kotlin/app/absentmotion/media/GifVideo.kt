@@ -44,11 +44,8 @@ suspend fun gifVideo(context: Context, uri: Uri): GifVideo? = withContext(Dispat
     val summary = summarizeGif({ job.ensureActive() }, ::open)
     if (summary.frames < 2) return@withContext null
     val fps = gifFrameRate(summary)
-    val list = MediaCodecList(MediaCodecList.REGULAR_CODECS)
-    val encoder = list.codecInfos.firstOrNull { it.isEncoder && MediaFormat.MIMETYPE_VIDEO_AVC in it.supportedTypes.map(String::lowercase) }
-        ?: error("no H.264 encoder")
-    val caps = encoder.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC).videoCapabilities ?: error("no H.264 video encoder")
-    val (width, height) = gifEncodeSize(summary.width, summary.height) { w, h -> caps.isSizeSupported(w, h) } ?: error("no H.264 size for ${summary.width}x${summary.height}")
+    val (width, height) = h264SizeForSummary(summary.width, summary.height)
+        ?: error("no H.264 size for ${summary.width}x${summary.height}")
     val colourFile = aiFile(context, "mp4")
     val matteFile = File(colourFile.parentFile, colourFile.nameWithoutExtension + "-mask.mp4").takeIf { summary.transparent }
     val made = listOfNotNull(colourFile, matteFile)
@@ -209,18 +206,36 @@ internal class YuvEncoder(private val codec: MediaCodec, private val mux: Mux) :
                 setInteger(MediaFormat.KEY_COLOR_STANDARD, standard)
                 setInteger(MediaFormat.KEY_COLOR_TRANSFER, MediaFormat.COLOR_TRANSFER_SDR_VIDEO)
             }
-            var codec: MediaCodec? = null
-            try {
-                val name = MediaCodecList(MediaCodecList.REGULAR_CODECS).findEncoderForFormat(format) ?: error("no H.264 encoder for ${width}x$height")
-                codec = MediaCodec.createByCodecName(name)
-                codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-                codec.start()
-                return YuvEncoder(codec, mux)
-            } catch (e: Exception) {
-                codec?.release()
+            val names = h264EncoderNames(width, height, fps)
+            if (names.isEmpty()) {
                 mux.release()
-                throw e
+                error("no H.264 encoder for ${width}x$height")
             }
+            var last: Throwable? = null
+            for (name in names) {
+                var codec: MediaCodec? = null
+                try {
+                    codec = MediaCodec.createByCodecName(name)
+                    try {
+                        codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                    } catch (full: Exception) {
+                        val minimal = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
+                            setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)
+                            setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
+                            setInteger(MediaFormat.KEY_FRAME_RATE, fps)
+                            setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+                        }
+                        codec.configure(minimal, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                    }
+                    codec.start()
+                    return YuvEncoder(codec, mux)
+                } catch (e: Exception) {
+                    codec?.release()
+                    last = e
+                }
+            }
+            mux.release()
+            throw last ?: IllegalStateException("no H.264 encoder for ${width}x$height")
         }
     }
 }
