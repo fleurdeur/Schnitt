@@ -2,6 +2,8 @@ package app.absentmotion.ui.home
 
 import android.app.Activity
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,10 +29,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
@@ -73,21 +79,44 @@ internal fun UpdateDialog() {
         return
     }
     val release = available.release
+    val choices = release.choices
+    var selected by remember(release.version, choices) { mutableStateOf(preferredApk(release, choices)) }
     val links = LocalUriHandler.current
     fun open(link: String) = runCatching { links.openUri(link) }.onFailure {
         android.widget.Toast.makeText(context, context.getString(R.string.update_open_failed), android.widget.Toast.LENGTH_LONG).show()
     }
     UpdateCard(HomeIcons.ArrowDown, stringResource(R.string.update_available, release.version), close) {
         Detail(stringResource(R.string.update_installed, Updates.installed(context)))
-        release.apk?.let { Detail(stringResource(R.string.update_size, formatBytes(it.size))) }
+        if (choices.size > 1 && !available.external) {
+            Text("Choose an APK", Modifier.padding(top = 16.dp, bottom = 6.dp), color = Am.Navy, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            choices.forEach { asset ->
+                val active = selected?.name == asset.name
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(12.dp))
+                        .background(if (active) Am.Navy.copy(alpha = 0.08f) else Am.HomeBg)
+                        .border(if (active) 1.dp else 0.dp, if (active) Am.Navy else Color.Transparent, RoundedCornerShape(12.dp))
+                        .clickable { selected = asset }.padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(18.dp).clip(CircleShape).background(if (active) Am.Navy else Am.HomeLine), Alignment.Center) {
+                        if (active) Box(Modifier.size(7.dp).clip(CircleShape).background(Am.OnNavy))
+                    }
+                    Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                        Text(apkLabel(asset.name), color = Am.Navy, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Text(formatBytes(asset.size), color = Am.HomeMid, fontSize = 12.sp)
+                    }
+                }
+            }
+        } else choices.firstOrNull()?.let { Detail(stringResource(R.string.update_size, formatBytes(it.size))) }
         if (available.external) Detail(stringResource(R.string.update_external))
         if (warnMetered(available, remember(available) { Updater.metered(context) })) Detail(stringResource(R.string.update_metered))
         Updates.source.label?.let { Detail(it) }
         Buttons {
             Secondary(stringResource(R.string.update_changelog)) { open(release.link) }
             Secondary(stringResource(R.string.update_later), close)
-            if (release.apk != null) Primary(stringResource(R.string.update_download_update)) { close(); Updater.start(context, release) }
-            else if (!available.external) Primary(stringResource(R.string.update_download)) { close(); open(release.link) }
+            val picked = selected ?: release.apk
+            if (picked != null && !available.external) Primary(stringResource(R.string.update_download_update)) { close(); Updater.start(context, release.copy(apk = picked, assets = choices)) }
+            else Primary(stringResource(R.string.update_download)) { close(); open(release.link) }
         }
     }
 }
@@ -194,4 +223,26 @@ private fun Primary(label: String, onClick: () -> Unit) {
     Button(onClick, Modifier.heightIn(min = 48.dp), colors = ButtonDefaults.buttonColors(containerColor = Am.Navy, contentColor = Am.OnNavy)) {
         Text(label, fontSize = 15.sp, fontWeight = FontWeight.Medium)
     }
+}
+
+private fun apkLabel(name: String): String = when {
+    name.contains("arm64", true) -> "ARM64 · 64-bit phones"
+    name.contains("armv7", true) || name.contains("armeabi", true) -> "ARMv7 · older phones"
+    name.contains("universal", true) -> "Universal · every phone"
+    name.contains("x86_64", true) -> "x86_64 · emulators and Chromebooks"
+    else -> name
+}
+
+private fun preferredApk(release: Release, choices: List<ApkAsset>): ApkAsset? {
+    release.apk?.let { chosen -> choices.firstOrNull { it.name == chosen.name }?.let { return it } }
+    val abi = deviceAbi().orEmpty()
+    val wanted = when {
+        abi.startsWith("arm64") -> listOf("arm64")
+        abi.startsWith("armeabi") || abi.startsWith("armv7") -> listOf("armv7", "armeabi")
+        abi.startsWith("x86_64") -> listOf("x86_64")
+        else -> emptyList()
+    }
+    return wanted.firstNotNullOfOrNull { tag -> choices.firstOrNull { it.name.contains(tag, true) } }
+        ?: choices.firstOrNull { it.name.contains("universal", true) }
+        ?: choices.firstOrNull()
 }

@@ -34,11 +34,15 @@ object OnlineAudio {
     const val MixkitMusic = "https://mixkit.co/free-stock-music/"
     private const val UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Mobile Safari/537.36"
 
-    suspend fun load(shelf: AudioShelf, customSite: String = "", context: Context? = null): List<OnlineSound> = withContext(Dispatchers.IO) {
-        val url = when (shelf) {
+    suspend fun load(shelf: AudioShelf, customSite: String = "", context: Context? = null, page: Int = 1): List<OnlineSound> = withContext(Dispatchers.IO) {
+        val base = when (shelf) {
             AudioShelf.Sfx -> MixkitSfx
             AudioShelf.Music -> MixkitMusic
             AudioShelf.Custom, AudioShelf.YtDlp -> customSite.trim()
+        }
+        val url = if (page <= 1 || base.isBlank()) base else {
+            val separator = if ('?' in base) '&' else '?'
+            base + separator + "page=" + page
         }
         if (url.isBlank()) return@withContext emptyList()
         if (shelf == AudioShelf.YtDlp) {

@@ -129,6 +129,7 @@ class MainActivity : ComponentActivity() {
     private var cameFromEditor = false
     private var exportingFromList by mutableStateOf<Scene?>(null)
     private var imported by mutableStateOf<List<ImportReport>>(emptyList())
+    private var importPreview by mutableStateOf<ImportReport?>(null)
     private var editingTemplate by mutableStateOf<String?>(null)
     private var firstRun by mutableStateOf<FirstRun?>(null)
     private var whatsNew by mutableStateOf<app.absentmotion.ui.home.WhatsNew?>(null)
@@ -283,6 +284,17 @@ class MainActivity : ComponentActivity() {
                         editingTemplate?.let { id ->
                             CompositionLocalProvider(LocalDensity provides dense) { TemplateEditor(id, engine, settings, onClose = { editingTemplate = null }, onContinue = ::projectFromTemplate) }
                         }
+                        importPreview?.let { report ->
+                            CompositionLocalProvider(LocalDensity provides dense) {
+                                Box(Modifier.fillMaxSize().enterFade()) {
+                                    app.absentmotion.ui.home.ProjectPreviewScreen(
+                                        store, engine, report.id,
+                                        onOpen = { id -> importPreview = null; projectsChanged++; open(id) },
+                                        onClose = { importPreview = null; projectsChanged++ },
+                                    )
+                                }
+                            }
+                        }
                         exportingFromList?.let { ExportScreen(it, 0, engine, settings, fromProjectList = true, outdated) { exportingFromList = null } }
                         LowMemoryNotice()
                     }
@@ -358,7 +370,7 @@ class MainActivity : ComponentActivity() {
                 }
                 app.absentmotion.ui.tutorial.TutorialHost(
                     open, store, settings,
-                    homeFree = open == null && first == null && !opening && editingTemplate == null && exportingFromList == null && offer == null && crashed == null && !problemShown && imported.isEmpty() && whatsNew == null,
+                    homeFree = open == null && first == null && !opening && editingTemplate == null && exportingFromList == null && importPreview == null && offer == null && crashed == null && !problemShown && imported.isEmpty() && whatsNew == null,
                     onOpen = ::open, onCloseEditor = ::closeEditor, onChanged = { projectsChanged++ },
                 )
             }
@@ -371,7 +383,7 @@ class MainActivity : ComponentActivity() {
 
 
     private fun updateCalm() = lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) && editor == null && !closingEditor && !opening && !openingProject &&
-        editingTemplate == null && exportingFromList == null && firstRun == null && recovered == null && crashed == null && !problemShown && whatsNew == null &&
+        editingTemplate == null && exportingFromList == null && importPreview == null && firstRun == null && recovered == null && crashed == null && !problemShown && whatsNew == null &&
         settings.updatesAsked && !app.absentmotion.export.ExportRun.running
 
     private fun importShared() {
@@ -409,7 +421,11 @@ class MainActivity : ComponentActivity() {
                 projectsChanged++
             }
             failure?.let { importFailed = it }
-            if (reports.isNotEmpty()) imported = reports
+            val preview = reports.firstOrNull { !it.template && !it.element }
+            if (preview != null) {
+                importPreview = preview
+                imported = emptyList()
+            } else if (reports.isNotEmpty()) imported = reports
             var drawn = false
             for (report in reports) if (!report.template) {
                 val scene = withContext(Dispatchers.IO) { store.load(report.id) } ?: continue

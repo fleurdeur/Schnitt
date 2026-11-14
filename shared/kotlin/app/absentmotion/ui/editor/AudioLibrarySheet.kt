@@ -74,6 +74,9 @@ internal fun AudioLibrarySheet(state: EditorState, onClose: () -> Unit) {
     var items by remember { mutableStateOf<List<OnlineSound>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
+    var page by remember { mutableIntStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var moreLoading by remember { mutableStateOf(false) }
     var search by remember { mutableStateOf("") }
     var adding by remember { mutableStateOf<String?>(null) }
     var ytdlpReady by remember { mutableStateOf(VideoDownloader.installed(context)) }
@@ -87,11 +90,26 @@ internal fun AudioLibrarySheet(state: EditorState, onClose: () -> Unit) {
             items = emptyList(); loading = false; failed = false
             return@LaunchedEffect
         }
-        loading = true; failed = false
-        val found = runCatching { OnlineAudio.load(shelf, loadedSite, context) }.getOrElse { emptyList() }
+        loading = true; failed = false; moreLoading = false
+        val found = runCatching { OnlineAudio.load(shelf, loadedSite, context, 1) }.getOrElse { emptyList() }
         items = found
+        page = 1
+        hasMore = found.isNotEmpty() && (shelf == AudioShelf.Sfx || shelf == AudioShelf.Music || shelf == AudioShelf.Custom)
         failed = found.isEmpty()
         loading = false
+    }
+    fun loadMore() {
+        if (moreLoading || loading || !hasMore) return
+        moreLoading = true
+        scope.launch {
+            val next = page + 1
+            val found = runCatching { OnlineAudio.load(shelf, loadedSite, context, next) }.getOrElse { emptyList() }
+            val merged = (items + found).distinctBy { it.key }
+            hasMore = found.isNotEmpty() && merged.size > items.size
+            items = merged
+            page = next
+            moreLoading = false
+        }
     }
     val shown = remember(items, query) {
         items.filter { matchesSearch(query, it.title, it.artist, it.license) }
@@ -212,6 +230,17 @@ internal fun AudioLibrarySheet(state: EditorState, onClose: () -> Unit) {
                                 if (adding == sound.key) CircularProgressIndicator(Modifier.size(18.dp), color = Am.Accent, strokeWidth = 2.dp)
                                 else Icon(ChromeIcons.Plus, stringResource(R.string.audiotab_add), Modifier.size(20.dp), tint = Am.OnDark)
                             }
+                        }
+                    }
+                    if (hasMore && !loading) item(key = "load-more") {
+                        Box(
+                            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp).height(44.dp)
+                                .clip(RoundedCornerShape(22.dp)).background(Am.Well)
+                                .clickable(enabled = !moreLoading) { loadMore() },
+                            Alignment.Center,
+                        ) {
+                            if (moreLoading) CircularProgressIndicator(Modifier.size(18.dp), color = Am.Accent, strokeWidth = 2.dp)
+                            else Text("Load more", color = Am.OnDark, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }

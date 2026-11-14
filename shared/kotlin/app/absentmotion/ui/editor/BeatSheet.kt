@@ -51,7 +51,7 @@ import app.absentmotion.audio.BeatAnalysis
 import app.absentmotion.audio.BeatBand
 import app.absentmotion.editor.EditorState
 import app.absentmotion.editor.analyseBeats
-import app.absentmotion.editor.bakeBeatKeyframes
+import app.absentmotion.editor.bakeBeatBookmarks
 import app.absentmotion.editor.beatFrames
 import app.absentmotion.editor.beatSourceLayers
 import app.absentmotion.model.Layer
@@ -165,7 +165,7 @@ internal fun BeatSheet(state: EditorState, onClose: () -> Unit) {
                     Box(
                         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).height(46.dp).clip(RoundedCornerShape(23.dp)).background(Am.Accent)
                             .clickable(enabled = targetId != 0L) {
-                                val baked = state.bakeBeatKeyframes(found.beats, targetId)
+                                val baked = state.bakeBeatBookmarks(found.beats, sourceId)
                                 Toast.makeText(context, context.getString(R.string.beat_baked, baked), Toast.LENGTH_SHORT).show()
                                 if (baked > 0) onClose()
                             },

@@ -110,10 +110,10 @@ internal fun PluginsTab(modifier: Modifier) {
                             Text(it, Modifier.padding(top = 10.dp), color = Am.HomeInk, fontSize = 13.sp, lineHeight = 18.sp)
                         }
                         if (plugin.kind == PluginKind.Native) Text(
-                            stringResource(R.string.plugins_legacy_native), Modifier.padding(top = 6.dp), color = Am.HomeDim, fontSize = 12.sp, lineHeight = 17.sp,
+                            "Converted into an Android effect with its own generated shader.", Modifier.padding(top = 6.dp), color = Am.HomeDim, fontSize = 12.sp, lineHeight = 17.sp,
                         )
-                        if (plugin.effects.isNotEmpty()) Text(
-                            plugin.effects.joinToString(" · "), Modifier.padding(top = 6.dp), color = Am.HomeAccent, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        Text(
+                            "Own generated shader · editable properties", Modifier.padding(top = 6.dp), color = Am.HomeAccent, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
                         )
                         Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             Text(stringResource(R.string.plugins_remove), color = Am.HomeAccent, fontSize = 13.sp, fontWeight = FontWeight.Medium,

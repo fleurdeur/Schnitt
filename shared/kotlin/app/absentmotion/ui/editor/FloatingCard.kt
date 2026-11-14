@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -88,32 +90,27 @@ internal fun FloatingCard(storageKey: String, onMinimize: (() -> Unit)? = null, 
                 .background(Am.Panel)
                 .border(1.dp, Am.Line, shape),
         ) {
-            content()
-            Row(Modifier.align(Alignment.TopEnd).pad(top = 4.dp, end = 4.dp)) {
-                Text("↺", Modifier.clickable { reset() }.pad(4.dp), color = Am.OnDarkDim, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Text("—", Modifier.clickable { minimized = true }.pad(4.dp), color = Am.OnDarkDim, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            }
-            Box(
-                Modifier.align(Alignment.TopCenter).padding(top = 5.dp).size(44.dp, 16.dp)
-                    .clip(RoundedCornerShape(8.dp)).background(Am.OnDarkDim.copy(alpha = 0.45f))
-                    .pointerInput(storageKey) { detectDragGestures(onDragEnd = { save() }) { change, amount -> change.consume(); drag(amount.x, amount.y) } },
-            )
-            Box(
-                Modifier.align(Alignment.CenterEnd).width(10.dp).fillMaxHeight()
-                    .pointerInput(storageKey) { detectDragGestures(onDragEnd = { save() }) { change, amount -> change.consume(); resize(amount.x, 0f) } },
-            )
-            Box(
-                Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(10.dp)
-                    .pointerInput(storageKey) { detectDragGestures(onDragEnd = { save() }) { change, amount -> change.consume(); resize(0f, amount.y) } },
-            )
-            Box(
-                Modifier.align(Alignment.BottomEnd).size(28.dp)
-                    .drawBehind {
-                        drawLine(Color(0x887ED9A0), Offset(size.width * 0.35f, size.height * 0.8f), Offset(size.width * 0.8f, size.height * 0.35f), 2.dp.toPx())
-                        drawLine(Color(0x557ED9A0), Offset(size.width * 0.55f, size.height * 0.85f), Offset(size.width * 0.85f, size.height * 0.55f), 2.dp.toPx())
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    Modifier.fillMaxWidth().height(34.dp).background(Am.Button).padding(start = 8.dp, end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.weight(1f).fillMaxHeight().pointerInput(storageKey) {
+                        detectDragGestures(onDragEnd = { save() }) { change, amount -> change.consume(); drag(amount.x, amount.y) }
+                    }, contentAlignment = Alignment.CenterStart) {
+                        Text("Drag", color = Am.OnDarkDim, fontSize = 10.sp)
                     }
-                    .pointerInput(storageKey) { detectDragGestures(onDragEnd = { save() }) { change, amount -> change.consume(); resize(amount.x, amount.y) } },
-            )
+                    Text("↺", Modifier.clickable { reset() }.pad(4.dp), color = Am.OnDarkDim, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("—", Modifier.clickable { minimized = true }.pad(4.dp), color = Am.OnDarkDim, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+                Box(Modifier.weight(1f).fillMaxWidth().clipToBounds()) { content() }
+            }
+            Box(Modifier.align(Alignment.CenterEnd).width(8.dp).fillMaxHeight()
+                .pointerInput(storageKey) { detectDragGestures(onDragEnd = { save() }) { change, amount -> change.consume(); resize(amount.x, 0f) } })
+            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(8.dp)
+                .pointerInput(storageKey) { detectDragGestures(onDragEnd = { save() }) { change, amount -> change.consume(); resize(0f, amount.y) } })
+            Box(Modifier.align(Alignment.BottomEnd).size(24.dp)
+                .pointerInput(storageKey) { detectDragGestures(onDragEnd = { save() }) { change, amount -> change.consume(); resize(amount.x, amount.y) } })
         }
     }
 }

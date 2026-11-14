@@ -33,11 +33,13 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
+import java.io.File
 
 internal data class ApkAsset(val name: String, val url: String, val size: Long, val sha256: String?, val sums: String?, val manifest: String? = null)
 
-internal data class Release(val version: String, val link: String, val apk: ApkAsset? = null) {
+internal data class Release(val version: String, val link: String, val apk: ApkAsset? = null, val assets: List<ApkAsset> = emptyList()) {
     val download: String? get() = apk?.url
+    val choices: List<ApkAsset> get() = assets.ifEmpty { listOfNotNull(apk) }
 }
 
 internal sealed interface UpdateAnswer {
@@ -46,7 +48,7 @@ internal sealed interface UpdateAnswer {
     data object Failed : UpdateAnswer
 }
 
-internal const val UPDATES_ENABLED = false
+internal const val UPDATES_ENABLED = true
 
 internal object Updates {
     var checking by mutableStateOf(false)
@@ -89,12 +91,13 @@ internal object Updates {
         scope.launch {
             val (release, inApp) = withContext(Dispatchers.IO) {
                 val release = try {
-                    fetchLatest(from)
+                    fetchLatest(from, app)
                 } catch (e: Exception) {
                     Log.i("AMUpdate", "update check failed: $e")
-                    null
+                    cachedRelease(app, from)
                 }
-                release to (release?.apk == null || Updater.inApp(app, from))
+                val installable = release != null && (release.apk != null || release.assets.isNotEmpty())
+                release to (if (release == null) false else if (!installable) true else Updater.inApp(app, from))
             }
             release?.let { settings.rememberNewest(it.version, it.link) }
             val result = offerFor(answerFor(release, current), inApp)
@@ -103,12 +106,39 @@ internal object Updates {
         }
     }
 
-    private fun fetchLatest(from: UpdateSource): Release? = TrustedHttp(from, TIMEOUT_MS, TIMEOUT_MS).get(from.releases, mapOf("Accept" to "application/vnd.github+json")) { connection ->
-        if (connection.responseCode != HttpURLConnection.HTTP_OK) null
-        else parseReleases(connection.inputStream.use { it.readAtMost(MAX_BYTES) }.decodeToString(), source = from)
+    private fun cacheFiles(context: Context) = File(context.noBackupFilesDir, "update-latest.json") to File(context.noBackupFilesDir, "update-latest.etag")
+
+    private fun cachedRelease(context: Context, from: UpdateSource): Release? = runCatching {
+        cacheFiles(context).first.takeIf { it.isFile }?.readText()?.let { parseReleases(it, source = from) }
+    }.getOrNull()
+
+    private fun fetchLatest(from: UpdateSource, context: Context): Release? {
+        val (cache, etagFile) = cacheFiles(context)
+        val cachedText = runCatching { cache.takeIf { it.isFile }?.readText() }.getOrNull()
+        val etag = runCatching { etagFile.takeIf { it.isFile }?.readText()?.trim() }.getOrNull()
+        val headers = linkedMapOf("Accept" to "application/vnd.github+json", "X-GitHub-Api-Version" to "2022-11-28")
+        etag?.takeIf { it.isNotBlank() }?.let { headers["If-None-Match"] = it }
+        return try {
+            TrustedHttp(from, TIMEOUT_MS, TIMEOUT_MS).get(from.releases, headers) { connection ->
+                when (connection.responseCode) {
+                    HttpURLConnection.HTTP_OK -> {
+                        val body = connection.inputStream.use { it.readAtMost(MAX_BYTES) }.decodeToString()
+                        runCatching { cache.parentFile?.mkdirs(); cache.writeText(body) }
+                        connection.getHeaderField("ETag")?.takeIf { it.isNotBlank() }?.let { tag -> runCatching { etagFile.writeText(tag) } }
+                        parseReleases(body, source = from)
+                    }
+                    HttpURLConnection.HTTP_NOT_MODIFIED -> cachedText?.let { parseReleases(it, source = from) }
+                    403, 429 -> cachedText?.let { parseReleases(it, source = from) }
+                    else -> cachedText?.let { parseReleases(it, source = from) }
+                }
+            }
+        } catch (e: Exception) {
+            Log.i("AMUpdate", "release request failed, using the saved copy: $e")
+            cachedText?.let { parseReleases(it, source = from) }
+        }
     }
 
-    private const val TIMEOUT_MS = 5_000
+    private const val TIMEOUT_MS = 12_000
     private const val MAX_BYTES = 4 shl 20
 }
 
@@ -120,7 +150,9 @@ internal fun answerFor(release: Release?, current: String): UpdateAnswer {
 internal fun warnMetered(answer: UpdateAnswer.Available, metered: Boolean?) = metered == true && answer.release.apk != null
 
 internal fun offerFor(answer: UpdateAnswer, inApp: Boolean): UpdateAnswer =
-    if (answer is UpdateAnswer.Available && answer.release.apk != null && !inApp) UpdateAnswer.Available(answer.release.copy(apk = null), external = true) else answer
+    if (answer is UpdateAnswer.Available && (answer.release.apk != null || answer.release.assets.isNotEmpty()) && !inApp)
+        UpdateAnswer.Available(answer.release.copy(apk = null), external = true)
+    else answer
 
 internal fun parseRelease(json: String, flavour: String = app.absentmotion.BuildConfig.FLAVOR, source: UpdateSource = GitHubSource, abi: String? = deviceAbi()): Release? =
     runCatching { JSONObject(json) }.getOrNull()?.let { releaseOf(it, flavour, source, abi) }
@@ -136,14 +168,33 @@ internal fun parseReleases(json: String, flavour: String = app.absentmotion.Buil
 private fun releaseOf(release: JSONObject, flavour: String, source: UpdateSource, abi: String?): Release? {
     val tag = release.optString("tag_name").trim()
     if (Version.parse(tag) == null) return null
-    val page = release.optString("html_url").takeIf { it.startsWith("$HOME_PAGE/", ignoreCase = true) } ?: "$HOME_PAGE/releases/latest"
+    val page = release.optString("html_url").takeIf { it.startsWith("$RELEASE_HOME/", ignoreCase = true) || it.startsWith("$HOME_PAGE/", ignoreCase = true) } ?: "$HOME_PAGE/releases/latest"
     val version = tag.removePrefix("v").removePrefix("V")
-    return Release(version, page, apkOf(release, tag, version, flavour, source, abi))
+    val chosen = apkOf(release, tag, version, flavour, source, abi)
+    return Release(version, page, chosen, assetsOf(release, tag, version, source))
 }
 
 private val SAFE_VERSION = Regex("^[0-9]+(\\.[0-9]+)*(-[0-9A-Za-z.]+)?$")
 
 internal fun deviceAbi(): String? = Build.SUPPORTED_ABIS.orEmpty().firstOrNull()
+
+private val RELEASE_HOMES = listOf(RELEASE_HOME, HOME_PAGE)
+
+internal fun releaseAsset(url: String, tag: String, name: String): Boolean =
+    RELEASE_HOMES.any { home -> url.equals("$home/releases/download/${tag.trim()}/$name", ignoreCase = true) }
+
+internal fun assetsOf(release: JSONObject, tag: String, version: String, source: UpdateSource): List<ApkAsset> {
+    if (!SAFE_VERSION.matches(version) || tag.trim() !in setOf("v$version", "V$version")) return emptyList()
+    val arrays = release.optJSONArray("assets") ?: return emptyList()
+    return (0 until arrays.length()).mapNotNull { arrays.optJSONObject(it) }.mapNotNull { asset ->
+        val name = asset.optString("name")
+        if (!name.endsWith(".apk", ignoreCase = true)) return@mapNotNull null
+        val url = asset.optString("browser_download_url")
+        if (!releaseAsset(url, tag, name)) return@mapNotNull null
+        val size = asset.optLong("size", -1L).takeIf { it in 1..MAX_APK_BYTES } ?: return@mapNotNull null
+        ApkAsset(name, url, size, parseDigest(asset.optString("digest")), null)
+    }.sortedWith(compareBy<ApkAsset> { apk -> when { apk.name.contains("arm64", true) -> 0; apk.name.contains("armv7", true) || apk.name.contains("armeabi", true) -> 1; apk.name.contains("universal", true) -> 2; else -> 3 } }.thenBy { it.name })
+}
 
 internal fun apkName(version: String, flavour: String, abi: String? = null) =
     "Schnitt-$version-${when (flavour) { "compat" -> "compatible"; "compat32" -> "compatible-32bit"; else -> flavour }}${if (abi == "x86_64" && flavour != "compat32") "-x86_64" else ""}.apk"
@@ -152,13 +203,13 @@ private fun apkOf(release: JSONObject, tag: String, version: String, flavour: St
     if (flavour !in setOf("foss", "compat", "compat32", "desktop") || !SAFE_VERSION.matches(version) || tag.trim() !in setOf("v$version", "V$version")) return null
     val assets = release.optJSONArray("assets") ?: return null
     val list = (0 until assets.length()).mapNotNull { assets.optJSONObject(it) }
-    fun linkOf(file: String) = list.firstOrNull { it.optString("name") == file }?.takeIf { it.optString("browser_download_url").equals(source.asset(tag.trim(), file), ignoreCase = true) }
+    fun linkOf(file: String) = list.firstOrNull { it.optString("name") == file }?.takeIf { releaseAsset(it.optString("browser_download_url"), tag, file) }
     val (name, asset) = (if (flavour == "desktop") installerName(list.map { it.optString("name") }, version)?.let { n -> linkOf(n)?.let { n to it } }
         else apkName(version, flavour, abi).let { n -> linkOf(n)?.let { n to it } }) ?: return null
     val size = asset.optLong("size", -1L).takeIf { it in 1..MAX_APK_BYTES } ?: return null
-    val sums = linkOf(SUMS)?.let { source.asset(tag.trim(), SUMS) }
-    val manifest = if (flavour == "desktop" && linkOf(MANIFEST) != null && linkOf("$MANIFEST.sig") != null) source.asset(tag.trim(), MANIFEST) else null
-    return ApkAsset(name, source.asset(tag.trim(), name), size, parseDigest(asset.optString("digest")), sums, manifest)
+    val sums = linkOf(SUMS)?.optString("browser_download_url")
+    val manifest = if (flavour == "desktop" && linkOf(MANIFEST) != null && linkOf("$MANIFEST.sig") != null) linkOf(MANIFEST)?.optString("browser_download_url") else null
+    return ApkAsset(name, asset.optString("browser_download_url"), size, parseDigest(asset.optString("digest")), sums, manifest)
 }
 
 private const val SUMS = "SHA256SUMS.txt"

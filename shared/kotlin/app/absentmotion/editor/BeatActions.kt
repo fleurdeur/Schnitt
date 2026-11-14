@@ -85,6 +85,29 @@ fun EditorState.bakeBeatKeyframes(beats: List<Double>, targetId: Long): Int {
     return if (groupPath == before) made else 0
 }
 
+/**
+ * Adds a timeline bookmark on every detected beat. Unlike keyframe baking this
+ * leaves the animation untouched and simply marks the beats on the timeline
+ * so they can be snapped to, copied, or used by effects.
+ */
+fun EditorState.bakeBeatBookmarks(beats: List<Double>, layerId: Long): Int {
+    val layer = scene.layer(layerId) ?: return 0
+    if (beats.isEmpty()) return 0
+    val fps = scene.fps
+    val first = scene.frameAt(layer.startTime)
+    val last = scene.frameAt(layer.endTime)
+    val frames = beats.map { (((layer.startTime + it) * fps / 1000.0).roundToInt()) }.filter { it in first..last }.distinct()
+    if (frames.isEmpty()) return 0
+    var added = 0
+    edit { s ->
+        val existing = s.bookmarks
+        val times = frames.map(s::frameStart).filter { t -> !hasBookmarkNear(existing, t, 1000.0 / fps) }
+        added = times.size
+        s.withBookmarks(times)
+    }
+    return added
+}
+
 /** Frames of the detected beats, clipped to the source layer, for the mini ruler. */
 fun EditorState.beatFrames(analysis: BeatAnalysis, layerId: Long): List<Int> {
     val layer = scene.layer(layerId) ?: return emptyList()

@@ -51,7 +51,7 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
         val dropped = sortedSetOf<String>()
         var renamed = false
         fun visit(node: XmlNode, dims: FloatArray): XmlNode {
-            val nativeAm = if (node.name == "effect") catalog.definitions.firstOrNull { it.id == node["id"] && it.key.startsWith("am-") } else null
+            val nativeAm = if (node.name == "effect") catalog.definitions.firstOrNull { it.id == node["id"] && it.key.startsWith("am-") && it.available } else null
             if (nativeAm != null) return node
             val rule = if (node.name == "effect") rules[node["id"]]?.takeIf { r -> r.onlyWith == null || node.children.any { c -> c.name == "property" && c["name"] == r.onlyWith } } else null
             val own = rule?.let { catalog.definitions.firstOrNull { d -> d.key == it.to } }

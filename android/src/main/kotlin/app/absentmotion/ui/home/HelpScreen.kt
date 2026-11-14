@@ -80,7 +80,7 @@ fun HelpScreen(page: String = "index.html", onClose: () -> Unit) {
         PhoneScreen(fillWidth = 1000.dp) {
             DialogStatusBarIcons(darkIcons = !dark)
             Column(Modifier.fillMaxSize().background(Am.SheetBg)) {
-                TitleBar(stringResource(R.string.settings_help), HomeIcons.Close, stringResource(R.string.action_close), onClose)
+                TitleBar("Schnitt", HomeIcons.Close, stringResource(R.string.action_close), onClose)
                 AndroidView(
                     factory = { base ->
                         val night = if (dark) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO
@@ -109,6 +109,11 @@ fun HelpScreen(page: String = "index.html", onClose: () -> Unit) {
 
 private class HelpClient(var tag: String, private val context: android.content.Context, private val openExternal: (String) -> Unit) : WebViewClient() {
     var clearHistory = false
+
+    override fun onRenderProcessGone(view: android.webkit.WebView, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
+        runCatching { view.destroy() }
+        return true
+    }
 
     override fun onPageFinished(view: WebView, url: String) {
         if (!clearHistory) return

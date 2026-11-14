@@ -140,7 +140,7 @@ fun SettingsDrawer(settings: AppSettings, drawer: androidx.compose.material3.Dra
             }
             LinkRow(stringResource(R.string.settings_language), currentLanguage(LocalContext.current).nativeName) { language = true }
             Spacer(Modifier.height(CardGap))
-            LinkRow(stringResource(R.string.settings_help)) { help = true }
+            LinkRow("Schnitt") { help = true }
             Spacer(Modifier.height(CardGap))
             app.absentmotion.ui.tutorial.TutorialRows(settings)
             Spacer(Modifier.height(CardGap))

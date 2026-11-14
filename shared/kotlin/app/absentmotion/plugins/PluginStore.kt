@@ -189,11 +189,11 @@ class PluginStore(private val context: Context) {
         }
         val effects = mapEffects(fileName + " " + folder.name)
         val summary = when (kind) {
-            PluginKind.Native -> "Native Adobe plug-in binary · $fileName · code cannot run on Android, so it is ported to a compatible global shader with editable properties"
-            PluginKind.Shader -> "Global fragment shader preset · $fileName · mapped into the app shader pipeline"
+            PluginKind.Native -> "Native Adobe plug-in binary · $fileName · converted into an Android effect with its own generated shader and editable properties"
+            PluginKind.Shader -> "Fragment shader · $fileName · converted into an Android effect with editable properties"
             PluginKind.Script -> "ExtendScript panel · $fileName · runs in the sandboxed panel host with layer and effect commands"
             PluginKind.Cep -> "CEP HTML panel · ${chosen.name} · exposes the plug-in's own controls"
-            PluginKind.Effect -> "Imported effect package · $fileName · mapped into the app's effect pipeline"
+            PluginKind.Effect -> "Imported effect package · $fileName · converted into its own Android effect"
         } + if (effects.isEmpty()) "" else " · ${effects.size} mapped effects"
         return Plugin(
             id = id, name = fileName.substringBeforeLast('.').ifBlank { "Plugin" }, version = "1.0", kind = kind,

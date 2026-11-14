@@ -374,7 +374,7 @@ private fun BrowserBody(state: EditorState) {
                     item(key = "ai-captions") { AudioTile(stringResource(R.string.auto_captions), 5, true) { state.playing = false; captionClip = layer.id } }
                 }
                 items(actions, key = { "ai-${it.name}" }) { action -> AiTile(action, state.selected, ai) }
-                items(results, key = { it.shortcut ?: it.id }) { effect -> EffectTile(catalog, effect, 100f, { if (effect in byPreset) detail = effect else pick(effect) }, { detail = effect }, effect.id in favourites) }
+                items(results.distinctBy { it.key }, key = { it.key }) { effect -> EffectTile(catalog, effect, 100f, { if (effect in byPreset) detail = effect else pick(effect) }, { detail = effect }, effect.id in favourites) }
             }
         } else if (PlatformFeatures.desktop) {
             DeskEffectsHome(homeScroll, catalog, recent, favourites, presetFavourites, favPage, { favPage = it }, hasSound, audioName, ::pick, { effect, preset -> if (effect.usable(blocked)) add(effect, preset) else detail = effect }, { detail = it }, { category = it })
@@ -447,7 +447,7 @@ private fun BrowserBody(state: EditorState) {
             if (starred.isEmpty()) Text(stringResource(R.string.effectbrowser_favorite_empty), Modifier.align(Alignment.Center).padding(horizontal = 24.dp), color = Am.OnDarkDim, fontSize = 15.sp, textAlign = TextAlign.Center)
             else LazyVerticalGrid(GridCells.Adaptive(110.dp), Modifier.fillMaxSize(), contentPadding = PaddingValues(10.dp)) {
                 item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) { Text(stringResource(R.string.effectbrowser_favorite), Modifier.padding(start = 6.dp, top = 6.dp, bottom = 10.dp), color = Am.OnDark, fontSize = 15.sp, fontWeight = FontWeight.Medium) }
-                items(starred) { (effect, preset) -> EffectTile(catalog, effect, 100f, { if (preset == null) pick(effect) else if (effect.usable(blocked)) add(effect, preset) else detail = effect }, { detail = effect }, true, preset) }
+                items(starred, key = { (effect, preset) -> effect.key + ":" + (preset?.slug ?: "") }) { (effect, preset) -> EffectTile(catalog, effect, 100f, { if (preset == null) pick(effect) else if (effect.usable(blocked)) add(effect, preset) else detail = effect }, { detail = effect }, true, preset) }
             }
             detailPane()
         }

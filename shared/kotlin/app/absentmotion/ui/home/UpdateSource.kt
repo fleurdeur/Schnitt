@@ -15,13 +15,16 @@ internal interface UpdateSource {
     fun allows(url: URI, first: Boolean): Boolean
 }
 
+internal const val RELEASE_HOME = "https://github.com/fleurdeur/Schnitt"
+
 internal object GitHubSource : UpdateSource {
-    private val repository = HOME_PAGE.removePrefix("https://github.com/").lowercase(Locale.ROOT)
+    private val repositories = listOf(RELEASE_HOME, HOME_PAGE).map { it.removePrefix("https://github.com/").lowercase(Locale.ROOT) }.distinct()
+    private val repository = repositories.first()
     private val cdn = setOf("objects.githubusercontent.com", "release-assets.githubusercontent.com")
-    override val releases = "https://api.github.com/repos/" + HOME_PAGE.removePrefix("https://github.com/") + "/releases?per_page=30"
+    override val releases = "https://api.github.com/repos/" + RELEASE_HOME.removePrefix("https://github.com/") + "/releases?per_page=30"
     override val signers = setOf(RELEASE_SIGNER)
 
-    override fun asset(tag: String, name: String) = "$HOME_PAGE/releases/download/$tag/$name"
+    override fun asset(tag: String, name: String) = "$RELEASE_HOME/releases/download/$tag/$name"
 
     override fun allows(url: URI, first: Boolean): Boolean {
         if (!url.isAbsolute || url.isOpaque || !url.scheme.equals("https", ignoreCase = true)) return false
@@ -29,9 +32,10 @@ internal object GitHubSource : UpdateSource {
         val host = url.host?.lowercase(Locale.ROOT) ?: return false
         val path = url.rawPath.orEmpty().lowercase(Locale.ROOT)
         if (path.split('/').any { it == ".." || it == "." } || path.contains('\\')) return false
-        val releaseFile = host == "github.com" && path.startsWith("/$repository/releases/download/")
-        val listing = host == "api.github.com" && (path == "/repos/$repository/releases" || (!first && path.matches(Regex("/repositories/[0-9]+/releases"))))
-        return releaseFile || listing || (!first && host in cdn)
+        val releaseFile = host == "github.com" && repositories.any { repo -> path.startsWith("/$repo/releases/download/") }
+        val releasePage = host == "github.com" && repositories.any { repo -> path == "/$repo/releases" || path == "/$repo/releases/latest" || path.startsWith("/$repo/releases/tag/") }
+        val listing = host == "api.github.com" && (repositories.any { repo -> path == "/repos/$repo/releases" || path == "/repos/$repo/releases/latest" } || (!first && path.matches(Regex("/repositories/[0-9]+/releases"))))
+        return releaseFile || releasePage || listing || (!first && host in cdn)
     }
 }
 

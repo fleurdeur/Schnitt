@@ -45,18 +45,20 @@ object AmEffectImporter {
 
     private fun parse(xml: String): EffectDefinition? {
         val id = Regex("""<effect\s+[^>]*id="([^"]+)""" + "\"").find(xml)?.groupValues?.get(1) ?: return null
-        if (xml.contains("<passes>") || xml.contains("srcType=\"buffer\"") || xml.contains("acPass") ||
-            xml.contains("acLayerToScreen") || xml.contains("acLayerNorm")) return null
-        val shader = Regex("""<shader[^>]*>\s*<!\[CDATA\[(.*?)\]\]></shader>""", RegexOption.DOT_MATCHES_ALL).find(xml)?.groupValues?.get(1) ?: return null
         val params = parseParams(xml)
-        val sksl = translate(shader, params) ?: return null
+        val unsupported = xml.contains("<passes>") || xml.contains("srcType=\"buffer\"") || xml.contains("acPass") ||
+            xml.contains("acLayerToScreen") || xml.contains("acLayerNorm")
+        val shader = Regex("""<shader[^>]*>\s*<!\[CDATA\[(.*?)\]\]></shader>""", RegexOption.DOT_MATCHES_ALL).find(xml)?.groupValues?.get(1)
+        val sksl = shader?.let { translate(it, params) }
         val name = Regex("""<locale lang="en">[\s\S]*?<string name="name">([^<]+)</string>""").find(xml)?.groupValues?.get(1)
             ?: id.substringAfterLast('.').replace('-', ' ').replaceFirstChar { it.uppercase() }
         val description = Regex("""<locale lang="en">[\s\S]*?<string name="desc">([^<]+)</string>""").find(xml)?.groupValues?.get(1)
-            ?: "Ported Alight Motion effect"
+            ?: "Alight Motion effect"
         val category = Regex("""<effect\s+[^>]*category="([^"]+)""" + "\"").find(xml)?.groupValues?.get(1) ?: "other"
         val key = "am-" + id.substringAfterLast('.').lowercase().replace(Regex("[^a-z0-9]+"), "") + "-" + digest(id).take(4)
-        return EffectDefinition(id, key, name, mapCategory(category), description, params, sksl, page = key)
+        val status = if (unsupported || sksl == null) "unsupported" else "ok"
+        val note = if (status == "ok") description else "$description · Requires layer/multi-pass shader support"
+        return EffectDefinition(id, key, name, mapCategory(category), note, params, sksl, status = status, page = key)
     }
 
     private fun parseParams(xml: String): List<EffectParam> {

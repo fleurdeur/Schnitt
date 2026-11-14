@@ -347,7 +347,7 @@ private fun ProjectsPane(
     Box(modifier.fillMaxWidth().onGloballyPositioned { origin = it.positionInRoot() }) {
         Column(Modifier.fillMaxSize()) {
             Spacer(Modifier.height(if (wide) 8.dp else 24.dp))
-            Chips(tab, onTab, wide)
+            Chips(tab, onTab, wide, onUpload)
             if (loaded && shown.isEmpty() && tab == 0 && settings.xmlUpload && query.isBlank()) {
                 Spacer(Modifier.height(13.dp))
                 Box(Modifier.padding(horizontal = 16.dp).then(if (wide) WideCard else Modifier)) { UploadCard(onUpload) }
@@ -478,10 +478,20 @@ internal fun listRows(list: List<ProjectInfo>, byName: Boolean, dates: DateTimeF
     }
 
 @Composable
-private fun Chips(tab: Int, onTab: (Int) -> Unit, crisp: Boolean) {
-    Row(Modifier.padding(start = 16.dp), horizontalArrangement = Arrangement.spacedBy(if (crisp) 8.dp else 12.dp)) {
-        Chip(stringResource(R.string.home_tab_projects), tab == 0, crisp) { onTab(0) }
-        Chip(stringResource(R.string.home_tab_assets), tab == 1, crisp) { onTab(1) }
+private fun Chips(tab: Int, onTab: (Int) -> Unit, crisp: Boolean, onUpload: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(if (crisp) 8.dp else 12.dp)) {
+            Chip(stringResource(R.string.home_tab_projects), tab == 0, crisp) { onTab(0) }
+            Chip(stringResource(R.string.home_tab_assets), tab == 1, crisp) { onTab(1) }
+        }
+        if (tab == 0) Row(
+            Modifier.height(34.dp).clip(RoundedCornerShape(17.dp)).background(Am.Card).clickable(onClick = onUpload).padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(HomeIcons.Upload, null, Modifier.size(17.dp), tint = Am.Navy)
+            Spacer(Modifier.width(6.dp))
+            Text("Import XML", color = Am.Navy, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+        }
     }
 }
 

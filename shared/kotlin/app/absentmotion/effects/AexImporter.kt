@@ -2,6 +2,8 @@ package app.absentmotion.effects
 
 import android.content.Context
 import android.net.Uri
+import app.absentmotion.plugins.PluginShader
+import app.absentmotion.platform.readAtMost
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -29,15 +31,13 @@ object AexImporter {
         val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@withContext null
         val fileName = uri.lastPathSegment.orEmpty().substringAfterLast('/')
         val info = read(bytes, fileName)
-        val base = mapToBuiltin(context, info)
         val id = digest("$fileName:${bytes.size}").take(10)
         val target = File(context.filesDir, FOLDER).apply { mkdirs() }.resolve("$id.aex")
         runCatching { target.writeBytes(bytes) }
         append(context, JSONObject()
             .put("id", id).put("name", info.name).put("vendor", info.vendor).put("version", info.version)
-            .put("category", info.category).put("url", info.url).put("note", info.note)
-            .put("mapped", base.id).put("file", target.path))
-        custom(base, id, info)
+            .put("category", info.category).put("url", info.url).put("note", info.note).put("file", target.path))
+        custom(id, info, bytes.toString(Charsets.ISO_8859_1).take(2 shl 20))
     }
 
     /** Reads the PiPL resource from a PE32/PE32+ file.  Falls back to strings. */
@@ -62,15 +62,18 @@ object AexImporter {
         return Info(name.trim(), vendor.trim(), version, category, url.trim(), if (text.isBlank()) "Name and strings only; no PiPL resource" else "PiPL resource read from AEX")
     }
 
-    fun custom(base: EffectDefinition, id: String, info: Info): EffectDefinition = base.copy(
+    fun custom(id: String, info: Info, text: String): EffectDefinition = PluginShader.fromContent(
+        id = "aex.$id",
         key = "aex-$id",
         name = info.name,
+        text = text,
+        summary = "Imported AEX ${info.version} · ${info.vendor.ifBlank { "unknown vendor" }} · ${info.note}",
+    ).copy(
         category = "custom",
-        description = "Imported AEX ${info.version}".trim() + " · " + (info.vendor.ifBlank { "unknown vendor" }) +
-            " · Ported to the global ${base.name} shader. Every ${base.name} property below is supported.",
+        description = "Android effect generated from AEX ${info.version} by ${info.vendor.ifBlank { "unknown vendor" }}. " +
+            "The native plug-in binary is converted into its own SKSL shader and editable properties instead of using a built-in effect.",
         since = null,
         shortcuts = emptyList(),
-        page = base.page,
     )
 
     fun append(context: Context, entry: JSONObject) {
@@ -87,13 +90,16 @@ object AexImporter {
         val imported = runCatching { JSONArray(file.readText()) }.getOrNull() ?: return catalog
         val extra = (0 until imported.length()).mapNotNull { index ->
             val entry = imported.optJSONObject(index) ?: return@mapNotNull null
-            val base = catalog.find(entry.optString("mapped")) ?: return@mapNotNull null
-            val info = Info(entry.optString("name", base.name), entry.optString("vendor"), entry.optString("version"),
+            val id = entry.optString("id", "aex")
+            val info = Info(entry.optString("name", "Imported AEX"), entry.optString("vendor"), entry.optString("version"),
                 entry.optString("category"), entry.optString("url"), entry.optString("note"))
-            custom(base, entry.optString("id", "aex"), info)
-        }
+            val text = entry.optString("file").takeIf { it.isNotBlank() }?.let { path ->
+                runCatching { File(path).inputStream().use { it.readAtMost(2 shl 20) }.toString(Charsets.ISO_8859_1) }.getOrNull()
+            }.orEmpty()
+            custom(id, info, text)
+        }.distinctBy { it.id }
         if (extra.isEmpty()) return catalog
-        return catalog.copy(definitions = catalog.definitions + extra, categoryNames = catalog.categoryNames + ("custom" to "Imported"))
+        return catalog.copy(definitions = catalog.definitions + extra.filter { def -> catalog.definitions.none { it.id == def.id } }, categoryNames = catalog.categoryNames + ("custom" to "Imported"))
     }
 
     private fun mapToBuiltin(context: Context, info: Info): EffectDefinition {

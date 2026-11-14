@@ -327,6 +327,48 @@ object VideoDownloader : VideoFetcher {
         }
     }
 
+    /**
+     * Saves only the sound of a direct media URL without the bundled Python
+     * downloader. This keeps audio import working on 32-bit and x86 devices
+     * where the yt-dlp runtime is not available.
+     */
+    suspend fun directAudio(context: Context, url: String, name: String): SavedMedia? = withContext(Dispatchers.IO) {
+        val target = File(context.cacheDir, "direct-audio-${System.nanoTime()}.mp4")
+        try {
+            val connection = URL(url).openConnection() as HttpURLConnection
+            try {
+                connection.connectTimeout = 20_000
+                connection.readTimeout = 30_000
+                connection.instanceFollowRedirects = true
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36")
+                connection.setRequestProperty("Referer", "https://www.tiktok.com/")
+                if (connection.responseCode !in 200..299) return@withContext null
+                val limit = 512L shl 20
+                var written = 0L
+                connection.inputStream.use { input ->
+                    target.outputStream().use { output ->
+                        val buffer = ByteArray(1 shl 16)
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read <= 0) break
+                            written += read
+                            if (written > limit) return@withContext null
+                            output.write(buffer, 0, read)
+                        }
+                    }
+                }
+            } catch (e: IOException) {
+                Log.w(TAG, "direct audio download failed", e)
+                return@withContext null
+            } finally {
+                connection.disconnect()
+            }
+            runCatching { saveAudio(context, target, safeName(name)) }.onFailure { Log.w(TAG, "direct audio save failed", it) }.getOrNull()
+        } finally {
+            target.delete()
+        }
+    }
+
     override suspend fun download(context: Context, url: String, info: LinkInfo, mode: SaveMode, choice: Int, progress: (Float) -> Unit): List<SavedMedia> {
         val work = File(context.cacheDir, "downloader-work")
         work.deleteRecursively()

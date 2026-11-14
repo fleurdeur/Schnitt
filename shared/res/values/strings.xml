@@ -2507,12 +2507,12 @@
     <string name="beat_full">Full mix</string>
     <string name="beat_detect">Detect beats</string>
     <string name="beat_detecting">Listening…</string>
-    <string name="beat_bake">Bake keyframes</string>
+    <string name="beat_bake">Bake bookmarks</string>
     <string name="beat_bpm">%1$d BPM</string>
     <string name="beat_found">%1$d beats</string>
     <string name="beat_no_audio">Add an audio layer first.</string>
     <string name="beat_failed">No clear beat was found in this audio.</string>
-    <string name="beat_baked">%1$d keyframes baked</string>
+    <string name="beat_baked">%1$d bookmarks added</string>
     <string name="beat_property">Keyframe</string>
     <string name="beat_prop_opacity">Opacity pulse</string>
     <string name="beat_prop_scale">Scale punch</string>

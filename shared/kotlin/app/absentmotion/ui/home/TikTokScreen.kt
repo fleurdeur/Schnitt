@@ -62,7 +62,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.delay
 import org.json.JSONObject
 
-private data class TikTokItem(val id: String, val url: String, val title: String, val author: String)
+private data class TikTokItem(val id: String, val url: String, val title: String, val author: String, val cover: String? = null)
 
 private const val UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36"
 
@@ -71,7 +71,6 @@ internal fun TikTokScreen(onClose: () -> Unit, onImportXml: (Uri) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("All") }
     var items by remember { mutableStateOf<List<TikTokItem>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
@@ -82,8 +81,7 @@ internal fun TikTokScreen(onClose: () -> Unit, onImportXml: (Uri) -> Unit) {
         if (query.isBlank()) return
         loading = true; failed = false; notice = null
         scope.launch {
-            val q = if (category == "All") query else "$query $category"
-            items = runCatching { TikTokWeb.search(q) }.getOrDefault(emptyList())
+            items = runCatching { TikTokWeb.search(query) }.getOrDefault(emptyList())
             failed = items.isEmpty()
             loading = false
         }
@@ -102,10 +100,17 @@ internal fun TikTokScreen(onClose: () -> Unit, onImportXml: (Uri) -> Unit) {
     fun importAudio(item: TikTokItem) {
         scope.launch {
             try {
-                if (!VideoDownloader.installed(context)) { notice = context.getString(R.string.tiktok_need_ytdlp); return@launch }
-                val info = VideoDownloader.check(context, item.url)
-                val saved = VideoDownloader.download(context, item.url, info, SaveMode.AudioOnly, 0) {}
-                notice = if (saved.isEmpty()) context.getString(R.string.tiktok_audio_failed) else context.getString(R.string.tiktok_audio_saved)
+                val saved = if (VideoDownloader.available && VideoDownloader.installed(context)) {
+                    runCatching {
+                        val info = VideoDownloader.check(context, item.url)
+                        VideoDownloader.download(context, item.url, info, SaveMode.AudioOnly, 0) {}
+                    }.getOrElse { emptyList() }
+                } else emptyList()
+                val result = if (saved.isNotEmpty()) saved else {
+                    val direct = TikTokWeb.playUrl(item)
+                    if (direct == null) emptyList() else listOfNotNull(VideoDownloader.directAudio(context, direct, item.title))
+                }
+                notice = if (result.isEmpty()) context.getString(R.string.tiktok_audio_failed) else context.getString(R.string.tiktok_audio_saved)
             } catch (e: Exception) {
                 notice = app.absentmotion.i18n.failureText(context.getString(R.string.tiktok_audio_failed), e)
             }
@@ -122,16 +127,8 @@ internal fun TikTokScreen(onClose: () -> Unit, onImportXml: (Uri) -> Unit) {
             }
             SearchField(query, { query = it }, Modifier.padding(horizontal = 14.dp).fillMaxWidth().height(40.dp),
                 hint = stringResource(R.string.tiktok_search), background = Am.Card, content = Am.Navy, faint = Am.HomeDim)
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                listOf("All", "Effects", "CC", "Transition", "Preset").forEach { item ->
-                    val on = item == category
-                    Box(Modifier.height(32.dp).clip(RoundedCornerShape(16.dp)).background(if (on) Am.Navy else Am.Card).clickable { category = item }.padding(horizontal = 12.dp), Alignment.Center) {
-                        Text(item, color = if (on) Am.OnNavy else Am.HomeInk, fontSize = 12.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
-                    }
-                }
-            }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.height(38.dp).weight(1f).clip(RoundedCornerShape(19.dp)).background(Am.Navy).clickable(enabled = !loading) { search() }, Alignment.Center) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.height(40.dp).weight(1f).clip(RoundedCornerShape(20.dp)).background(Am.Navy).clickable(enabled = !loading) { search() }, Alignment.Center) {
                     Text(if (loading) stringResource(R.string.tiktok_searching) else stringResource(R.string.tiktok_search_button), color = Am.OnNavy, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
@@ -142,7 +139,10 @@ internal fun TikTokScreen(onClose: () -> Unit, onImportXml: (Uri) -> Unit) {
                 else -> LazyColumn(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     items(items, key = { it.id }) { item ->
                         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Am.Card).clickable { open = item }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).background(Am.HomeBg), Alignment.Center) { Text("▶", color = Am.HomeAccent, fontSize = 18.sp) }
+                            Box(Modifier.size(56.dp, 72.dp).clip(RoundedCornerShape(10.dp)).background(Am.HomeBg), Alignment.Center) {
+                                if (item.cover != null) coil3.compose.AsyncImage(item.cover, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+                                else Text("▶", color = Am.HomeAccent, fontSize = 18.sp)
+                            }
                             Column(Modifier.weight(1f).padding(start = 10.dp)) {
                                 Text(item.title, color = Am.Navy, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 Text(item.author, color = Am.HomeDim, fontSize = 11.sp, maxLines = 1)
@@ -161,41 +161,86 @@ internal fun TikTokScreen(onClose: () -> Unit, onImportXml: (Uri) -> Unit) {
 @Composable
 private fun TikTokPlayer(item: TikTokItem, onClose: () -> Unit, onXml: () -> Unit, onAudio: () -> Unit) {
     val context = LocalContext.current
-    val web = remember(item.id) {
-        WebView(context).apply {
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.mediaPlaybackRequiresUserGesture = false
-            webViewClient = WebViewClient()
-        }
+    var direct by remember(item.id) { mutableStateOf<String?>(null) }
+    var failed by remember(item.id) { mutableStateOf(false) }
+    var loading by remember(item.id) { mutableStateOf(true) }
+    val fallbackWeb = remember(item.id) { arrayOfNulls<WebView>(1) }
+    val videoView = remember(item.id) { arrayOfNulls<android.widget.VideoView>(1) }
+    LaunchedEffect(item.id) {
+        direct = runCatching { TikTokWeb.playUrl(item) }.getOrNull()
+        failed = direct == null
+        loading = false
     }
     Dialog(onClose, DialogProperties(usePlatformDefaultWidth = false)) {
-        Column(Modifier.fillMaxSize().background(Am.HomeBg).navigationBarsPadding()) {
-            Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black).navigationBarsPadding()) {
+            Row(Modifier.fillMaxWidth().height(52.dp).background(Am.HomeBg), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(52.dp).clickable(onClick = onClose), Alignment.Center) { Text("×", color = Am.Navy, fontSize = 22.sp) }
                 Text(item.title, Modifier.weight(1f), color = Am.Navy, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            AndroidView(factory = { web }, modifier = Modifier.weight(1f).fillMaxWidth())
-            Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.weight(1f).height(42.dp).clip(RoundedCornerShape(21.dp)).background(Am.Navy).clickable(onClick = onXml), Alignment.Center) {
+            Box(Modifier.weight(1f).fillMaxWidth(), Alignment.Center) {
+                if (item.cover != null) coil3.compose.AsyncImage(item.cover, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+                if (direct != null && !failed) {
+                    AndroidView(
+                        factory = { ctx ->
+                            android.widget.VideoView(ctx).apply {
+                                videoView[0] = this
+                                setBackgroundColor(android.graphics.Color.BLACK)
+                                val headers = mapOf("User-Agent" to UA, "Referer" to "https://www.tiktok.com/")
+                                runCatching { setVideoURI(android.net.Uri.parse(direct.orEmpty()), headers) }
+                                setOnPreparedListener { media ->
+                                    media.isLooping = true
+                                    start()
+                                }
+                                setOnErrorListener { _, _, _ -> failed = true; true }
+                                val controller = android.widget.MediaController(ctx).also { it.setAnchorView(this) }
+                                setMediaController(controller)
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+                if (direct == null || failed) {
+                    AndroidView(
+                        factory = { ctx ->
+                            WebView(ctx).apply {
+                                fallbackWeb[0] = this
+                                settings.javaScriptEnabled = true
+                                settings.domStorageEnabled = true
+                                settings.mediaPlaybackRequiresUserGesture = false
+                                settings.userAgentString = UA
+                                setBackgroundColor(android.graphics.Color.BLACK)
+                                webViewClient = object : WebViewClient() {
+                                    override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
+                                        runCatching { view.destroy() }
+                                        return true
+                                    }
+                                }
+                                loadUrl("https://www.tiktok.com/player/v1/${item.id}?autoplay=1&loop=1&music_info=1&description=1")
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+                if (loading) androidx.compose.material3.CircularProgressIndicator(color = Am.Accent)
+            }
+            Row(Modifier.fillMaxWidth().background(Am.HomeBg).padding(10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(22.dp)).background(Am.Navy).clickable(onClick = onXml), Alignment.Center) {
                     Text(stringResource(R.string.tiktok_import_xml), color = Am.OnNavy, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
-                Box(Modifier.weight(1f).height(42.dp).clip(RoundedCornerShape(21.dp)).background(Am.Card).clickable(onClick = onAudio), Alignment.Center) {
+                Box(Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(22.dp)).background(Am.Card).clickable(onClick = onAudio), Alignment.Center) {
                     Text(stringResource(R.string.tiktok_import_audio), color = Am.HomeInk, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
     }
-    LaunchedEffect(item.id) {
-        val direct = runCatching { TikTokWeb.playUrl(item) }.getOrNull()
-        if (direct != null) {
-            val html = "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><style>html,body{margin:0;background:#000;height:100%}video{width:100%;height:100%;object-fit:contain}</style></head><body><video src='" + direct.replace("'", "%27") + "' controls autoplay loop playsinline></video></body></html>"
-            web.loadDataWithBaseURL("https://www.tiktok.com/", html, "text/html", "utf-8", null)
-        } else {
-            web.loadUrl("https://www.tiktok.com/player/v1/${item.id}?autoplay=1&loop=1&music_info=1&description=1")
+    DisposableEffect(item.id) {
+        onDispose {
+            runCatching { videoView[0]?.stopPlayback() }
+            runCatching { fallbackWeb[0]?.destroy() }
+            videoView[0] = null
+            fallbackWeb[0] = null
         }
     }
-    DisposableEffect(item.id) { onDispose { web.destroy() } }
 }
 
 private object TikTokWeb {
@@ -204,44 +249,72 @@ private object TikTokWeb {
     private val cache = HashMap<String, Pair<Long, List<TikTokItem>>>()
 
     suspend fun search(query: String): List<TikTokItem> = withContext(Dispatchers.IO) {
-        cache[query]?.takeIf { System.currentTimeMillis() - it.first < 10 * 60_000 }?.let { return@withContext it.second }
-        val q = URLEncoder.encode("site:tiktok.com $query (alight motion OR transition OR cc OR preset)", "UTF-8")
+        val key = query.trim()
+        if (key.isEmpty()) return@withContext emptyList()
+        cache[key]?.takeIf { System.currentTimeMillis() - it.first < 10 * 60_000 }?.let { return@withContext it.second }
         val links = LinkedHashSet<String>()
-        for (offset in listOf(0, 30)) {
-            val html = fetch("https://html.duckduckgo.com/html/?q=$q&s=$offset") ?: continue
-            val decoded = runCatching { URLDecoder.decode(html, "UTF-8") }.getOrDefault(html)
-            Regex("""https?://(?:www\.)?tiktok\.com/@[^"&<> ]+/video/\d+""").findAll(decoded).forEach { links += it.value }
-            if (links.size >= 24) break
+        fun collect(html: String?) {
+            if (html == null) return
+            val decoded = runCatching { URLDecoder.decode(html, "UTF-8") }.getOrDefault(html).replace("&amp;", "&")
+            Regex("""(?:https?:)?//(?:www\.)?tiktok\.com/@[A-Za-z0-9._-]+/video/\d+""").findAll(decoded).forEach { match ->
+                val link = match.value
+                links += if (link.startsWith("//")) "https:$link" else if (link.startsWith("http")) link else "https://$link"
+            }
+            Regex("""/@[A-Za-z0-9._-]+/video/\d+""").findAll(decoded).forEach { links += "https://www.tiktok.com" + it.value }
         }
-        val result = links.take(24).mapNotNull { link -> item(link) }
-        if (result.isNotEmpty()) cache[query] = System.currentTimeMillis() to result
+        val quoted = URLEncoder.encode("site:tiktok.com $key", "UTF-8")
+        for (offset in listOf(0, 30, 60, 90)) collect(fetch("https://html.duckduckgo.com/html/?q=$quoted&s=$offset"))
+        val bing = URLEncoder.encode("site:tiktok.com $key", "UTF-8")
+        for (first in listOf(1, 11, 21, 31)) collect(fetch("https://www.bing.com/search?q=$bing&first=$first"))
+        collect(fetch("https://www.tiktok.com/search?q=" + URLEncoder.encode(key, "UTF-8")))
+        val result = links.take(80).mapIndexedNotNull { index, link -> item(link, metadata = index < 24) }
+        if (result.isNotEmpty()) cache[key] = System.currentTimeMillis() to result
         result
     }
 
     suspend fun playUrl(item: TikTokItem): String? = withContext(Dispatchers.IO) {
         val html = fetch(item.url) ?: return@withContext null
-        val decoded = html.replace("""\u002F""", "/").replace("""\/""", "/").replace("&amp;", "&")
-        Regex("""(?:playAddr|downloadAddr)"\s*:\s*"(https:[^"]+)""" + "\"").find(decoded)?.groupValues?.get(1)
+        val decoded = unescape(html)
+        val patterns = listOf(
+            Regex("""(?:playAddr|downloadAddr|play_addr)"\s*:\s*\{[^}]*?"url_list"\s*:\s*\["(https:[^"]+)"""),
+            Regex("""(?:playAddr|downloadAddr|play_addr)"\s*:\s*"(https:[^"]+)"""),
+            Regex("""https://[^"']*(?:aweme|video)[^"']*\.mp4[^"']*"""),
+        )
+        patterns.asSequence().mapNotNull { match -> match.find(decoded)?.let { it.groupValues.getOrNull(1)?.takeIf(String::isNotBlank) ?: it.value } }
+            .firstOrNull { it.startsWith("http") }
     }
 
-    private suspend fun item(url: String): TikTokItem? {
+    private suspend fun item(url: String, metadata: Boolean = true): TikTokItem? {
         val id = Regex("""/video/(\d+)""").find(url)?.groupValues?.get(1) ?: return null
-        val json = fetch("https://www.tiktok.com/oembed?url=" + URLEncoder.encode(url, "UTF-8"))?.let { runCatching { JSONObject(it) }.getOrNull() }
-        val author = json?.optString("author_name").orEmpty().ifBlank { url.substringAfter("@").substringBefore("/") }
-        val title = json?.optString("title").orEmpty().ifBlank { "TikTok · @$author" }
-        return TikTokItem(id, url, title, "@$author")
+        val author = url.substringAfter("@", "").substringBefore("/")
+        var title = "TikTok · @$author".trim()
+        var cover: String? = null
+        if (metadata) runCatching {
+            fetch("https://www.tiktok.com/oembed?url=" + URLEncoder.encode(url, "UTF-8"))?.let { JSONObject(it) }.let { json ->
+                title = json?.optString("title").orEmpty().ifBlank { title }
+                cover = json?.optString("thumbnail_url").orEmpty().takeIf { it.startsWith("http") }
+            }
+        }
+        return TikTokItem(id, url, title, "@$author", cover)
     }
 
     suspend fun xml(url: String): String? = withContext(Dispatchers.IO) {
         val oembed = fetch("https://www.tiktok.com/oembed?url=" + URLEncoder.encode(url, "UTF-8"))
         val page = fetch(url)
-        val text = listOfNotNull(oembed, page).joinToString(" ")
-            .replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&amp;", "&")
-            .replace("\u003C", "<").replace("\u003E", ">")
+        val text = unescape(listOfNotNull(oembed, page).joinToString(" "))
         Regex("""<scene[\s\S]*?</scene>""").find(text)?.value
             ?: Regex("""<project[\s\S]*?</project>""").find(text)?.value
+            ?: Regex(""""(?:scene|project)"\s*:\s*"(<[a-zA-Z][\s\S]*?</(?:scene|project)>)""").find(text)?.groupValues?.get(1)?.let(::unescape)
     }
 
+    private fun unescape(value: String): String = value
+        .replace("\\u002F", "/").replace("\\u002f", "/")
+        .replace("\\/", "/").replace("\\u003C", "<").replace("\\u003c", "<")
+        .replace("\\u003E", ">").replace("\\u003e", ">")
+        .replace("\\u0026", "&").replace("\\u0022", "\"")
+        .replace("\\u0027", "'").replace("\\n", "\n")
+        .replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"")
+        .replace("&amp;", "&")
     private fun fetch(url: String): String? {
         val c = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 20_000

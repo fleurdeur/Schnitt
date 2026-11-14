@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -60,6 +61,7 @@ import app.absentmotion.plugins.JsxInterpreter
 import app.absentmotion.plugins.Plugin
 import app.absentmotion.plugins.PluginKind
 import app.absentmotion.plugins.PluginStore
+import app.absentmotion.plugins.PluginShader
 import app.absentmotion.ui.export.ExportIcons
 import app.absentmotion.ui.home.HomeIcons
 import app.absentmotion.ui.theme.Am
@@ -73,7 +75,8 @@ internal fun PluginSheet(state: EditorState, onClose: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val store = remember { PluginStore(context) }
-    val catalog by produceState<EffectCatalog?>(null) {
+    var catalogRevision by remember { mutableIntStateOf(0) }
+    val catalog by produceState<EffectCatalog?>(null, catalogRevision) {
         value = withContext(Dispatchers.IO) { runCatching { EffectCatalog.read(context) }.getOrNull() }
     }
     var plugins by remember { mutableStateOf(store.list()) }
@@ -88,6 +91,7 @@ internal fun PluginSheet(state: EditorState, onClose: () -> Unit) {
             importing = false
             plugins = store.list()
             result.plugin?.let { selected = it }
+            if (result.plugin != null) catalogRevision++
             if (result.plugin == null) notice = context.getString(R.string.plugins_import_failed)
         }
     }
@@ -175,13 +179,17 @@ private fun PluginDetail(state: EditorState, plugin: Plugin, catalog: EffectCata
     val layers = state.scene.layers
     var targetId by remember(plugin.id, state.scene) { mutableStateOf(state.selectedId ?: layers.firstOrNull()?.id ?: 0L) }
     var targetOpen by remember { mutableStateOf(false) }
+    val generated = catalog?.definitions?.firstOrNull { it.id == PluginShader.effectId(plugin) }
     fun apply(id: String) {
         val layer = state.scene.layer(targetId) ?: state.selected
         if (layer == null) { onNotice(context.getString(R.string.plugins_no_layer)); return }
-        val definition = catalog?.find(id) ?: catalog?.find("absent.$id") ?: catalog?.definitions?.firstOrNull { it.key == id || it.id == id }
-        if (definition == null) { onNotice(context.getString(R.string.plugins_no_effect)); return }
+        val definition = generated ?: catalog?.definitions?.firstOrNull { it.id == PluginShader.effectId(plugin) }
+        if (definition == null) {
+            onNotice("The plugin shader is still being prepared. Reopen the plugin in a moment.")
+            return
+        }
         state.addEffectToChosen(setOf(layer.id)) { definition.instance(null, layer.endTime - layer.startTime) }
-        onNotice(context.getString(R.string.plugins_applied))
+        onNotice("Applied ${definition.name}")
     }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -204,7 +212,7 @@ private fun PluginDetail(state: EditorState, plugin: Plugin, catalog: EffectCata
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(plugin.summary.ifBlank { kindLabel(plugin.kind) }, color = Am.OnDarkDim, fontSize = 13.sp, lineHeight = 18.sp)
-                if (plugin.kind == PluginKind.Native) Text(stringResource(R.string.plugins_legacy_native), Modifier.padding(top = 6.dp), color = Am.Warning, fontSize = 12.sp, lineHeight = 17.sp)
+                if (plugin.kind == PluginKind.Native) Text("Native plug-in converted into an Android effect with its own generated shader.", Modifier.padding(top = 6.dp), color = Am.Accent, fontSize = 12.sp, lineHeight = 17.sp)
             }
             Box(
                 Modifier.padding(start = 8.dp).height(32.dp).clip(RoundedCornerShape(16.dp)).background(if (plugin.enabled) Am.Accent else Am.Well)
@@ -225,24 +233,30 @@ private fun PluginDetail(state: EditorState, plugin: Plugin, catalog: EffectCata
         } else {
             Spacer(Modifier.height(4.dp))
         }
-        if (plugin.effects.isEmpty()) {
-            Box(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).height(38.dp).clip(RoundedCornerShape(19.dp)).background(Am.Accent)
-                    .clickable {
-                        val fallback = if (plugin.name.contains("text", true) || plugin.name.contains("type", true)) "textshake" else "glow"
-                        apply(fallback)
-                    },
-                Alignment.Center,
-            ) { Text(stringResource(R.string.plugins_apply), color = Am.OnAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-        }
-        if (plugin.effects.isNotEmpty()) {
-            Text(stringResource(R.string.plugins_apply), Modifier.padding(start = 16.dp, top = 10.dp, bottom = 4.dp), color = Am.OnDarkDim, fontSize = 12.sp)
-            LazyColumn(Modifier.then(if (plugin.panel) Modifier.height(180.dp) else Modifier.weight(1f)).fillMaxWidth()) {
-                items(plugin.effects) { id ->
-                    Row(Modifier.fillMaxWidth().height(48.dp).clickable { apply(id) }.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).height(38.dp).clip(RoundedCornerShape(19.dp)).background(Am.Accent)
+                .clickable(enabled = generated != null) { apply(generated?.id.orEmpty()) },
+            Alignment.Center,
+        ) { Text(if (generated == null) "Preparing shader…" else stringResource(R.string.plugins_apply), color = Am.OnAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+        Text("Generated Android effect", Modifier.padding(start = 16.dp, top = 10.dp, bottom = 4.dp), color = Am.OnDarkDim, fontSize = 12.sp)
+        LazyColumn(Modifier.then(if (plugin.panel) Modifier.height(180.dp) else Modifier.weight(1f)).fillMaxWidth()) {
+            if (generated != null) {
+                item(key = generated.id) {
+                    Row(Modifier.fillMaxWidth().height(48.dp).clickable { apply(generated.id) }.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(HomeIcons.Plugins, null, Modifier.size(18.dp), tint = Am.Accent)
-                        Text(id, Modifier.weight(1f).padding(start = 12.dp), color = Am.OnDark, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                            Text(generated.name, color = Am.OnDark, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(if (generated.available) "SKSL shader ready" else "Shader needs attention", color = Am.OnDarkDim, fontSize = 11.sp, maxLines = 1)
+                        }
                         Text(stringResource(R.string.plugins_apply), color = Am.Accent, fontSize = 12.sp)
+                    }
+                }
+            }
+            if (plugin.effects.isNotEmpty()) {
+                items(plugin.effects) { id ->
+                    Row(Modifier.fillMaxWidth().height(42.dp).clickable(enabled = generated != null) { apply(id) }.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(HomeIcons.Plugins, null, Modifier.size(16.dp), tint = Am.OnDarkDim)
+                        Text("Plugin preset · ${id.replace('-', ' ').replace('_', ' ')}", Modifier.weight(1f).padding(start = 12.dp), color = Am.OnDarkDim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -299,12 +313,19 @@ private fun PluginWebPanel(state: EditorState, plugin: Plugin, catalog: EffectCa
             settings.domStorageEnabled = true
             settings.mediaPlaybackRequiresUserGesture = false
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            webViewClient = WebViewClient()
+            setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
             settings.cacheMode = android.webkit.WebSettings.LOAD_CACHE_ELSE_NETWORK
+            webViewClient = object : WebViewClient() {
+                override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
+                    runCatching { view.destroy() }
+                    onNotice("Plugin renderer stopped; reopen the plugin")
+                    return true
+                }
+            }
         }
     }
     val handler = remember { Handler(Looper.getMainLooper()) }
-    val bridge = remember(plugin.id, state) {
+    val bridge = remember(plugin.id, state, catalog) {
         object {
             @JavascriptInterface fun applyEffect(id: String) = handler.post { applyEffect(id) }
             @JavascriptInterface fun evalScriptCode(code: String): String {
@@ -315,10 +336,9 @@ private fun PluginWebPanel(state: EditorState, plugin: Plugin, catalog: EffectCa
                 return "queued"
             }
             @JavascriptInterface fun applyEffectByName(name: String) = handler.post {
-                val wanted = name.trim()
-                val resolved = plugin.effects.firstOrNull { it.contains(wanted, true) || wanted.contains(it, true) }
-                    ?: catalog?.definitions?.firstOrNull { it.name.contains(wanted, true) || wanted.contains(it.key, true) }?.key
-                if (resolved != null) applyEffect(resolved) else onNotice("No matching effect for $wanted")
+                val generated = catalog?.definitions?.firstOrNull { it.id == PluginShader.effectId(plugin) }
+                if (generated != null) applyEffect(generated.id)
+                else onNotice("The generated shader for ${plugin.name} is not ready yet")
             }
             @JavascriptInterface fun setOpacity(value: Float) = handler.post {
                 state.editSelected { it.withTransform("opacity", value.coerceIn(0f, 1f)) }
