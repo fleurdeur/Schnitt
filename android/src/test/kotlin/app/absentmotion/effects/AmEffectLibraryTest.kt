@@ -72,7 +72,7 @@ class AmEffectLibraryTest {
             assertNotNull("missing Alight effect $name", source)
             val effect = EffectAlias.bind(source!!, builtIns)
             assertTrue("$name still uses a placeholder", effect.description.contains("Schnitt "))
-            assertTrue("$name has no shader", effect.sksl?.contains("uniform float2 amSize") == true)
+            assertTrue("$name has no shader", effect.sksl?.contains("half4 main") == true)
             assertEquals("$name duplicate controls", effect.params.size, effect.params.map { it.id }.toSet().size)
         }
         val catalog = EffectCatalog(builtIns + bound)
@@ -94,6 +94,18 @@ class AmEffectLibraryTest {
                 }
             }
         }
+        val tiles = bound.first { it.name == "Tiles" }
+        assertTrue(tiles.params.any { it.id == "scale" })
+        assertTrue(tiles.params.any { it.id == "phase" })
+        assertTrue(tiles.params.any { it.id == "vertoffs" })
+        assertTrue(tiles.sksl!!.contains("uniform float scale;"))
+        assertTrue(tiles.sksl!!.contains("uniform float phase;"))
+        assertTrue(tiles.sksl!!.contains("uniform float vertoffs;"))
+        assertTrue(!tiles.sksl!!.contains("clamp(t * amSize"))
+        val ripple = bound.first { it.name == "Circular Ripple" }
+        assertTrue(ripple.params.any { it.id == "centerPoint" })
+        assertTrue(ripple.sksl!!.contains("uniform float2 centerPoint;"))
+        assertTrue(ripple.sksl!!.contains("screen"))
         val pixelate = bound.first { it.name == "Pixelate" }
         assertTrue(pixelate.sksl!!.contains("uniform float size;"))
         assertTrue(!pixelate.sksl!!.contains("uniform float blockSize;"))

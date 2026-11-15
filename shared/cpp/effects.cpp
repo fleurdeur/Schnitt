@@ -43,14 +43,18 @@ namespace am {
 namespace {
 
 const char* const kLift = "absent.backdrop";
+const char* const kAmLift = "com.alightcreative.effects.lift";
+bool IsLift(const std::string& id) { return id == kLift || id == kAmLift; }
 
 const char* const kPuppet = "absent.puppet";
 
 bool BuiltIn(const std::string& id) {
-    return id == "absent.blur" || id == "absent.glow" || id == "absent.smear" || id == kLift || id == kPuppet;
+    return id == "absent.blur" || id == "absent.glow" || id == "absent.smear" || IsLift(id) || id == kPuppet;
 }
 
 bool TilesLayer(const std::string& id) {
+    if (id.rfind("com.alightcreative.effects.tile", 0) == 0) return id != "com.alightcreative.effects.tilepaint";
+    if (id == "com.alightcreative.effects.hextile") return true;
     return id == "absent.tiles" || id == "absent.tile" || id == "absent.tileshift" || id == "absent.tilerotate" || id == "absent.hexagontiling" ||
            id == "absent.hexagontileshift" || id == "absent.hexagontilerotate";
 }
@@ -58,6 +62,9 @@ bool TilesLayer(const std::string& id) {
 bool WrapsLayer(const std::string& id) { return TilesLayer(id) || id == "absent.mirror" || id == "absent.kaleidoscope" || id == "absent.offset"; }
 
 bool KeepsEdges(const std::string& id) {
+    if (id == "com.alightcreative.effects.tileshift" || id == "com.alightcreative.effects.tileshift2" ||
+        id == "com.alightcreative.effects.tilerotate" || id == "com.alightcreative.effects.tilerotate2" ||
+        id == "com.alightcreative.effects.hextile") return true;
     return id == "absent.pixelate" || id == "absent.mosaic" || id == "absent.pixeltiles" || id == "absent.ascii" || id == "absent.halftone" ||
            id == "absent.tileshift" || id == "absent.tilerotate" || id == "absent.hexagontileshift" || id == "absent.hexagontilerotate";
 }
@@ -1033,7 +1040,7 @@ bool EffectRuntime::active(const Layer& layer) const {
 int EffectRuntime::liftAt(const Layer& layer) const {
     int at = -1;
     for (size_t i = 0; i < layer.effects.size(); i++) {
-        if (!layer.effects[i].hidden && layer.effects[i].id == kLift) at = (int)i;
+        if (!layer.effects[i].hidden && IsLift(layer.effects[i].id)) at = (int)i;
     }
     return at;
 }
@@ -1063,7 +1070,7 @@ bool EffectRuntime::behind(const Layer& layer) const { return needs(layer, &Defi
 
 bool EffectRuntime::reaches(const Layer& layer) const {
     return std::any_of(layer.effects.begin(), layer.effects.end(), [&](const LayerEffect& e) {
-        if (e.hidden || e.id == kLift) return false;
+        if (e.hidden || IsLift(e.id)) return false;
         if (BuiltIn(e.id)) return true;
         const Definition* d = find(e.id);
         return d && d->shader && (!d->pointwise || d->blurred);
@@ -1112,7 +1119,7 @@ sk_sp<SkImageFilter> EffectRuntime::chain(const Scene& scene, const Layer& layer
     const auto pointwiseAfter = [&](size_t from) {
         for (size_t j = from; j < end; j++) {
             const LayerEffect& next = layer.effects[j];
-            if (next.hidden || next.id == kLift || (layer.video && next.id == "absent.datamosh")) continue;
+            if (next.hidden || IsLift(next.id) || (layer.video && next.id == "absent.datamosh")) continue;
             if (next.id == kPuppet || BuiltIn(next.id)) return false;
             const Definition* d = find(next.id);
             if (d && d->shader && (!d->pointwise || d->blurred)) return false;
@@ -1122,7 +1129,7 @@ sk_sp<SkImageFilter> EffectRuntime::chain(const Scene& scene, const Layer& layer
     for (size_t k = from >= 0 ? (size_t)from : before >= 0 ? 0 : (size_t)(liftAt(layer) + 1); k < end; k++) {
         const LayerEffect& e = layer.effects[k];
         at = k;
-        if (e.hidden || e.id == kLift || (layer.video && e.id == "absent.datamosh")) continue;
+        if (e.hidden || IsLift(e.id) || (layer.video && e.id == "absent.datamosh")) continue;
         const Definition* d = find(e.id);
         const auto* defaults = d ? &d->defaults : nullptr;
         if (e.id == kPuppet) {
@@ -1413,11 +1420,13 @@ bool EffectRuntime::draw(SkCanvas* canvas, const Scene& scene, const Layer& laye
     sk_sp<SkImageFilter> under = below && needs(layer, &Definition::below) ? record(below) : nullptr;
     const LayerEffect* adjustment = lift >= 0 ? &layer.effects[lift] : nullptr;
     const Definition* adjustmentType = adjustment ? find(adjustment->id) : nullptr;
+    const bool amLift = adjustment && adjustment->id == kAmLift;
     const auto setting = [&](const char* name) {
-        return adjustment ? Value(*adjustment, adjustmentType ? &adjustmentType->defaults : nullptr, name, 0, t, 0) : 0.0f;
+        const float fallback = name && std::string(name) == "mix" && amLift ? -1.0f : 0.0f;
+        return adjustment ? Value(*adjustment, adjustmentType ? &adjustmentType->defaults : nullptr, name, 0, t, fallback) : 0.0f;
     };
-    const float own = std::clamp(setting("mix"), 0.0f, 1.0f);
-    const bool masked = setting("mask") > 0.5f, spill = setting("spill") > 0.5f;
+    const float own = std::clamp(amLift ? setting("fill") : setting("mix"), 0.0f, 1.0f);
+    const bool masked = amLift ? true : setting("mask") > 0.5f, spill = amLift ? false : setting("spill") > 0.5f;
     sk_sp<SkImageFilter> early;
     if (lift > 0) {
         const float margin = std::max({(float)scene.width, (float)scene.height, bounds.width(), bounds.height()});
@@ -1431,15 +1440,19 @@ bool EffectRuntime::draw(SkCanvas* canvas, const Scene& scene, const Layer& laye
         c->restore();
     };
     const auto adjust = [&](SkCanvas* c) {
-        if (own > 0) {
-            c->saveLayerAlphaf(&bounds, own);
-            shaped(c);
-            c->restore();
-        }
+        // A lift starts with the pixels already behind the layer. Mask that
+        // copy to the layer shape, then blend the layer's own content over it.
+        // That is the Alight Copy Background behaviour: fill 0 keeps the
+        // background, fill 1 keeps the original layer, and values between mix.
         if (masked) {
             SkPaint mask;
             mask.setBlendMode(SkBlendMode::kDstIn);
             c->saveLayer(&bounds, &mask);
+            shaped(c);
+            c->restore();
+        }
+        if (own > 0) {
+            c->saveLayerAlphaf(&bounds, own);
             shaped(c);
             c->restore();
         }

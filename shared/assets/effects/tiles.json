@@ -3,7 +3,7 @@
  "name": "Tiles",
  "category": "distort",
  "since": "3.0.0",
- "description": "Repeats the layer to fill the screen. Raise Crop to make smaller tiles, with optional mirroring, row offset and rotation. Legacy Scale preserves older projects.",
+ "description": "Repeats the layer image across the screen with seamless edge wrapping, optional mirroring, alternating-row offset and rotation. Crop controls the tile size.",
  "params": [
   {
    "id": "zoom",
@@ -55,5 +55,5 @@
    ]
   }
  ],
- "sksl": "uniform shader image;\nuniform float2 size;\nuniform float time;\nuniform float zoom;\nuniform float sizing;\nuniform float offset;\nuniform float mirror;\nuniform float vertical;\nuniform float angle;\nhalf4 main(float2 coord) {\n    float2 c = size * 0.5;\n    float a = radians(angle);\n    float cs = cos(a);\n    float sn = sin(a);\n    float2 p = coord - c;\n    p = float2(cs * p.x + sn * p.y, -sn * p.x + cs * p.y);\n    if (sizing > 0.5) p /= max(zoom, 0.005);\n    else p *= max(zoom, 0.005);\n    float2 g = p / max(size, float2(1.0)) + 0.5;\n    if (vertical > 0.5) g.y -= offset * floor(g.x);\n    else g.x -= offset * floor(g.y);\n    float2 n = floor(g);\n    float2 t = g - n;\n    if (mirror > 0.5) t = mix(t, 1.0 - t, mod(n, 2.0));\n    return image.eval(clamp(t * size, float2(0.5), size - 0.5));\n}\n"
+ "sksl": "uniform shader image;\nuniform float2 size;\nuniform float time;\nuniform float2 layer;\nuniform float3x3 toLayer;\nuniform float3x3 fromLayer;\nuniform float zoom;\nuniform float offset;\nuniform float mirror;\nuniform float vertical;\nuniform float angle;\nuniform float sizing;\n\nhalf4 main(float2 coord) {\n    float3 h = toLayer * float3(coord, 1.0);\n    if (abs(h.z) < 0.000001) return half4(0.0);\n    float2 uv = (h.xy / h.z) / max(layer, float2(1.0));\n    if (vertical > 0.5) uv.y += step(1.0, mod(uv.x, 2.0)) * offset;\n    else uv.x += step(1.0, mod(uv.y, 2.0)) * offset;\n    if (mirror > 0.5) uv = abs(mod(uv - float2(1.0), float2(2.0)) - float2(1.0));\n    else uv = mod(uv, float2(1.0));\n    float a = radians(angle);\n    float c = cos(a);\n    float s = sin(a);\n    float2 p = uv - float2(0.5);\n    float2 px = 1.0 / max(layer, float2(1.0));\n    p /= max(float2(zoom, zoom) + px * 4.0, float2(0.0001));\n    p.x *= layer.x / max(layer.y, 1.0);\n    p = float2(c * p.x + s * p.y, -s * p.x + c * p.y);\n    p.x *= layer.y / max(layer.x, 1.0);\n    p += float2(0.5);\n    float3 g = fromLayer * float3(p * layer, 1.0);\n    return image.eval(g.xy / g.z);\n}\n"
 }
