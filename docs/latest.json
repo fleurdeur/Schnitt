@@ -1,23 +1,13 @@
 {
-  "tag": "v5.5.0",
-  "name": "Schnitt 5.5.0",
-  "published": "2026-11-15T10:13:50Z",
-  "notes": "# Schnitt 5.5.0\n\n## Extensions in Tools\nTools now has an Extensions button. Import an official .sc bundle, choose a category, change the properties the author declared, and restart once to apply it.\n\n## Six extension categories\nBehavior, Theme, Icons, Effects, Automation and Layout are visible in the app. Every bundle declares its category, its capabilities, and its own controls.\n\n## Auto Scroll\nThe first bundled extension follows the layer under the playhead while the timeline plays. It only moves the vertical timeline scroll. Follow mode, snap to centre, speed and smoothing are editable in the extension card.\n\n## Themes, icons, effects and layout\nTheme extensions use a small CSS palette reader. Icon extensions replace specific Home and Tools vector icons. Effect extensions add normal keyframeable effects. Layout extensions can choose the Tools column count. Automation extensions can loop playback at the scene end.\n\n## Safe reader\nThe .sc reader accepts a manifest and documented data files only. It rejects path traversal, executables, native libraries, scripts, HTML, duplicate entries and oversized archives. Extensions cannot read Schnitt internal files or bypass permissions.\n\n## Performance and storage\nExtension archives are parsed once per change and cached for preview, icons, effects and themes. The timeline follow behavior only reacts when the playing layer changes. Interrupted installs are cleaned up, stale temporary extension folders are swept, and the Extensions screen shows the storage used.\n\n## Documentation\nThe website now has a full extension guide at fleurdeur.github.io/Schnitt/extensions.html, and the README lists every category and the Auto Scroll extension.\n",
+  "tag": "v5.5.1",
+  "name": "Schnitt 5.5.1",
+  "published": "2026-11-15T12:30:38Z",
+  "notes": "# Schnitt 5.5.1\n\n## Tiles fixed\nTiles now maps each scene pixel back into the source layer with the correct transform. The effect also renders across the full scene instead of being clipped to the layer bounds, so a layer smaller than the canvas repeats across the screen.\n\n## Imported Alight tiles\nImported Alight Motion Tiles effects use the same corrected mapping. The official shader math and Crop, Offset, Mirror, Offset Vertically and Angle controls are preserved.\n\n## HDR and 10-bit previews\nHDR, wide-gamut and 10-bit videos now get a small SDR preview copy before they reach the editor. The preview and the timeline thumbnails use that copy, so phones that hand the app a buffer in a layout it cannot sample no longer show green or blocked frames. The original file is still used for export, and normal 8-bit videos keep playing directly.\n\n## Smaller fixes\nThe Tiles shader uses the layer size for its crop edge padding, matching Alight Motion. No other effect or extension behavior is changed.\n",
   "assets": [
     {
-      "name": "Schnitt-5.5.0-arm64-v8a-release.apk",
-      "size": 93252092,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.0/Schnitt-5.5.0-arm64-v8a-release.apk"
-    },
-    {
-      "name": "Schnitt-5.5.0-armv7-release.apk",
-      "size": 91096094,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.0/Schnitt-5.5.0-armv7-release.apk"
-    },
-    {
-      "name": "Schnitt-5.5.0-universal-release.apk",
-      "size": 145453409,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.0/Schnitt-5.5.0-universal-release.apk"
+      "name": "Schnitt-5.5.1-arm64-v8a-release.apk",
+      "size": 93253647,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.1/Schnitt-5.5.1-arm64-v8a-release.apk"
     }
   ]
 }
