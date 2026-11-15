@@ -75,7 +75,7 @@ internal object EffectAlias {
             var id = param.id
             while (def.params.any { it.id == id } || extra.any { it.id == id }) id += "2"
             rename[param.id] = id
-            extra += param.copy(id = id)
+            extra += param.copy(id = id, label = "${param.label} (Schnitt)")
         }
 
         val params = def.params + extra
@@ -134,6 +134,7 @@ internal object EffectAlias {
             a in setOf("float", "angle") && b in setOf("float", "angle") -> true
             a in setOf("switch", "bool") && b in setOf("switch", "bool") -> true
             a == "choice" && b in setOf("float", "choice") -> true
+            a == "point" && b in setOf("float", "angle") -> true
             else -> false
         }
     }
