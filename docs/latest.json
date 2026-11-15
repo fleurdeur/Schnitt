@@ -1,23 +1,13 @@
 {
-  "tag": "v5.4.4",
-  "name": "Schnitt 5.4.4",
-  "published": "2026-11-15T08:09:31Z",
-  "notes": "# Schnitt 5.4.4\n\n## Milliseconds in the playback clock\nThe playback clock now shows milliseconds as well as hours, minutes and seconds. The seconds field stays between 00 and 59, so the clock rolls from 59.999 to the next minute instead of ever showing 60 or more.\n\n## Imported effects use bounded shader loops\nAlight effects that loop over a sample count, octave count or buffer range now compile with a safe constant loop bound. This keeps imported blurs, glows and multi-pass effects running instead of falling back to an empty result.\n\n## Under the hood\nThe stage splitter now keeps the original shader braces balanced on every pass, so multi-pass effects such as Box Blur receive the correct horizontal and vertical stages.\n",
+  "tag": "v5.4.5",
+  "name": "Schnitt 5.4.5",
+  "published": "2026-11-15T08:34:50Z",
+  "notes": "# Schnitt 5.4.5\n\n## Playback clock stays at hours, minutes and seconds\nThe playback clock is back to the three-field format: hours, minutes and seconds. The final field is seconds and never goes above 59, so it rolls from 00:00:59 to 00:01:00.\n\n## Under the hood\nThe extra millisecond field from 5.4.4 has been removed.\n",
   "assets": [
     {
-      "name": "Schnitt-5.4.4-arm64-v8a-release.apk",
-      "size": 93132204,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.4.4/Schnitt-5.4.4-arm64-v8a-release.apk"
-    },
-    {
-      "name": "Schnitt-5.4.4-armv7-release.apk",
-      "size": 90976206,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.4.4/Schnitt-5.4.4-armv7-release.apk"
-    },
-    {
-      "name": "Schnitt-5.4.4-universal-release.apk",
-      "size": 145333521,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.4.4/Schnitt-5.4.4-universal-release.apk"
+      "name": "Schnitt-5.4.5-arm64-v8a-release.apk",
+      "size": 93132303,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.4.5/Schnitt-5.4.5-arm64-v8a-release.apk"
     }
   ]
 }
