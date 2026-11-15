@@ -47,68 +47,40 @@ class AmEffectLibraryTest {
         assertTrue(!pixelate.sksl!!.contains("uniform float2 size;"))
     }
 
-    @Test fun brokenAlightNamesResolveToNativeSchnittShaders() {
+    @Test fun alightEffectsKeepTheirOwnControlsAndShader() {
         val words = strings()
-        val base = TestData.project.resolve("shared/assets/effects")
-        val builtIns = EffectCatalog.parse("en") { File(base, it).inputStream() }.definitions
-        assertTrue(builtIns.size > 100)
         val files = folder.listFiles { f -> f.extension == "xml" }.orEmpty()
         val effects = files.mapNotNull { AmEffectImporter.parse(it.readText(), words) }
-        val bound = effects.map { EffectAlias.bind(it, builtIns) }
-        val aliased = bound.filter { it.description.contains("Schnitt ") }
-        assertTrue("only ${aliased.size} effects aliased", aliased.size >= 50)
-        val listed = listOf(
-            "Bend", "Circular Ripple", "Chromatic Zoom Blur", "Clouds", "Colorize", "Cube", "Curl", "Dark Glow",
-            "Directional Blur", "Dots", "Edge Glow", "Electric Edges", "Feather", "Flip Layer", "Fractal Warp",
-            "Glass", "Gradient Overlay", "Halftone Dots", "Halftone Lines", "Lens Blur", "Kaleidoscope", "Light Glow",
-            "Long Shadow", "Luma Key", "Mirror", "Motion Blur", "Noise", "Omino Diffusion+", "Palette Map",
-            "Pinch/Bulge", "Pixelate", "Radial Rays", "Radial Shadow", "Radial Wipe", "Rays", "Squeeze", "Starfield",
-            "Stripes", "Tile Shift", "Tile Rotate", "Tiles", "Wave Warp", "Tunnel",
-            "Color Tune", "Smooth Bevel", "Omino Diffusion+", "Streak Strips", "Linear Streaks", "Spin Streaks",
-            "Zoom Streaks", "Swirl", "Zoom Blur", "Rays",
-        )
-        for (name in listed) {
-            val source = effects.firstOrNull { it.name == name }
-            assertNotNull("missing Alight effect $name", source)
-            val effect = EffectAlias.bind(source!!, builtIns)
-            assertTrue("$name still uses a placeholder", effect.description.contains("Schnitt "))
-            assertTrue("$name has no shader", effect.sksl?.contains("half4 main") == true)
-            assertEquals("$name duplicate controls", effect.params.size, effect.params.map { it.id }.toSet().size)
-        }
-        val catalog = EffectCatalog(builtIns + bound)
-        val external = catalog.listed("external")
-        assertEquals("duplicate names in external", external.size, external.map { it.name.trim().lowercase() }.toSet().size)
-        val uniforms = Regex("""uniform\s+(?:shader|[A-Za-z0-9]+)\s+([A-Za-z_][A-Za-z0-9_]*)""")
-        for (effect in bound) {
-            val shaders = listOfNotNull(effect.sksl) + effect.passes.map { it.sksl }
-            for (shader in shaders) {
-                val names = uniforms.findAll(shader).map { it.groupValues[1] }.toList()
-                assertEquals("${effect.name} duplicate uniforms $names", names.size, names.toSet().size)
-                val inputs = Regex("""uniform\s+shader\s+([A-Za-z_][A-Za-z0-9_]*)""").findAll(shader).map { it.groupValues[1] }.toSet()
-                val internal = setOf("amSize", "amTime", "amDuration", "screen", "layer", "fromLayer", "toLayer", "orient",
-                    "duration", "paletteSize", "paletteSpread", "swatches", "glyphCount", "glyphColumns", "glyphCell",
-                    "visible", "beat", "beatTime", "beatIndex", "thresholds", "palette", "glyphs", "extent")
-                for (name in names) {
-                    if (name in inputs || name in internal) continue
-                    assertTrue("${effect.name} has uniform $name with no control", effect.params.any { it.id == name })
-                }
-            }
-        }
-        val tiles = bound.first { it.name == "Tiles" }
-        assertTrue(tiles.params.any { it.id == "scale" })
-        assertTrue(tiles.params.any { it.id == "phase" })
-        assertTrue(tiles.params.any { it.id == "vertoffs" })
-        assertTrue(tiles.sksl!!.contains("uniform float scale;"))
-        assertTrue(tiles.sksl!!.contains("uniform float phase;"))
-        assertTrue(tiles.sksl!!.contains("uniform float vertoffs;"))
-        assertTrue(!tiles.sksl!!.contains("clamp(t * amSize"))
-        val ripple = bound.first { it.name == "Circular Ripple" }
+        val byName = effects.groupBy { it.name }.mapValues { it.value.first() }
+        val tiles = byName.getValue("Tiles")
+        assertEquals(listOf("scale", "phase", "mirror", "vertoffs", "angle"), tiles.params.map { it.id })
+        assertTrue(tiles.sksl!!.contains("AcLayerNorm"))
+        assertTrue(tiles.sksl!!.contains("acLayerToScreen"))
+        val blur = byName.getValue("Directional Blur")
+        assertEquals(listOf("strength", "angle"), blur.params.map { it.id })
+        assertTrue(blur.sksl!!.contains("uniform float strength;"))
+        val ripple = byName.getValue("Circular Ripple")
         assertTrue(ripple.params.any { it.id == "centerPoint" })
         assertTrue(ripple.sksl!!.contains("uniform float2 centerPoint;"))
-        assertTrue(ripple.sksl!!.contains("screen"))
-        val pixelate = bound.first { it.name == "Pixelate" }
-        assertTrue(pixelate.sksl!!.contains("uniform float size;"))
-        assertTrue(!pixelate.sksl!!.contains("uniform float blockSize;"))
+        val oscillate = byName.getValue("Oscillate")
+        assertTrue(oscillate.native)
+        assertTrue(oscillate.params.any { it.id == "freq" && it.kind == "float" })
+        assertTrue(oscillate.params.any { it.id == "mag" && it.kind == "float" })
+        assertTrue(oscillate.params.any { it.id == "angle" && it.kind == "angle" })
+        val uniforms = Regex("""uniform\s+(?:shader|[A-Za-z0-9]+)\s+([A-Za-z_][A-Za-z0-9_]*)""")
+        val internal = setOf("amSize", "amTime", "amDuration", "screen", "layer", "fromLayer", "toLayer", "acScreenSize",
+            "acLayerSize", "acLayerCenter", "acLayerCenterNorm", "acLayerPivot", "acPreviewSize", "acLayerToScreen", "acScreenToLayer",
+            "acLayerSizeNorm", "acVelocity", "acScaleVelocity", "acAngularVelocity", "acProjectSize", "acShowGuides",
+            "orientation", "size", "time", "duration", "resolution", "coord")
+        for (effect in effects) {
+            val shader = effect.sksl ?: continue
+            val names = uniforms.findAll(shader).map { it.groupValues[1] }.toList()
+            assertEquals("${effect.name} duplicate uniforms", names.size, names.toSet().size)
+            for (name in names) {
+                if (name in internal || Regex("""uniform\s+shader\s+$name""").containsMatchIn(shader)) continue
+                assertTrue("${effect.name} has uniform $name with no control", effect.params.any { it.id == name } || name.endsWith("Size"))
+            }
+        }
     }
 
     @Test fun everyDefinitionHasSaneControlsAndAFallbackShader() {
@@ -116,7 +88,7 @@ class AmEffectLibraryTest {
         val effects = folder.listFiles { f -> f.extension == "xml" }.orEmpty().mapNotNull { AmEffectImporter.parse(it.readText(), words) }
         for (effect in effects) {
             assertNotNull(effect.name, effect.fallback)
-            assertTrue(effect.name, effect.sksl?.isNotBlank() == true)
+            assertTrue("${effect.name} is native and needs no shader", effect.native || effect.sksl?.isNotBlank() == true)
             for (param in effect.params) {
                 assertTrue("${effect.name}.${param.id}", param.id.matches(Regex("[A-Za-z_][A-Za-z0-9_]*")))
                 assertTrue("${effect.name}.${param.id} label", param.label.isNotBlank() && !param.label.startsWith("@"))

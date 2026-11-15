@@ -131,7 +131,7 @@ internal fun PropertyLabel(label: String, active: Boolean, enabled: Boolean, mod
 @Composable
 internal fun EffectNumbers(state: EditorState, param: EffectParam, raw: String, enabled: Boolean, active: Boolean,
                           select: () -> Unit, set: (String, Boolean) -> Unit) {
-    val count = if (param.kind == "point") 2 else 1
+    val count = when (param.kind) { "point" -> 2; "point3", "hue" -> 3; else -> 1 }
     val parsed = raw.split(',').map { it.trim().finiteFloat() ?: 0f }
     fun stored(v: List<Float>) = v.joinToString(",")
     val values = List(count) { parsed.getOrElse(it) { 0f } }
@@ -149,7 +149,7 @@ internal fun EffectNumbers(state: EditorState, param: EffectParam, raw: String, 
     val decimals = param.step.toBigDecimal().stripTrailingZeros().scale().coerceAtLeast(0).let { if (percent) (it - 2).coerceAtLeast(0) else it }
     val unit = if (percent) "%" else if (param.kind == "angle") "°" else param.unit
     fun keypad(index: Int) {
-        state.keypad = KeypadRequest(values.mapIndexed { i, v -> KeypadField(if (count == 1) param.label else listOf("X", "Y")[i], v * factor, unit, param.min * factor, param.max * factor) }, index) { next ->
+        state.keypad = KeypadRequest(values.mapIndexed { i, v -> KeypadField(if (count == 1) param.label else listOf("X", "Y", "Z")[i], v * factor, unit, param.min * factor, param.max * factor) }, index) { next ->
             set(stored(next.map { v -> (v/factor).coerceIn(param.min, param.max) }), false)
         }
     }
@@ -178,7 +178,7 @@ internal fun EffectNumbers(state: EditorState, param: EffectParam, raw: String, 
         Column(Modifier.padding(horizontal = 2.dp, vertical = 4.dp).fillMaxHeight(), Arrangement.spacedBy(2.dp)) {
             values.forEachIndexed { i, value ->
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (i == 0) "X:" else "Y:", Modifier.padding(end = 5.dp), color = Am.Caption, fontSize = deskSp(10f))
+                    Text(listOf("X:", "Y:", "Z:")[i], Modifier.padding(end = 5.dp), color = Am.Caption, fontSize = deskSp(10f))
                     ValueBox(formatFixed(value * factor, decimals), i == component, active && i == component, Modifier.width(55.dp).fillMaxHeight(), 5.5f, enabled) { tap(i) }
                 }
             }
@@ -195,7 +195,10 @@ internal fun ValueBox(text: String, chosen: Boolean, lit: Boolean, modifier: Mod
 
 @Composable
 private fun EffectChoice(param: EffectParam, raw: String, enabled: Boolean, effect: String, set: (String) -> Unit) {
-    val chosen = (raw.finiteFloat() ?: 0f).roundToInt().coerceIn(param.options.indices)
+    val number = raw.finiteFloat() ?: param.missingDefault.finiteFloat() ?: 0f
+    val chosen = param.choiceValues.indexOfFirst { kotlin.math.abs(it - number) < 0.0001f }.takeIf { it >= 0 }
+        ?: number.roundToInt().coerceIn(param.options.indices)
+    fun choose(i: Int) = set(formatFloats(floatArrayOf(param.choiceValues.getOrElse(i) { i.toFloat() })))
     var open by remember(param.id) { mutableStateOf(false) }
     val context = LocalContext.current
     val pictures by produceState<List<ImageBitmap>?>(null, effect, param.id) {
@@ -209,7 +212,7 @@ private fun EffectChoice(param: EffectParam, raw: String, enabled: Boolean, effe
                 .padding(horizontal = 12.dp, vertical = 6.dp), color = Am.OnDark, fontSize = 14.sp, maxLines = 1)
             if (!sheet) Presence(open) {
                 MenuPopup(DropOrRise, { open = false }) {
-                    param.options.forEachIndexed { i, option -> MenuRow(option) { set(formatFloats(floatArrayOf(i.toFloat()))); open = false } }
+                    param.options.forEachIndexed { i, option -> MenuRow(option) { choose(i); open = false } }
                 }
             }
         }
@@ -217,7 +220,7 @@ private fun EffectChoice(param: EffectParam, raw: String, enabled: Boolean, effe
     if (sheet && open) MotionSheet(param.label, { open = false }) {
         TileGrid(param.options.indices.toList()) { i, modifier ->
             val picture = pictures?.getOrNull(i)
-            Tile(param.options[i], i == chosen, modifier, { set(formatFloats(floatArrayOf(i.toFloat()))) }, picture?.let { p -> { drawCropped(p) } })
+            Tile(param.options[i], i == chosen, modifier, { choose(i) }, picture?.let { p -> { drawCropped(p) } })
         }
         Spacer(Modifier.height(12.dp))
     }

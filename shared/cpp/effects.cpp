@@ -902,6 +902,32 @@ void Diffuse(std::vector<uint8_t>* rgba, int w, int h, const Palette& palette, i
 
 }
 
+std::string DecodeBase64(std::string_view text) {
+    auto value = [](char c) -> int {
+        if (c >= 'A' && c <= 'Z') return c - 'A';
+        if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+        if (c >= '0' && c <= '9') return c - '0' + 52;
+        if (c == '+') return 62;
+        if (c == '/') return 63;
+        return -1;
+    };
+    std::string out;
+    out.reserve(text.size() * 3 / 4);
+    int bits = 0, count = 0;
+    for (char c : text) {
+        if (c == '=') break;
+        const int v = value(c);
+        if (v < 0) continue;
+        bits = (bits << 6) | v;
+        count += 6;
+        if (count >= 8) {
+            count -= 8;
+            out.push_back((char)((bits >> count) & 255));
+        }
+    }
+    return out;
+}
+
 std::string EffectRuntime::load(const std::string& xml) {
     std::string error;
     auto root = ParseXml(xml, &error);
@@ -911,6 +937,14 @@ std::string EffectRuntime::load(const std::string& xml) {
         if (c->name != "param" || !c->attr("name")) continue;
         d.defaults[c->attr("name")] = ParseAnimNode(c.get());
         if (c->attr("value")) d.texts[c->attr("name")] = c->attr("value");
+    }
+    for (const auto& c : root->children) {
+        if (c->name != "image" || !c->attr("name") || !c->attr("data")) continue;
+        const std::string bytes = DecodeBase64(c->attr("data"));
+        if (bytes.empty()) continue;
+        sk_sp<SkData> data = SkData::MakeWithCopy(bytes.data(), bytes.size());
+        sk_sp<SkImage> image = data ? SkImages::DeferredFromEncodedData(data) : nullptr;
+        if (image) d.images[c->attr("name")] = image;
     }
     bool passesBroken = false;
     for (const auto& c : root->children) {
@@ -929,7 +963,7 @@ std::string EffectRuntime::load(const std::string& xml) {
         d.plainBlur = effect->findChild("blurred") != nullptr;
         d.blurred = d.brightPass || d.plainBlur;
         d.backdrop = effect->findChild("backdrop") != nullptr;
-        d.below = effect->findChild("below") != nullptr;
+        d.below = effect->findChild("below") != nullptr || effect->findChild("comp") != nullptr;
         d.extent = effect->findChild("extent") != nullptr;
         d.pointwise = Pointwise(text);
         d.timed = (effect->findUniform("time") && Mentions(text, "time") > 1) || effect->findUniform("amTime") || effect->findUniform("beat") ||
@@ -1112,6 +1146,23 @@ sk_sp<SkImageFilter> EffectRuntime::chain(const Scene& scene, const Layer& layer
     };
     const auto fromLayer = [&] { return SkMatrix::Translate(-area.left(), -area.top()) * placed * SkMatrix::Translate(own().left(), own().top()); };
     const auto columns = [](const SkMatrix& m) { return std::vector<float>{m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]}; };
+    const auto normFromLayer = [&] {
+        const SkMatrix map = fromLayer();
+        const SkRect box = own();
+        auto at = [&](float u, float v) {
+            SkPoint p = map.mapPoint({u * box.width(), v * box.height()});
+            return SkPoint{(p.x() - (-area.left())) / std::max(1.0f, (float)scene.width),
+                           (p.y() - (-area.top())) / std::max(1.0f, (float)scene.height)};
+        };
+        const SkPoint o = at(0, 0), x = at(1, 0), y = at(0, 1);
+        SkMatrix m;
+        m.setAll(x.x() - o.x(), y.x() - o.x(), o.x(), x.y() - o.y(), y.y() - o.y(), o.y(), 0, 0, 1);
+        return m;
+    };
+    const auto normToLayer = [&] {
+        SkMatrix inverse;
+        return normFromLayer().invert(&inverse) ? inverse : SkMatrix::I();
+    };
     const bool withBackdrop = content != nullptr;
     sk_sp<SkImageFilter> f = std::move(content);
     bool any = false;
@@ -1155,11 +1206,37 @@ sk_sp<SkImageFilter> EffectRuntime::chain(const Scene& scene, const Layer& layer
                     const std::string name(u.name);
                     const int n = (int)(u.sizeInBytes() / 4);
                     std::vector<float> v(n);
-                    const bool automatic = d->external || !(defaults && defaults->count(name));
-                    if (automatic && (name == "size" || name == "amSize")) v = {area.width(), area.height()};
+                    const bool automatic = !(defaults && defaults->count(name));
+                    if (automatic && name == "amSize") v = {area.width(), area.height()};
+                    else if (automatic && name == "size" && n == 2) v = {area.width(), area.height()};
                     else if (automatic && (name == "time" || name == "amTime")) v = {seconds};
                     else if (automatic && name == "layer") v = {std::max(own().width(), 1.0f), std::max(own().height(), 1.0f)};
                     else if (automatic && (name == "duration" || name == "amDuration")) v = {(float)((layer.endTime - layer.startTime) / 1000.0)};
+                    else if (automatic && name == "acScreenSize") v = {(float)scene.width, (float)scene.height};
+                    else if (automatic && name == "acPreviewSize") v = {(float)scene.width, (float)scene.height};
+                    else if (automatic && name == "acLayerSize") v = {std::max(own().width(), 1.0f), std::max(own().height(), 1.0f)};
+                    else if (automatic && name == "acLayerSizeNorm") v = {std::max(own().width(), 1.0f) / std::max(1.0f, (float)scene.width),
+                                                                          std::max(own().height(), 1.0f) / std::max(1.0f, (float)scene.height)};
+                    else if (automatic && name == "acLayerToScreen") v = columns(normFromLayer());
+                    else if (automatic && name == "acScreenToLayer") v = columns(normToLayer());
+                    else if (automatic && name == "acLayerCenterNorm") {
+                        const SkPoint c = normFromLayer().mapPoint({0.5f, 0.5f});
+                        v = {c.x(), c.y()};
+                    }
+                    else if (automatic && name == "acLayerCenter") {
+                        const SkPoint p = fromLayer().mapPoint({own().centerX(), own().centerY()});
+                        v = {p.x() + area.left(), p.y() + area.top()};
+                    }
+                    else if (automatic && name == "acLayerPivot") v = {0.0f, 0.0f};
+                    else if (automatic && name == "acVelocity") v = {0.0f, 0.0f};
+                    else if (automatic && name == "acScaleVelocity") v = {0.0f};
+                    else if (automatic && name == "acAngularVelocity") v = {0.0f};
+                    else if (automatic && name == "acProjectSize") v = {(float)scene.width, (float)scene.height};
+                    else if (automatic && name == "acShowGuides") v = {0.0f};
+                    else if (automatic && n == 2 && name.size() > 4 && name.compare(name.size() - 4, 4, "Size") == 0) {
+                        auto image = d->images.find(name.substr(0, name.size() - 4));
+                        if (image != d->images.end()) v = {(float)image->second->width(), (float)image->second->height()};
+                    }
                     else if (u.isColor() && n == 4) v = {Value(e, defaults, name, 1, t, 0), Value(e, defaults, name, 2, t, 0),
                                                          Value(e, defaults, name, 3, t, 0), Value(e, defaults, name, 0, t, 1)};
                     else for (int i = 0; i < n; i++) v[i] = Value(e, defaults, name, i, t, 0);
@@ -1179,9 +1256,16 @@ sk_sp<SkImageFilter> EffectRuntime::chain(const Scene& scene, const Layer& layer
                     names.push_back(child.name);
                     if (child.name == "image") {
                         inputs.push_back(base);
+                    } else if (child.name == "comp") {
+                        inputs.push_back(below ? below : SkImageFilters::Empty());
                     } else {
                         auto found = produced.find(std::string(child.name));
-                        inputs.push_back(found == produced.end() ? SkImageFilters::Empty() : found->second);
+                        if (found != produced.end()) inputs.push_back(found->second);
+                        else {
+                            auto image = d->images.find(std::string(child.name));
+                            inputs.push_back(image == d->images.end() ? SkImageFilters::Empty()
+                                : SkImageFilters::Image(image->second, SkSamplingOptions(SkFilterMode::kLinear)));
+                        }
                     }
                 }
                 f = pass.shader->children().empty() ? base
@@ -1217,8 +1301,9 @@ sk_sp<SkImageFilter> EffectRuntime::chain(const Scene& scene, const Layer& layer
                 const std::string name(u.name);
                 const int n = (int)(u.sizeInBytes() / 4);
                 std::vector<float> v(n);
-                const bool automatic = d->external || !(defaults && defaults->count(name));
-                if (automatic && (name == "size" || name == "amSize")) v = {area.width(), area.height()};
+                const bool automatic = !(defaults && defaults->count(name));
+                if (automatic && name == "amSize") v = {area.width(), area.height()};
+                else if (automatic && name == "size" && n == 2) v = {area.width(), area.height()};
                 else if (automatic && (name == "time" || name == "amTime")) v = {seconds};
                 else if (automatic && name == "layer") v = {std::max(own().width(), 1.0f), std::max(own().height(), 1.0f)};
                 else if (automatic && name == "fromLayer") v = columns(fromLayer());
@@ -1227,6 +1312,31 @@ sk_sp<SkImageFilter> EffectRuntime::chain(const Scene& scene, const Layer& layer
                     v = columns(fromLayer().invert(&inverse) ? inverse : SkMatrix::I());
                 }
                 else if (automatic && (name == "duration" || name == "amDuration")) v = {(float)((layer.endTime - layer.startTime) / 1000.0)};
+                else if (automatic && name == "acScreenSize") v = {(float)scene.width, (float)scene.height};
+                else if (automatic && name == "acPreviewSize") v = {(float)scene.width, (float)scene.height};
+                else if (automatic && name == "acLayerSize") v = {std::max(own().width(), 1.0f), std::max(own().height(), 1.0f)};
+                else if (automatic && name == "acLayerSizeNorm") v = {std::max(own().width(), 1.0f) / std::max(1.0f, (float)scene.width),
+                                                                      std::max(own().height(), 1.0f) / std::max(1.0f, (float)scene.height)};
+                else if (automatic && name == "acLayerToScreen") v = columns(normFromLayer());
+                else if (automatic && name == "acScreenToLayer") v = columns(normToLayer());
+                else if (automatic && name == "acLayerCenterNorm") {
+                    const SkPoint c = normFromLayer().mapPoint({0.5f, 0.5f});
+                    v = {c.x(), c.y()};
+                }
+                else if (automatic && name == "acLayerCenter") {
+                    const SkPoint p = fromLayer().mapPoint({own().centerX(), own().centerY()});
+                    v = {p.x() + area.left(), p.y() + area.top()};
+                }
+                else if (automatic && name == "acLayerPivot") v = {0.0f, 0.0f};
+                else if (automatic && name == "acVelocity") v = {0.0f, 0.0f};
+                else if (automatic && name == "acScaleVelocity") v = {0.0f};
+                else if (automatic && name == "acAngularVelocity") v = {0.0f};
+                else if (automatic && name == "acProjectSize") v = {(float)scene.width, (float)scene.height};
+                else if (automatic && name == "acShowGuides") v = {0.0f};
+                else if (automatic && n == 2 && name.size() > 4 && name.compare(name.size() - 4, 4, "Size") == 0) {
+                    auto image = d->images.find(name.substr(0, name.size() - 4));
+                    if (image != d->images.end()) v = {(float)image->second->width(), (float)image->second->height()};
+                }
                 else if (automatic && name == "orient") v = columns3(Orientation(layer, timeMs));
                 else if (automatic && name == "paletteSize") v = {colors ? (float)colors->colors.size() : 0.0f};
                 else if (automatic && name == "paletteSpread") v = {colors ? colors->spread : 1.0f};
@@ -1293,6 +1403,15 @@ sk_sp<SkImageFilter> EffectRuntime::chain(const Scene& scene, const Layer& layer
             if (d->below) {
                 names.push_back("below");
                 inputs.push_back(below ? below : SkImageFilters::Empty());
+                if (d->shader->findChild("comp") && !d->shader->findChild("below")) {
+                    names.push_back("comp");
+                    inputs.push_back(below ? below : SkImageFilters::Empty());
+                }
+            }
+            for (const auto& [name, image] : d->images) {
+                if (std::find(names.begin(), names.end(), name) != names.end()) continue;
+                names.push_back(name);
+                inputs.push_back(SkImageFilters::Image(image, SkSamplingOptions(SkFilterMode::kLinear)));
             }
             if (d->extent) {
                 sk_sp<SkImageFilter> reach = ExtentFilter(area.width(), area.height(), Value(e, defaults, "angle", 0, t, 0), f);

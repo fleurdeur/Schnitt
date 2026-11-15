@@ -27,6 +27,7 @@ data class EffectParam(
     val showWhen: Pair<String, Set<Int>>? = null,
     val palette: Boolean = false,
     val slow: Int = 1,
+    val choiceValues: List<Float> = emptyList(),
 ) {
     val type: String get() = when (kind) { "point" -> "vec2"; "color" -> "color"; "switch" -> "bool"; "text" -> "string"; else -> "float" }
     val missingDefault: String get() = legacyDefault ?: default
@@ -59,8 +60,12 @@ data class EffectParam(
             }
             if (kind == "choice") {
                 val options = json.getJSONArray("options").let { a -> List(a.length()) { a.getString(it) } }
-                require(options.isNotEmpty() && (d as Number).toInt() in options.indices) { "$id: choice $d" }
-                return EffectParam(id, json.optString("label", id), kind, default, 0f, options.size - 1f, 1f, options = options, legacyDefault = legacyDefault, showWhen = showWhen)
+                val values = json.optJSONArray("values")?.let { a -> List(a.length()) { a.getDouble(it).toFloat() } }.orEmpty()
+                require(options.isNotEmpty()) { "$id: choice without options" }
+                val valuesOrDefault = values.ifEmpty { options.indices.map { it.toFloat() } }
+                require(valuesOrDefault.size == options.size) { "$id: choice values" }
+                return EffectParam(id, json.optString("label", id), kind, default, valuesOrDefault.min(), valuesOrDefault.max(), 1f,
+                    options = options, legacyDefault = legacyDefault, showWhen = showWhen, choiceValues = valuesOrDefault)
             }
             return EffectParam(id, json.optString("label", id), kind, default,
                 json.optDouble("min", -Float.MAX_VALUE.toDouble()).toFloat(), json.optDouble("max", Float.MAX_VALUE.toDouble()).toFloat(),
@@ -98,8 +103,16 @@ data class EffectDefinition(
     val alsoIn: List<String> = emptyList(),
     val passes: List<EffectPass> = emptyList(),
     val fallback: String? = null,
+    val resourcePaths: Map<String, String> = emptyMap(),
+    val images: Map<String, ByteArray> = emptyMap(),
 ) {
     val available: Boolean get() = status == "ok"
+    val origin: String get() = when {
+        id.startsWith("com.alightcreative.") -> "Alight Motion"
+        id.startsWith("absent.") -> "Schnitt"
+        else -> "Imported"
+    }
+    val external: Boolean get() = id.startsWith("com.alightcreative.")
     val thumbnail: String get() = "thumb/${shortcut ?: key}.webp"
     val hero: String get() = "thumb/${shortcut ?: key}.hero.avif"
 
@@ -148,6 +161,9 @@ data class EffectDefinition(
     fun runtimeXml(): String = XmlNode("effect", listOfNotNull("id" to id, sksl?.let { "sksl" to it }).toMap(),
         params.map { XmlNode("param", mapOf("name" to it.id, "value" to it.missingDefault)) } +
             passes.map { XmlNode("pass", listOfNotNull("sksl" to it.sksl, it.target?.let { t -> "target" to t }).toMap()) } +
+            images.map { (name, bytes) ->
+                XmlNode("image", mapOf("name" to name, "data" to java.util.Base64.getEncoder().encodeToString(bytes)))
+            } +
             listOfNotNull(fallback?.let { XmlNode("fallback", mapOf("sksl" to it)) })).toXml()
 
     companion object {

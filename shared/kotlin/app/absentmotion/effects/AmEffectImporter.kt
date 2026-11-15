@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import java.io.File
 import java.security.MessageDigest
+import kotlin.math.roundToInt
 import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -15,6 +16,9 @@ import kotlinx.coroutines.withContext
  */
 object AmEffectImporter {
     private const val FOLDER = "am-effects"
+    private val AutoEffects = setOf("oscillate", "oscillate2", "oscillate3", "spin", "pulsate", "pulsate2",
+        "swing", "swing2", "jitter", "randomdisplace", "shake", "shake2", "scaleassist")
+    private val OpacityEffects = setOf("fade", "blink", "blink2", "flicker", "flicker2", "pulse-opacity", "pulse_opacity2")
 
     suspend fun import(context: Context, uri: Uri): EffectDefinition? = withContext(Dispatchers.IO) {
         val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return@withContext null
@@ -36,13 +40,21 @@ object AmEffectImporter {
         val builtIn = bundled ?: runCatching {
             context.assets.list("am-effects").orEmpty().filter { it.endsWith(".xml") }.mapNotNull { name ->
                 runCatching { context.assets.open("am-effects/$name").bufferedReader().use { parse(it.readText(), words) } }.getOrNull()
-            }
+            }.map { it.withImages(context) }
         }.getOrDefault(emptyList()).also { bundled = it }
         val known = catalog.definitions.flatMap { listOf(it.key, it.id) }.toMutableSet()
         val extra = (builtIn + custom).filter { def ->
             known.add(def.key) && known.add(def.id)
-        }.distinctBy { it.key }.map { EffectAlias.bind(it, catalog.definitions) }
+        }.distinctBy { it.key }.map { it.withImages(context) }
         return if (extra.isEmpty()) catalog else catalog.copy(definitions = catalog.definitions + extra)
+    }
+
+    private fun EffectDefinition.withImages(context: Context): EffectDefinition {
+        if (resourcePaths.isEmpty() || images.isNotEmpty()) return this
+        val loaded = resourcePaths.mapNotNull { (name, path) ->
+            runCatching { name to context.assets.open("am-effects/$path").use { it.readBytes() } }.getOrNull()
+        }.toMap()
+        return if (loaded.isEmpty()) this else copy(images = loaded)
     }
 
     private fun globals(context: Context): Map<String, String> {
@@ -61,8 +73,6 @@ object AmEffectImporter {
         val id = tagAttr("id") ?: return null
         val strings = shared + strings(xml)
         val params = parseParams(xml, strings)
-        val unsupported = xml.contains("<passes>") || xml.contains("srcType=\"buffer\"") || xml.contains("acPass") ||
-            xml.contains("acLayerToScreen") || xml.contains("acLayerNorm")
         val shader = Regex("""<shader[^>]*>\s*<!\[CDATA\[(.*?)\]\]></shader>""", RegexOption.DOT_MATCHES_ALL).find(xml)?.groupValues?.get(1)
         val passes = parsePasses(xml)
         val name = label("name", tagAttr("name"), strings).ifBlank {
@@ -72,25 +82,29 @@ object AmEffectImporter {
         val category = Regex("""<effect\s+[^>]*category="([^"]+)""" + "\"").find(xml)?.groupValues?.get(1) ?: "other"
         val chained = shader?.let { if (passes.size > 1) translatePasses(it, params, passes) else null }
         val native = shader?.let { if (passes.size > 1) nativePasses(it, params, passes) else null }
-        val lowerName = name.lowercase()
-        val auto = shader == null && (xml.contains("auto-transform=\"true\"") ||
-            listOf("spin", "pulsate", "shake", "jitter", "oscillate", "swing", "randomdisplace").any { it in lowerName })
-        val alpha = shader == null && listOf("fade", "blink", "flicker", "pulse opacity", "pulse-opacity").any { it in lowerName }
-        val sksl = chained ?: shader?.let { translate(it, params) } ?: when {
-            auto -> motionShader(name, params)
-            alpha -> alphaShader(name, params)
+        val stem = id.substringAfterLast('.')
+        val auto = shader == null && stem in AutoEffects
+        val alpha = shader == null && stem in OpacityEffects
+        val sksl = if (!native.isNullOrEmpty()) null else chained ?: shader?.let { translate(it, params) } ?: when {
+            auto -> null
+            alpha -> null
             else -> fallback(name, category, params)
         }
         val key = "am-" + id.substringAfterLast('.').lowercase().replace(Regex("[^a-z0-9]+"), "") + "-" + digest(id).take(4)
+        val resourcePaths = Regex("""<texture\s+([^>]*?)/?>""").findAll(xml).mapNotNull { match ->
+            val attrs = match.groupValues[1]
+            val textureId = Regex("""id="([^"]+)"""").find(attrs)?.groupValues?.get(1) ?: return@mapNotNull null
+            val src = Regex("""src="([^"]+)"""").find(attrs)?.groupValues?.get(1) ?: return@mapNotNull null
+            textureId to src
+        }.toMap()
         val note = when {
-            chained != null -> "$description · ${passes.size}-stage pass chain compiled"
-            auto -> "$description · native motion controls"
-            alpha -> "$description · native opacity controls"
-            shader == null || unsupported -> "$description · Multipass converted for Android"
+            chained != null -> "$description · ${passes.size}-stage Alight shader"
+            auto -> "$description · Alight transform controls"
+            alpha -> "$description · Alight opacity controls"
             else -> description
         }
-        return EffectDefinition(id, key, name, mapCategory(category), note, params, sksl, status = "ok",
-            alsoIn = listOf("external"), page = key, passes = native.orEmpty(), fallback = fallback(name, category, params))
+        return EffectDefinition(id, key, name, mapCategory(category), note, params, sksl, native = auto || alpha || !native.isNullOrEmpty(), status = "ok",
+            alsoIn = listOf("external"), page = key, passes = native.orEmpty(), fallback = identityShader(), resourcePaths = resourcePaths)
     }
 
     private fun strings(xml: String): Map<String, String> = Regex("""<string\s+name="([^"]+)">([^<]*)</string>""")
@@ -115,49 +129,49 @@ object AmEffectImporter {
             val attrs = m.groupValues[2]
             fun attr(n: String): String? = Regex("""(?:^|\s)$n="([^"]*)"""").find(attrs)?.groupValues?.get(1)
             val id = attr("id") ?: continue
-            val def = attr("default").orEmpty()
+            if (id in setOf("inputImg", "comp", "image", "input", "output", "src", "hblur", "vblur", "xDistBuf", "yDistBuf",
+                    "blurBuf", "downImg", "ds1", "ds2", "surfBuf", "hdist", "hstreak", "vstreak", "blurImg", "content", "edge", "rgbanoise")) continue
+            val rawDefault = attr("default") ?: attr("value") ?: ""
             val shown = label(id, attr("label"), strings)
             val type = attr("type").orEmpty()
-            val numeric = def.trim().toFloatOrNull() ?: 0f
+            val numeric = rawDefault.trim().toFloatOrNull() ?: 0f
             val low = attr("min")?.toFloatOrNull() ?: if (numeric < 0f) -1f else 0f
             val high = attr("max")?.toFloatOrNull()?.takeIf { it > low } ?: maxOf(numeric + 1f, low + 1f)
             val step = attr("step")?.toFloatOrNull() ?: if (type == "integer") 1f else 0.01f
             when (kind) {
-                "spinner" -> {
-                    val block = xml.substring(m.range.last + 1).substringBefore("</spinner>")
-                    val options = choices(block, strings)
-                    if (options.size >= 2) {
-                        out += EffectParam(id, shown, "choice", format(numeric.coerceIn(0f, (options.size - 1).toFloat())), 0f,
-                            (options.size - 1).toFloat(), 1f, options = options)
-                    } else {
-                        out += EffectParam(id, shown, if (type == "angle") "angle" else "float",
-                            format(numeric.coerceIn(low, high)), low, high, step, percent = type == "percent")
-                    }
-                }
-                "slider", "int", "orient", "hue-disc", "float" ->
+                "spinner" ->
                     out += EffectParam(id, shown, if (type == "angle") "angle" else "float",
-                        format(numeric.coerceIn(low, high)), low, high, step, percent = type == "percent")
-                "switch" -> out += EffectParam(id, shown, "switch", if (def == "true" || def == "1") "true" else "false")
-                "point", "xyz" -> {
-                    val p = def.split(',').mapNotNull { it.trim().toFloatOrNull() }
-                    out += EffectParam(id, shown, "point", format(p.getOrElse(0) { 0f }) + "," + format(p.getOrElse(1) { 0f }))
+                        format(numeric.coerceIn(low, high)), low, high, step, percent = type == "percent",
+                        unit = when (type) { "percent" -> "%"; "hz" -> "Hz"; else -> "" })
+                "slider", "int", "orient", "float" ->
+                    out += EffectParam(id, shown, if (type == "angle") "angle" else "float",
+                        format(numeric.coerceIn(low, high)), low, high, step, percent = type == "percent",
+                        unit = if (type == "percent") "%" else "")
+                "hue-disc" -> {
+                    val parts = rawDefault.split(',').mapNotNull { it.trim().toFloatOrNull() }
+                    val values = List(3) { format(parts.getOrElse(it) { if (it == 1) 1f else 0f }) }
+                    out += EffectParam(id, shown, "hue", values.joinToString(","), -360f, 360f, 0.1f)
                 }
-                "texture" -> {
-                    val src = attr("srcType").orEmpty()
-                    if (id !in setOf("inputImg", "comp", "image", "input", "output", "src") && src !in setOf("buffer", "content", "comp")) {
-                        out += EffectParam(id, shown, "text", def)
-                    }
+                "switch" -> out += EffectParam(id, shown, "switch", if (rawDefault == "true" || rawDefault == "1") "true" else "false")
+                "point", "xyz" -> {
+                    val p = rawDefault.split(',').mapNotNull { it.trim().toFloatOrNull() }
+                    val count = if (kind == "xyz") 3 else 2
+                    val values = List(count) { format(p.getOrElse(it) { 0f }) }
+                    out += EffectParam(id, shown, if (count == 3) "point3" else "point", values.joinToString(","),
+                        attr("min")?.toFloatOrNull() ?: -100000f, attr("max")?.toFloatOrNull() ?: 100000f, 1f)
                 }
                 "color" -> {
-                    val colour = def.trim().lowercase().takeIf { Regex("#[0-9a-f]{6}([0-9a-f]{2})?").matches(it) } ?: "#ffffffff"
+                    val colour = rawDefault.trim().lowercase().takeIf { Regex("#[0-9a-f]{6}([0-9a-f]{2})?").matches(it) } ?: "#ffffffff"
                     out += EffectParam(id, shown, "color", if (colour.length == 7) "#ff" + colour.drop(1) else colour)
                 }
                 "selector" -> {
                     val block = xml.substring(m.range.last + 1).substringBefore("</selector>")
                     val options = choices(block, strings)
                     if (options.isNotEmpty()) {
-                        out += EffectParam(id, shown, "choice", format(numeric.coerceIn(0f, (options.size - 1).toFloat())), 0f,
-                            (options.size - 1).toFloat(), 1f, options = options)
+                        val values = choiceValues(block).takeIf { it.size == options.size } ?: options.indices.map { it.toFloat() }
+                        val actual = values.firstOrNull { kotlin.math.abs(it - numeric) < 0.0001f } ?: values.first()
+                        out += EffectParam(id, shown, "choice", format(actual), values.min(), values.max(), 1f,
+                            options = options, choiceValues = values)
                     }
                 }
             }
@@ -170,99 +184,9 @@ object AmEffectImporter {
             .map { label(it.groupValues[1].substringAfterLast('/'), it.groupValues[1], strings) }
             .filter { it.isNotBlank() }.toList()
 
-    private fun motionShader(name: String, params: List<EffectParam>): String {
-        val ids = params.map { it.id }.filter { it.matches(Regex("[A-Za-z_][A-Za-z0-9_]*")) }.toSet()
-        fun ref(id: String, value: String) = if (id in ids) id else value
-        val mag = ref("mag", ref("zjitter", "50.0"))
-        val freq = ref("freq", "2.0")
-        val evolution = ref("evolution", "0.0")
-        val seed = ref("seed", "0.0")
-        val angle = ref("angle", "45.0")
-        val slack = ref("slack", "0.0")
-        val lower = name.lowercase()
-        val body = when {
-            "jitter" in lower -> """
-                float t = floor(amTime * max($freq, 0.01)) / max($freq, 0.01) + $evolution + $seed * 17.0;
-                float2 n = float2(sin(t * 1.7 + $seed * 3.1), cos(t * 1.3 + $seed * 5.7));
-                float a = $angle * 0.0174532925;
-                float2 d = float2(n.x * cos(a) - n.y * sin(a), n.x * sin(a) + n.y * cos(a)) * max($mag, 0.0) * 0.0025;
-                d += float2(sin(t * 2.3 + 1.1), cos(t * 1.9 + 2.7)) * max($slack, 0.0) * max($mag, 0.0) * 0.0015;
-                return image.eval(clamp(uv + d, float2(0.0), float2(1.0)) * amSize);
-            """.trimIndent()
-            "spin" in lower -> """
-                float a = amTime * max($freq, 0.01) * 6.2831853 + $evolution;
-                float2 d = uv - 0.5;
-                float2 r = float2(d.x * cos(a) - d.y * sin(a), d.x * sin(a) + d.y * cos(a));
-                return image.eval(clamp(r + 0.5, float2(0.0), float2(1.0)) * amSize);
-            """.trimIndent()
-            "pulsate" in lower -> """
-                float s = 1.0 + sin(amTime * max($freq, 0.01) * 6.2831853 + $evolution) * 0.25;
-                float2 d = (uv - 0.5) / max(s, 0.05);
-                return image.eval(clamp(d + 0.5, float2(0.0), float2(1.0)) * amSize);
-            """.trimIndent()
-            "oscillate" in lower -> """
-                float t = amTime * max($freq, 0.01) * 6.2831853 + $evolution + $seed * 17.0;
-                float a = $angle * 0.0174532925;
-                float2 d = float2(sin(t), cos(t)) * max($mag, 0.0) * 0.0025;
-                d = float2(d.x * cos(a) - d.y * sin(a), d.x * sin(a) + d.y * cos(a));
-                return image.eval(clamp(uv + d, float2(0.0), float2(1.0)) * amSize);
-            """.trimIndent()
-            "swing" in lower -> """
-                float t = amTime * max($freq, 0.01) * 3.1415926 + $evolution + $seed * 17.0;
-                float a = $angle * 0.0174532925;
-                float2 d = float2(sin(t) * cos(a), sin(t) * sin(a)) * max($mag, 0.0) * 0.0035;
-                return image.eval(clamp(uv + d, float2(0.0), float2(1.0)) * amSize);
-            """.trimIndent()
-            else -> """
-                float t = amTime * max($freq, 0.01) + $evolution + $seed * 17.0;
-                float2 n = float2(sin(t * 1.7 + $seed * 3.1), cos(t * 1.3 + $seed * 5.7));
-                float a = $angle * 0.0174532925;
-                float2 d = float2(n.x * cos(a) - n.y * sin(a), n.x * sin(a) + n.y * cos(a));
-                d *= max($mag, 0.0) * 0.0025;
-                d += float2(n.y, -n.x) * max($slack, 0.0) * max($mag, 0.0) * 0.0015;
-                return image.eval(clamp(uv + d, float2(0.0), float2(1.0)) * amSize);
-            """.trimIndent()
-        }
-        return buildString {
-            append(uniforms(params))
-            appendLine("half4 main(float2 coord) {")
-            appendLine("float2 uv = coord / amSize;")
-            appendLine(body)
-            appendLine("}")
-        }
-    }
-
-    private fun alphaShader(name: String, params: List<EffectParam>): String {
-        val ids = params.map { it.id }.filter { it.matches(Regex("[A-Za-z_][A-Za-z0-9_]*")) }.toSet()
-        fun ref(id: String, value: String) = if (id in ids) id else value
-        val freq = ref("freq", "2.0")
-        val strength = ref("strength", ref("mag", "1.0"))
-        val lower = name.lowercase()
-        val body = when {
-            "fade" in lower -> """
-                float a = clamp(amTime / max(${ref("inTime", "0.5")}, 0.001), 0.0, 1.0);
-                float b = clamp((amDuration - amTime) / max(${ref("outTime", "0.5")}, 0.001), 0.0, 1.0);
-                half4 c = image.eval(coord);
-                return half4(c.rgb, c.a * min(a, b));
-            """.trimIndent()
-            "flicker" in lower -> """
-                float n = sin(amTime * max($freq, 0.01) * 26.0 + ${ref("seed", "0.0")} * 13.0);
-                half4 c = image.eval(coord);
-                return half4(c.rgb, c.a * (1.0 - max($strength, 0.0) * (0.5 + 0.5 * n)));
-            """.trimIndent()
-            else -> """
-                float n = 0.5 + 0.5 * sin(amTime * max($freq, 0.01) * 6.2831853 + ${ref("phase", "0.0")});
-                half4 c = image.eval(coord);
-                return half4(c.rgb, c.a * mix(1.0, n, clamp($strength, 0.0, 1.0)));
-            """.trimIndent()
-        }
-        return buildString {
-            append(uniforms(params))
-            appendLine("half4 main(float2 coord) {")
-            appendLine(body)
-            appendLine("}")
-        }
-    }
+    private fun choiceValues(block: String): List<Float> =
+        Regex("""<choice[^>]*value="([^"]*)""" + "\"").findAll(block)
+            .mapNotNull { it.groupValues[1].trim().toFloatOrNull() }.toList()
 
     private fun fallback(name: String, category: String, params: List<EffectParam>): String {
         val ids = params.map { it.id }.filter { it.matches(Regex("[A-Za-z_][A-Za-z0-9_]*")) }.toSet()
@@ -324,7 +248,7 @@ object AmEffectImporter {
             val reserved = ReservedUniforms
             for (p in params) {
                 if (p.id in reserved || !p.id.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) continue
-                val type = when (p.kind) { "point" -> "float2"; "color" -> "float4"; "text" -> null; else -> "float" }
+                val type = when (p.kind) { "point" -> "float2"; "point3", "hue" -> "float3"; "color" -> "float4"; "text" -> null; else -> "float" }
                 if (type != null) appendLine("uniform $type ${p.id};")
             }
         }
@@ -348,34 +272,36 @@ object AmEffectImporter {
      * generic filter.
      */
     private fun nativePasses(source: String, params: List<EffectParam>, passes: List<Pass>): List<EffectPass>? {
-        if (source.contains("acLayerToScreen")) return null
-        val main = Regex("""void\s+main\s*\(\s*\)\s*\{""").find(source) ?: return null
+        val clean = common(expandMacros(source))
+        if (clean.contains("acLayerToScreen")) { /* handled by header uniforms */ }
+        val main = Regex("""void\s+main\s*\(\s*\)\s*\{""").find(clean) ?: return null
         val open = main.range.last
-        val close = matchingBrace(source, open) ?: return null
-        val head = nativeHead(source.substring(0, main.range.first)) ?: return null
-        val body = source.substring(open + 1, close)
+        val close = matchingBrace(clean, open) ?: return null
+        val body = clean.substring(open + 1, close)
         val branches = branches(body)
         val first = Regex("""if\s*\(\s*acPass\s*==\s*\d+\s*\)\s*\{""").find(body)?.range?.first ?: 0
         val preamble = body.substring(0, first)
         val suffix = body.substring(branchEnd(body) + 1)
         val targets = passes.mapNotNull { it.target?.takeIf { t -> t.isNotBlank() && t != "image" && t != "comp" } }.distinct()
-        val targetHeader = buildString {
-            for (target in targets) if (target.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) appendLine("uniform shader $target;")
-        }
+        val textures = textureIds(source) - targets.toSet()
+        val targetHeader = buildString { for (t in targets) if (t.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) appendLine("uniform shader $t;") }
         val out = ArrayList<EffectPass>(passes.size)
         for (i in passes.indices) {
-            val effect = passes[i].effect
-            if (effect != null) {
-                if (!effect.contains("blur", true)) return null
+            if (passes[i].effect != null) {
+                if (!passes[i].effect!!.contains("blur", true)) return null
                 out += EffectPass(blurShader(), passes[i].target?.takeIf { it.isNotBlank() })
                 continue
             }
             val branch = branches[i] ?: if (i == passes.lastIndex) branches[-1] else null
-            val stage = branch?.let { nativeBody(preamble + it + suffix) } ?: return null
-            val shader = uniforms(params) + targetHeader + head +
-                "half4 main(float2 coord) {\n" +
-                "float2 uv = coord / amSize;\n" +
-                stage + "\n}\n"
+            if (branch == null) return null
+            var stage = common(preamble + branch + suffix)
+            stage = specializeSampler(stage)
+            stage = convertBody(stage, "coord", emptyMap(), textures)
+            stage = sampleTargets(stage, targets)
+            stage = stage.replace(Regex("""\bgl_FragColor\s*=\s*([^;]+);"""), "return $1;")
+            stage = stage.replace(Regex("""\breturn\s*;"""), "return half4(0.0);")
+            val shader = header(params, textures) + targetHeader +
+                "half4 main(float2 coord) {\n" + stage + "\n}\n"
             out += EffectPass(shader, passes[i].target?.takeIf { it.isNotBlank() })
         }
         return out
@@ -384,178 +310,67 @@ object AmEffectImporter {
     private fun blurShader(): String = buildString {
         appendLine("uniform shader image;")
         appendLine("uniform float2 amSize;")
+        appendLine("uniform float4 screen;")
+        appendLine("uniform float2 layer;")
+        appendLine("uniform float3x3 toLayer;")
+        appendLine("uniform float3x3 fromLayer;")
+        appendLine("uniform float2 acScreenSize;")
+        appendLine("uniform float2 acLayerSize;")
+        appendLine("uniform float2 acLayerCenter;")
+        appendLine("uniform float2 acLayerCenterNorm;")
+        appendLine("uniform float2 acLayerPivot;")
+        appendLine("uniform float2 acVelocity;")
+        appendLine("uniform float acScaleVelocity;")
+        appendLine("uniform float acAngularVelocity;")
+        appendLine("uniform float2 acProjectSize;")
+        appendLine("uniform float acShowGuides;")
+        appendLine("uniform float2 acPreviewSize;")
+        appendLine("uniform float3x3 acLayerToScreen;")
+        appendLine("uniform float3x3 acScreenToLayer;")
+        appendLine("uniform float acLayerSizeNorm;")
+        appendLine("uniform float amTime;")
+        appendLine("uniform float amDuration;")
         appendLine("uniform float featureSize;")
         appendLine("half4 main(float2 coord) {")
-        appendLine("float2 uv = coord / amSize;")
-        appendLine("float px = max(featureSize, 1.0) / max(amSize.x, 1.0) * 0.018;")
-        appendLine("float py = max(featureSize, 1.0) / max(amSize.y, 1.0) * 0.018;")
+        appendLine("float2 uv = (coord - screen.xy) / max(screen.zw, float2(1.0));")
+        appendLine("float2 px = vec2(0.0015) * max(featureSize, 1.0) / 50.0;")
         appendLine("float4 sum = float4(0.0);")
-        appendLine("for (int y = -2; y <= 2; y++) for (int x = -2; x <= 2; x++) sum += image.eval((uv + float2(x * px, y * py)) * amSize);")
+        appendLine("for (int y = -2; y <= 2; y++) for (int x = -2; x <= 2; x++) sum += image.eval((uv + float2(x * px.x, y * px.y)) * screen.zw + screen.xy);")
         appendLine("return sum / 25.0;")
         appendLine("}")
     }
 
-    private fun nativeHead(head: String): String? {
-        var s = common(head)
-        s = s.replace("inputImg.size", "amSize").replace("acScreenSize", "amSize").replace("acLayerSize", "amSize")
-        s = Regex("""getTexSize\s*\([^)]*\)""").replace(s, "amSize")
-        return if (s.contains("texture2DCv")) nativeTextures(s) else s
-    }
-
-    private fun nativeBody(body: String): String? {
-        var s = common(body)
-        s = s.replace("acScreenNorm", "uv").replace("acLayerNorm", "uv")
-        s = s.replace("inputImg.size", "amSize").replace("acScreenSize", "amSize").replace("acLayerSize", "amSize")
-        s = Regex("""getTexSize\s*\([^)]*\)""").replace(s, "amSize")
-        s = nativeTextures(s) ?: return null
-        s = s.replace(Regex("""gl_FragColor\s*=\s*([^;]+);\s*return\s*;"""), "return $1;")
-        s = s.replace(Regex("""gl_FragColor\s*=\s*([^;]+);"""), "return $1;")
-        s = s.replace(Regex("""\breturn\s*;"""), "return half4(0.0);")
-        return if (s.contains("texture2DCv")) null else s
-    }
-
-    private fun nativeTextures(source: String): String? {
-        val out = StringBuilder(source.length + 32)
-        var at = 0
-        while (true) {
-            val start = source.indexOf("texture2DCv(", at)
-            if (start < 0) break
-            out.append(source, at, start)
-            var p = start + "texture2DCv(".length
-            var depth = 1
-            var comma = -1
-            val args = p
-            while (p < source.length && depth > 0) {
-                when (source[p]) {
-                    '(' -> depth++
-                    ')' -> depth--
-                    ',' -> if (depth == 1 && comma < 0) comma = p
-                }
-                if (depth == 0) break
-                p++
-            }
-            if (depth != 0 || comma < 0) return null
-            val texture = source.substring(args, comma).trim().removeSuffix(".texture").trim()
-            val coord = source.substring(comma + 1, p).trim()
-            when (texture) {
-                "inputImg", "comp" -> out.append("image.eval((").append(coord).append(")*amSize)")
-                else -> {
-                    if (!texture.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) return null
-                    out.append(texture).append(".eval((").append(coord).append(")*amSize)")
-                }
-            }
-            at = p + 1
-        }
-        out.append(source, at, source.length)
-        return out.toString()
-    }
-
     private fun translatePasses(source: String, params: List<EffectParam>, passes: List<Pass>): String? {
-        if (source.contains("acLayerToScreen") || passes.any { it.effect != null }) return null
-        val main = Regex("""void\s+main\s*\(\s*\)\s*\{""").find(source) ?: return null
+        val clean = common(expandMacros(source))
+        if (clean.contains("acPass")) return null
+        val main = Regex("""void\s+main\s*\(\s*\)\s*\{""").find(clean) ?: return null
         val open = main.range.last
-        val close = matchingBrace(source, open) ?: return null
-        val head = source.substring(0, main.range.first)
-        val body = source.substring(open + 1, close)
+        val close = matchingBrace(clean, open) ?: return null
+        val body = clean.substring(open + 1, close)
         val branches = branches(body)
         val first = Regex("""if\s*\(\s*acPass\s*==\s*\d+\s*\)\s*\{""").find(body)?.range?.first ?: 0
         val preamble = body.substring(0, first)
         val suffix = body.substring(branchEnd(body) + 1)
         val targets = HashMap<String, Int>()
         for (i in passes.indices) passes[i].target?.takeIf { it.isNotBlank() }?.let { targets[it] = i }
+        val textures = textureIds(source) - targets.keys
         val stages = ArrayList<String>(passes.size)
         for (i in passes.indices) {
             val branch = branches[i] ?: if (i == passes.lastIndex) branches[-1] else null
-            val stage = branch?.let { passBody(preamble + it + suffix, "uv", targets) } ?: return null
+            if (branch == null) return null
+            var stage = common(preamble + branch + suffix)
+            stage = convertBody(stage, "uv", targets, textures, normalized = true)
+            stage = stage.replace(Regex("""\bgl_FragColor\s*=\s*([^;]+);"""), "return $1;")
+            stage = stage.replace(Regex("""\breturn\s*;"""), "return half4(0.0);")
             stages += stage
         }
-        val uniforms = uniforms(params)
-        val out = StringBuilder(uniforms)
+        val out = StringBuilder(header(params, textures))
         for (i in stages.indices) out.append("half4 pass").append(i).append("(float2 uv);\n")
-        val fixedHead = passHead(head, targets) ?: return null
-        out.append(fixedHead)
         for (i in stages.indices) {
             out.append("half4 pass").append(i).append("(float2 uv) {\n")
             out.append(stages[i]).append('\n').append("}\n")
         }
-        out.append("half4 main(float2 coord) {\nreturn pass").append(passes.lastIndex).append("(coord / amSize);\n}\n")
-        return out.toString()
-    }
-
-    private fun uniforms(params: List<EffectParam>): String = buildString {
-        appendLine("uniform shader image;")
-        appendLine("uniform float2 amSize;")
-        appendLine("uniform float amTime;")
-        appendLine("uniform float amDuration;")
-        val reserved = ReservedUniforms
-        for (p in params) {
-            if (p.id in reserved || !p.id.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) continue
-            val type = when (p.kind) { "point" -> "float2"; "color" -> "float4"; "text" -> null; else -> "float" }
-            if (type != null) appendLine("uniform $type ${p.id};")
-        }
-    }
-
-    private fun passHead(head: String, targets: Map<String, Int>): String? {
-        var s = common(head)
-        s = s.replace("inputImg.size", "amSize")
-        s = Regex("""getTexSize\s*\([^)]*\)""").replace(s, "amSize")
-        if (s.contains("texture2DCv")) {
-            s = replaceTextures(s, targets) ?: return null
-        }
-        return s
-    }
-
-    private fun common(source: String): String = source
-        .replace(Regex("""\bvec2\b"""), "float2").replace(Regex("""\bvec3\b"""), "float3").replace(Regex("""\bvec4\b"""), "float4")
-        .replace(Regex("""\bmat2\b"""), "float2x2").replace(Regex("""\bmat3\b"""), "float3x3").replace(Regex("""\bmat4\b"""), "float4x4")
-        .replace(Regex("""\b(?:highp|mediump|lowp)\b"""), "")
-        .replace("acTime", "amTime").replace("acResolution", "amSize")
-
-    private fun passBody(body: String, uv: String, targets: Map<String, Int>): String? {
-        var s = common(body)
-        s = s.replace("acScreenNorm", uv).replace("acLayerNorm", uv)
-        s = s.replace("inputImg.size", "amSize")
-        s = Regex("""getTexSize\s*\([^)]*\)""").replace(s, "amSize")
-        s = replaceTextures(s, targets) ?: return null
-        s = s.replace(Regex("""gl_FragColor\s*=\s*([^;]+);\s*return\s*;"""), "return $1;")
-        s = s.replace(Regex("""gl_FragColor\s*=\s*([^;]+);"""), "return $1;")
-        s = s.replace(Regex("""\breturn\s*;"""), "return half4(0.0);")
-        return if (s.contains("texture2DCv")) null else s
-    }
-
-    private fun replaceTextures(source: String, targets: Map<String, Int>): String? {
-        val out = StringBuilder(source.length + 32)
-        var at = 0
-        while (true) {
-            val start = source.indexOf("texture2DCv(", at)
-            if (start < 0) break
-            out.append(source, at, start)
-            var p = start + "texture2DCv(".length
-            var depth = 1
-            var comma = -1
-            val args = p
-            while (p < source.length && depth > 0) {
-                when (source[p]) {
-                    '(' -> depth++
-                    ')' -> depth--
-                    ',' -> if (depth == 1 && comma < 0) comma = p
-                }
-                if (depth == 0) break
-                p++
-            }
-            if (depth != 0 || comma < 0) return null
-            val texture = source.substring(args, comma).trim().removeSuffix(".texture").trim()
-            val coord = source.substring(comma + 1, p).trim()
-            when (texture) {
-                "inputImg", "comp" -> out.append("image.eval((").append(coord).append(")*amSize)")
-                else -> {
-                    val target = targets[texture] ?: return null
-                    out.append("pass").append(target).append("((").append(coord).append("))")
-                }
-            }
-            at = p + 1
-        }
-        out.append(source, at, source.length)
+        out.append("half4 main(float2 coord) {\nreturn pass").append(passes.lastIndex).append("(AcScreenNorm(coord));\n}\n")
         return out.toString()
     }
 
@@ -629,35 +444,225 @@ object AmEffectImporter {
     }
 
     private fun translate(source: String, params: List<EffectParam>): String? {
-        var s = source
-        if (!Regex("""texture2DCv\(\s*inputImg\.texture\s*,\s*[^)]*\)""").containsMatchIn(s)) return null
-        s = s.replace(Regex("""\bvec2\b"""), "float2").replace(Regex("""\bvec3\b"""), "float3").replace(Regex("""\bvec4\b"""), "float4")
-        s = s.replace(Regex("""\bmat2\b"""), "float2x2").replace(Regex("""\bmat3\b"""), "float3x3").replace(Regex("""\bmat4\b"""), "float4x4")
-        s = s.replace("acScreenNorm", "(coord / amSize)").replace("acTime", "amTime").replace("acResolution", "amSize")
-        s = Regex("""texture2DCv\(\s*inputImg\.texture\s*,\s*([^)]*)\)""").replace(s) { "image.eval((${it.groupValues[1]}) * amSize)" }
-        if (s.contains("texture2DCv")) return null
-        val uniforms = buildString {
-            appendLine("uniform shader image;")
-            appendLine("uniform float2 amSize;")
-            appendLine("uniform float amTime;")
+        val textures = textureIds(source)
+        var s = expandMacros(source)
+        s = common(s)
+        s = convertBody(s, "coord", emptyMap(), textures)
+        s = s.replace(Regex("""void\s+main\s*\(\s*\)"""), "half4 main(float2 coord)")
+        if (!s.contains("half4 main")) return null
+        s = s.replace(Regex("""\bgl_FragColor\s*=\s*([^;]+);"""), "return $1;")
+        s = s.replace(Regex("""\breturn\s*;"""), "return half4(0.0);")
+        return header(params, textures) + s
+    }
+
+    private fun identityShader(): String = "uniform shader image;\nhalf4 main(float2 coord) { return image.eval(coord); }\n"
+
+    private fun textureIds(source: String): Set<String> =
+        Regex("""<texture\s+([^>]*)/?>""").findAll(source).mapNotNull { m ->
+            val attrs = m.groupValues[1]
+            val id = Regex("""\bid="([^"]+)"""").find(attrs)?.groupValues?.get(1) ?: return@mapNotNull null
+            val src = Regex("""\bsrcType="([^"]+)"""").find(attrs)?.groupValues?.get(1).orEmpty()
+            id.takeIf { id != "inputImg" && src != "buffer" }
+        }.toSet()
+
+    private fun header(params: List<EffectParam>, textures: Set<String>): String = buildString {
+        appendLine("uniform shader image;")
+        appendLine("uniform float2 amSize;")
+        appendLine("uniform float4 screen;")
+        appendLine("uniform float2 layer;")
+        appendLine("uniform float3x3 toLayer;")
+        appendLine("uniform float3x3 fromLayer;")
+        appendLine("uniform float2 acScreenSize;")
+        appendLine("uniform float2 acLayerSize;")
+        appendLine("uniform float2 acLayerCenter;")
+        appendLine("uniform float2 acLayerCenterNorm;")
+        appendLine("uniform float2 acLayerPivot;")
+        appendLine("uniform float2 acVelocity;")
+        appendLine("uniform float acScaleVelocity;")
+        appendLine("uniform float acAngularVelocity;")
+        appendLine("uniform float2 acProjectSize;")
+        appendLine("uniform float acShowGuides;")
+        appendLine("uniform float2 acPreviewSize;")
+        appendLine("uniform float3x3 acLayerToScreen;")
+        appendLine("uniform float3x3 acScreenToLayer;")
+        appendLine("uniform float acLayerSizeNorm;")
+        appendLine("uniform float amTime;")
         appendLine("uniform float amDuration;")
-            val reserved = ReservedUniforms
-            for (p in params) {
-                if (p.id in reserved) continue
-                val type = when (p.kind) { "point" -> "float2"; "color" -> "float4"; else -> "float" }
-                appendLine("uniform $type ${p.id};")
+        for (id in textures) if (id.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) {
+            appendLine("uniform shader $id;")
+            appendLine("uniform float2 ${id}Size;")
+        }
+        appendLine("float2 AcScreenNorm(float2 p) { return (p - screen.xy) / max(screen.zw, float2(1.0)); }")
+        appendLine("float2 AcLayerNorm(float2 p) {")
+        appendLine("    float3 h = toLayer * float3(p, 1.0);")
+        appendLine("    return h.xy / max(layer, float2(1.0));")
+        appendLine("}")
+        appendLine("float2 AcLayerNormFromScreen(float2 s) { return AcLayerNorm(s * screen.zw + screen.xy); }")
+        val reserved = ReservedUniforms
+        for (p in params) {
+            if (p.id in reserved || !p.id.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) continue
+            val type = when (p.kind) { "point" -> "float2"; "point3", "hue" -> "float3"; "color" -> "float4"; "text" -> null; else -> "float" }
+            if (type != null) appendLine("uniform $type ${p.id};")
+        }
+    }
+
+    private fun convertBody(body: String, uv: String, targets: Map<String, Int>, textures: Set<String>, normalized: Boolean = false): String {
+        var s = body
+        s = s.replace("acScreenNorm", if (normalized) uv else "AcScreenNorm($uv)")
+        s = s.replace("acLayerNorm", if (normalized) "AcLayerNormFromScreen($uv)" else "AcLayerNorm($uv)")
+        s = s.replace("acTime", "amTime").replace("acDuration", "amDuration").replace("acResolution", "acPreviewSize")
+        s = s.replace("gl_FragCoord", "float4($uv, 0.0, 1.0)")
+        s = sampleTextures(s, uv, targets, textures)
+        s = s.replace("getTexSize(inputImg.size)", "screen.zw")
+        s = s.replace("inputImg.size", "screen.zw")
+        s = s.replace("getTexSize(comp.size)", "screen.zw")
+        s = s.replace("comp.size", "screen.zw")
+        for (id in textures) {
+            s = s.replace("getTexSize($id.size)", "${id}Size").replace("$id.size", "${id}Size")
+        }
+        return s
+    }
+
+    /** Turns a helper that takes sampler2D into a helper that reads the one
+     *  buffer used by this pass. SkSL has no sampler function parameters, but
+     *  Alight uses that pattern for gaussian-style blur helpers. */
+    private fun specializeSampler(source: String): String {
+        if (!source.contains("sampler2D")) return source
+        val call = Regex("""(\w+)\s*\(\s*(\w+)\.texture\s*,""").find(source) ?: return source
+        val helper = call.groupValues[1]
+        val sampler = call.groupValues[2]
+        var s = source
+        s = Regex("""sampler2D\s+${Regex.escape(sampler)}\s*,""").replace(s, "")
+        s = Regex("""${Regex.escape(helper)}\s*\(\s*${Regex.escape(sampler)}\.texture\s*,""").replace(s, "$helper(")
+        s = Regex("""${Regex.escape(sampler)}""").replace(s, sampler.let { call.groupValues[2] })
+        // The sampler variable name and the buffer name are sometimes the same
+        // (texture), so move the actual child name in from the call.
+        s = Regex("""texture2DCv\s*\(\s*${Regex.escape(call.groupValues[2])}\s*,""").replace(s, "texture2DCv(${call.groupValues[2]}.texture,")
+        s = Regex("""texture2D\s*\(\s*${Regex.escape(call.groupValues[2])}\s*,""").replace(s, "texture2D(${call.groupValues[2]}.texture,")
+        return s
+    }
+
+    private fun sampleTextures(source: String, uv: String, targets: Map<String, Int>, textures: Set<String>): String =
+        rewriteTextures(source) { texture, coord ->
+            when {
+                texture == "inputImg" -> "image.eval(($coord) * screen.zw + screen.xy)"
+                texture == "comp" -> "comp.eval(($coord) * screen.zw + screen.xy)"
+                texture in targets -> "pass${targets[texture]}(($coord))"
+                texture in textures -> "$texture.eval(($coord) * ${texture}Size)"
+                else -> null
             }
         }
-        s = s.replace(Regex("""void\s+main\s*\(\s*\)"""), "half4 main(float2 coord)")
-        s = s.replace(Regex("""gl_FragColor\s*=\s*([^;]+);"""), "return $1;")
-        if (!s.contains("half4 main")) return null
-        return uniforms + s
+
+    private fun sampleTargets(source: String, targets: List<String>): String =
+        rewriteTextures(source) { texture, coord ->
+            if (texture in targets) "$texture.eval(($coord) * screen.zw + screen.xy)" else null
+        }
+
+    /** Rewrites texture2D/texture2DCv calls with balanced parentheses, so nested
+     *  expressions such as (vec4(uv,0,1) * acLayerToScreen).xy survive intact. */
+    private fun rewriteTextures(source: String, map: (String, String) -> String?): String {
+        val out = StringBuilder(source.length + 64)
+        var at = 0
+        while (true) {
+            val match = Regex("""\btexture2DCv\s*\(|\btexture2D\s*\(""").find(source, at) ?: break
+            val open = source.indexOf('(', match.range.first)
+            var p = open + 1
+            var depth = 1
+            var comma = -1
+            while (p < source.length && depth > 0) {
+                when (source[p]) {
+                    '(' -> depth++
+                    ')' -> depth--
+                    ',' -> if (depth == 1 && comma < 0) comma = p
+                }
+                if (depth == 0) break
+                p++
+            }
+            if (depth != 0 || comma < 0) { out.append(source, at, p + 1); at = p + 1; continue }
+            val texture = source.substring(open + 1, comma).trim().removeSuffix(".texture").trim()
+            val coord = source.substring(comma + 1, p).trim()
+            val replacement = map(texture, coord)
+            out.append(source, at, match.range.first)
+            out.append(replacement ?: source.substring(match.range.first, p + 1))
+            at = p + 1
+        }
+        out.append(source, at, source.length)
+        return out.toString()
     }
+
+    private fun expandMacros(source: String): String {
+        val functions = ArrayList<Triple<String, List<String>, String>>()
+        val objects = LinkedHashMap<String, String>()
+        val lines = ArrayList<String>()
+        for (line in source.lineSequence()) {
+            val define = Regex("""^\s*#\s*define\s+([A-Za-z_][A-Za-z0-9_]*)(\(([^)]*)\))?\s*(.*)$""").find(line)
+            if (define != null) {
+                val name = define.groupValues[1]
+                val args = define.groupValues[3]
+                val body = define.groupValues[4].trim()
+                if (args.isNotBlank()) functions += Triple(name, args.split(',').map { it.trim() }, body)
+                else objects[name] = body
+                continue
+            }
+            if (line.trimStart().startsWith("#")) continue
+            lines += line
+        }
+        var text = lines.joinToString("\n")
+        fun expandOne(name: String, params: List<String>, body: String, input: String): String {
+            val out = StringBuilder(input.length + 32)
+            var at = 0
+            while (true) {
+                val match = Regex("""\b${Regex.escape(name)}\s*\(""").find(input, at) ?: break
+                var p = match.range.last + 1
+                var depth = 1
+                val args = ArrayList<String>()
+                val argStart = p
+                var piece = argStart
+                while (p < input.length && depth > 0) {
+                    when (input[p]) {
+                        '(' -> depth++
+                        ')' -> depth--
+                        ',' -> if (depth == 1) {
+                            args += input.substring(piece, p).trim()
+                            piece = p + 1
+                        }
+                    }
+                    if (depth == 0) break
+                    p++
+                }
+                if (depth != 0) break
+                args += input.substring(piece, p).trim()
+                out.append(input, at, match.range.first)
+                var replaced = body
+                params.forEachIndexed { i, param -> replaced = Regex("""\b${Regex.escape(param)}\b""").replace(replaced, args.getOrElse(i) { "" }) }
+                out.append(replaced)
+                at = p + 1
+            }
+            out.append(input, at, input.length)
+            return out.toString()
+        }
+        repeat(3) {
+            for ((name, params, body) in functions) text = expandOne(name, params, body, text)
+            for ((name, body) in objects) {
+                text = Regex("""\b${Regex.escape(name)}\b""").replace(text, Regex.escapeReplacement(body))
+            }
+        }
+        return text
+    }
+
+    private fun common(source: String): String = source
+        .replace(Regex("""\bvec2\b"""), "float2").replace(Regex("""\bvec3\b"""), "float3").replace(Regex("""\bvec4\b"""), "float4")
+        .replace(Regex("""\bmat2\b"""), "float2x2").replace(Regex("""\bmat3\b"""), "float3x3").replace(Regex("""\bmat4\b"""), "float4x4")
+        .replace(Regex("""\b(?:highp|mediump|lowp)\b"""), "")
+        .replace(Regex("""\bin\s+"""), "")
+        .replace("acTime", "amTime").replace("acResolution", "acPreviewSize")
 
     private val ReservedUniforms = setOf(
         "image", "amSize", "amTime", "amDuration", "resolution", "coord", "layer", "fromLayer", "toLayer", "orient",
         "paletteSize", "paletteSpread", "swatches", "glyphCount", "glyphColumns", "glyphCell", "visible", "screen",
         "beat", "beatTime", "beatIndex", "extent", "backdrop", "below", "bright", "blurred", "thresholds", "palette", "glyphs",
+        "acScreenSize", "acLayerSize", "acLayerCenter", "acLayerCenterNorm", "acLayerPivot", "acLayerToScreen", "acScreenToLayer",
+        "acPreviewSize", "acLayerSizeNorm", "acVelocity", "acScaleVelocity", "acAngularVelocity", "acProjectSize", "acShowGuides",
     )
 
     private fun mapCategory(category: String) = when (category) {
