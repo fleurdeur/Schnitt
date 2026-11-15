@@ -905,39 +905,63 @@ std::string EffectRuntime::load(const std::string& xml) {
         d.defaults[c->attr("name")] = ParseAnimNode(c.get());
         if (c->attr("value")) d.texts[c->attr("name")] = c->attr("value");
     }
+    bool passesBroken = false;
     for (const auto& c : root->children) {
         if (c->name != "pass" || !c->attr("sksl")) continue;
         auto result = SkRuntimeEffect::MakeForShader(SkString(c->attr("sksl")));
-        if (!result.effect || !result.effect->findChild("image")) { d.passes.clear(); break; }
+        if (!result.effect || !result.effect->findChild("image")) { d.passes.clear(); passesBroken = true; break; }
         d.passes.push_back({std::move(result.effect), c->attr("target") ? c->attr("target") : ""});
     }
     const std::string id = root->attr("id");
+    d.external = id.rfind("com.alightcreative.", 0) == 0;
     const char* sksl = root->attr("sksl");
-    if (!sksl || !*sksl) {
-        if (!BuiltIn(id) && !pieces3d::IsEffect(id) && !MotionEffect(id) && !RepeatEffect(id) && !TextEffect(id) && !DrawingEffect(id) && !ParticleEffect(id)) return "shader error: no shader and no built-in called " + id;
-        d.backdrop = id == "absent.glow";
-        if (pieces3d::IsEffect(id)) NoteOrientedEffect(id);
-    } else {
-        auto result = SkRuntimeEffect::MakeForShader(SkString(sksl));
+    const char* fallback = nullptr;
+    for (const auto& c : root->children) if (c->name == "fallback") fallback = c->attr("sksl");
+    auto adopt = [&](const sk_sp<SkRuntimeEffect>& effect, const char* text) {
+        d.brightPass = effect->findChild("bright") != nullptr;
+        d.plainBlur = effect->findChild("blurred") != nullptr;
+        d.blurred = d.brightPass || d.plainBlur;
+        d.backdrop = effect->findChild("backdrop") != nullptr;
+        d.below = effect->findChild("below") != nullptr;
+        d.extent = effect->findChild("extent") != nullptr;
+        d.pointwise = Pointwise(text);
+        d.timed = (effect->findUniform("time") && Mentions(text, "time") > 1) || effect->findUniform("amTime") || effect->findUniform("beat") ||
+                  effect->findUniform("beatTime") || effect->findUniform("beatIndex");
+        if (effect->findUniform("orient")) NoteOrientedEffect(id);
+        d.palette = effect->findChild("palette") != nullptr;
+        d.matrix = effect->findChild("thresholds") != nullptr;
+        d.glyphs = effect->findChild("glyphs") != nullptr;
+        d.shader = effect;
+    };
+    auto build = [&](const char* text) -> std::string {
+        auto result = SkRuntimeEffect::MakeForShader(SkString(text));
         if (!result.effect) {
-            const std::string text = result.errorText.c_str();
-            return "shader error: " + text.substr(0, text.find('\n')) + "\n" + text;
+            const std::string detail = result.errorText.c_str();
+            return "shader error: " + detail.substr(0, detail.find('\n')) + "\n" + detail;
         }
         if (!result.effect->findChild("image")) return "shader error: no 'uniform shader image'";
-        d.brightPass = result.effect->findChild("bright") != nullptr;
-        d.plainBlur = result.effect->findChild("blurred") != nullptr;
-        d.blurred = d.brightPass || d.plainBlur;
-        d.backdrop = result.effect->findChild("backdrop") != nullptr;
-        d.below = result.effect->findChild("below") != nullptr;
-        d.extent = result.effect->findChild("extent") != nullptr;
-        d.pointwise = Pointwise(sksl);
-        d.timed = (result.effect->findUniform("time") && Mentions(sksl, "time") > 1) || result.effect->findUniform("beat") ||
-                  result.effect->findUniform("beatTime") || result.effect->findUniform("beatIndex");
-        if (result.effect->findUniform("orient")) NoteOrientedEffect(id);
-        d.palette = result.effect->findChild("palette") != nullptr;
-        d.matrix = result.effect->findChild("thresholds") != nullptr;
-        d.glyphs = result.effect->findChild("glyphs") != nullptr;
-        d.shader = std::move(result.effect);
+        adopt(result.effect, text);
+        return {};
+    };
+    if (!sksl || !*sksl) {
+        if (passesBroken && fallback) {
+            const std::string trouble = build(fallback);
+            if (!trouble.empty()) return trouble;
+        } else if (BuiltIn(id) || pieces3d::IsEffect(id) || MotionEffect(id) || RepeatEffect(id) || TextEffect(id) ||
+                   DrawingEffect(id) || ParticleEffect(id)) {
+            d.backdrop = id == "absent.glow";
+            if (pieces3d::IsEffect(id)) NoteOrientedEffect(id);
+        } else if (fallback) {
+            const std::string trouble = build(fallback);
+            if (!trouble.empty()) return trouble;
+        } else {
+            return "shader error: no shader and no built-in called " + id;
+        }
+    } else {
+        const std::string trouble = build(sksl);
+        if (!trouble.empty()) {
+            if (!fallback || !build(fallback).empty()) return trouble;
+        }
     }
     fDefinitions[id] = std::move(d);
     return "ok";
@@ -1124,11 +1148,11 @@ sk_sp<SkImageFilter> EffectRuntime::chain(const Scene& scene, const Layer& layer
                     const std::string name(u.name);
                     const int n = (int)(u.sizeInBytes() / 4);
                     std::vector<float> v(n);
-                    const bool automatic = !(defaults && defaults->count(name));
-                    if (automatic && name == "size") v = {area.width(), area.height()};
-                    else if (automatic && name == "time") v = {seconds};
+                    const bool automatic = d->external || !(defaults && defaults->count(name));
+                    if (automatic && (name == "size" || name == "amSize")) v = {area.width(), area.height()};
+                    else if (automatic && (name == "time" || name == "amTime")) v = {seconds};
                     else if (automatic && name == "layer") v = {std::max(own().width(), 1.0f), std::max(own().height(), 1.0f)};
-                    else if (automatic && name == "duration") v = {(float)((layer.endTime - layer.startTime) / 1000.0)};
+                    else if (automatic && (name == "duration" || name == "amDuration")) v = {(float)((layer.endTime - layer.startTime) / 1000.0)};
                     else if (u.isColor() && n == 4) v = {Value(e, defaults, name, 1, t, 0), Value(e, defaults, name, 2, t, 0),
                                                          Value(e, defaults, name, 3, t, 0), Value(e, defaults, name, 0, t, 1)};
                     else for (int i = 0; i < n; i++) v[i] = Value(e, defaults, name, i, t, 0);
@@ -1186,16 +1210,16 @@ sk_sp<SkImageFilter> EffectRuntime::chain(const Scene& scene, const Layer& layer
                 const std::string name(u.name);
                 const int n = (int)(u.sizeInBytes() / 4);
                 std::vector<float> v(n);
-                const bool automatic = !(defaults && defaults->count(name));
-                if (automatic && name == "size") v = {area.width(), area.height()};
-                else if (automatic && name == "time") v = {seconds};
+                const bool automatic = d->external || !(defaults && defaults->count(name));
+                if (automatic && (name == "size" || name == "amSize")) v = {area.width(), area.height()};
+                else if (automatic && (name == "time" || name == "amTime")) v = {seconds};
                 else if (automatic && name == "layer") v = {std::max(own().width(), 1.0f), std::max(own().height(), 1.0f)};
                 else if (automatic && name == "fromLayer") v = columns(fromLayer());
                 else if (automatic && name == "toLayer") {
                     SkMatrix inverse;
                     v = columns(fromLayer().invert(&inverse) ? inverse : SkMatrix::I());
                 }
-                else if (automatic && name == "duration") v = {(float)((layer.endTime - layer.startTime) / 1000.0)};
+                else if (automatic && (name == "duration" || name == "amDuration")) v = {(float)((layer.endTime - layer.startTime) / 1000.0)};
                 else if (automatic && name == "orient") v = columns3(Orientation(layer, timeMs));
                 else if (automatic && name == "paletteSize") v = {colors ? (float)colors->colors.size() : 0.0f};
                 else if (automatic && name == "paletteSpread") v = {colors ? colors->spread : 1.0f};

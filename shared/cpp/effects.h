@@ -52,6 +52,7 @@ private:
         bool palette = false;
         bool matrix = false;
         bool glyphs = false;
+        bool external = false;
         std::map<std::string, Anim> defaults;
         std::map<std::string, std::string> texts;
     };

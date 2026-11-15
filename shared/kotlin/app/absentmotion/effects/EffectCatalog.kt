@@ -27,6 +27,7 @@ data class EffectCatalog(
 
     fun listed(category: String? = null): List<EffectDefinition> =
         tiles.filter { category == null || it.category == category || category in it.alsoIn || (category == "new" && isNew(it)) }
+            .let { if (category == "external") it.distinctBy { effect -> effect.name.trim().lowercase() } else it }
 
     fun search(query: String): List<EffectDefinition> {
         val all = tiles

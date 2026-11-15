@@ -362,9 +362,10 @@ internal fun ChangelogIcon(dot: Boolean) {
 
 @Composable
 fun WhatsNewDialog(notes: WhatsNew, onClose: () -> Unit) {
+    val links = rememberReportLinks()
     Dialog(onClose, DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 24.dp), Alignment.Center) {
-            WhatsNewCard(notes, stringResource(R.string.action_continue), { null }, onClose)
+            WhatsNewCard(notes, stringResource(R.string.action_continue), links::named, onClose)
         }
     }
 }

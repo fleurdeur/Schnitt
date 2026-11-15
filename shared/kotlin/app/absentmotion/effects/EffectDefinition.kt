@@ -97,6 +97,7 @@ data class EffectDefinition(
     val shortcut: String? = null,
     val alsoIn: List<String> = emptyList(),
     val passes: List<EffectPass> = emptyList(),
+    val fallback: String? = null,
 ) {
     val available: Boolean get() = status == "ok"
     val thumbnail: String get() = "thumb/${shortcut ?: key}.webp"
@@ -146,7 +147,8 @@ data class EffectDefinition(
 
     fun runtimeXml(): String = XmlNode("effect", listOfNotNull("id" to id, sksl?.let { "sksl" to it }).toMap(),
         params.map { XmlNode("param", mapOf("name" to it.id, "value" to it.missingDefault)) } +
-            passes.map { XmlNode("pass", listOfNotNull("sksl" to it.sksl, it.target?.let { t -> "target" to t }).toMap()) }).toXml()
+            passes.map { XmlNode("pass", listOfNotNull("sksl" to it.sksl, it.target?.let { t -> "target" to t }).toMap()) } +
+            listOfNotNull(fallback?.let { XmlNode("fallback", mapOf("sksl" to it)) })).toXml()
 
     companion object {
         fun parse(json: JSONObject): EffectDefinition {
