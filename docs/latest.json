@@ -8,6 +8,11 @@
       "name": "Schnitt-5.4.4-arm64-v8a-release.apk",
       "size": 93132204,
       "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.4.4/Schnitt-5.4.4-arm64-v8a-release.apk"
+    },
+    {
+      "name": "Schnitt-5.4.4-armv7-release.apk",
+      "size": 90976206,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.4.4/Schnitt-5.4.4-armv7-release.apk"
     }
   ]
 }
