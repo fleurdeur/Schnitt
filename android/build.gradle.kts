@@ -206,6 +206,7 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("androidx.work:work-runtime-ktx:2.10.5")
     implementation("androidx.media3:media3-exoplayer:1.6.1")
     implementation("androidx.media3:media3-common:1.6.1")
     implementation("androidx.media3:media3-datasource-okhttp:1.6.1")

@@ -109,6 +109,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import app.absentmotion.R
@@ -159,10 +160,12 @@ fun Preview(state: EditorState, modifier: Modifier = Modifier, reserveEnd: Dp = 
     var blurSettled by remember { mutableStateOf(false) }
     val blurred = remember(state.scene) { state.scene.node.hasEffect(setOf("absent.motionblur", "absent.shutterblur")) }
     LaunchedEffect(state.scene, blurred) {
-        snapshotFlow { state.timeMs to state.playing }.collectLatest { (_, playing) ->
-            blurSettled = false
-            if (!playing && blurred) { kotlinx.coroutines.delay(300); blurSettled = true }
-        }
+        snapshotFlow { state.playing to if (state.playing) -1 else state.timeMs }
+            .distinctUntilChanged()
+            .collectLatest { (playing, _) ->
+                blurSettled = false
+                if (!playing && blurred) { kotlinx.coroutines.delay(300); blurSettled = true }
+            }
     }
     val baseView = if (size.width > 0) PreviewView(
         0, scale * quality, dx * quality, dy * quality, shownId, handles,

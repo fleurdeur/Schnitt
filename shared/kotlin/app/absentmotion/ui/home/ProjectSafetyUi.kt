@@ -84,19 +84,38 @@ import app.absentmotion.i18n.text
 import app.absentmotion.i18n.txt
 
 @Composable
-fun OpeningOverlay(onCancel: () -> Unit) {
+fun OpeningOverlay(onCancel: () -> Unit, progress: Float? = null, detail: String? = null) {
     var shown by remember { mutableStateOf(false) }
     var slow by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { delay(250); shown = true; delay(4750); slow = true }
+    val working = progress != null || detail != null
     Box(
-        Modifier.fillMaxSize().background(if (shown) Color.Black.copy(alpha = if (slow) 0.6f else 0.35f) else Color.Transparent).pointerInput(Unit) { detectTapGestures { } },
+        Modifier.fillMaxSize().background(if (shown) Color.Black.copy(alpha = if (slow || working) 0.6f else 0.35f) else Color.Transparent).pointerInput(Unit) { detectTapGestures { } },
         contentAlignment = Alignment.Center,
     ) {
-        if (shown) Column(Modifier.size(220.dp, 150.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(Modifier.size(44.dp), color = Am.Accent)
-            if (slow) {
-                Text(stringResource(R.string.still_working), Modifier.padding(top = 16.dp), color = Color.White, fontSize = 15.sp)
-                TextButton(onCancel) { Text(stringResource(R.string.cancel), color = Color.White, fontSize = 15.sp) }
+        if (shown) Column(Modifier.size(if (working) 280.dp else 220.dp, if (working) 190.dp else 150.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            if (working) {
+                androidx.compose.material3.LinearProgressIndicator(
+                    progress = { progress?.coerceIn(0f, 1f) ?: 0f },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Am.Accent,
+                    trackColor = Color.White.copy(alpha = 0.2f),
+                )
+                Text(
+                    detail ?: stringResource(R.string.still_working),
+                    Modifier.padding(top = 16.dp),
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    lineHeight = 18.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+                if (slow) TextButton(onCancel) { Text(stringResource(R.string.cancel), color = Color.White, fontSize = 15.sp) }
+            } else {
+                CircularProgressIndicator(Modifier.size(44.dp), color = Am.Accent)
+                if (slow) {
+                    Text(stringResource(R.string.still_working), Modifier.padding(top = 16.dp), color = Color.White, fontSize = 15.sp)
+                    TextButton(onCancel) { Text(stringResource(R.string.cancel), color = Color.White, fontSize = 15.sp) }
+                }
             }
         }
     }

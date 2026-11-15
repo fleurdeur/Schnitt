@@ -241,7 +241,7 @@ private fun AutomaticPreview(state: EditorState) {
             thermal.start()
             try {
                 snapshotFlow {
-                    PreparationRequest(PreviewCache.keyOf(state), state.frame,
+                    PreparationRequest(PreviewCache.keyOf(state), if (state.playing) -1 else state.frame,
                         !state.playing && !state.exportOpen && state.soloMode == 0 && !state.pixelMode && !state.gridMode && state.canvasZoom == 1f && state.canvasPan == Offset.Zero &&
                             state.drawing == null && state.panel != EditorPanel.EditText &&
                             (state.cameraMode || state.scene.layers.none { it.kind == "camera" }), PreviewCache.fit, PreviewCache.checkerCell)

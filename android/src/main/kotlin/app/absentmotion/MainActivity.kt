@@ -1,7 +1,10 @@
 package app.absentmotion
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.net.Uri
@@ -121,6 +124,7 @@ class MainActivity : ComponentActivity() {
     }
     private val filePicker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments()) { MediaPicks.addPictures(it) }
     private val soundPicker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments()) { MediaPicks.addSounds(it) }
+    private val notifyPermission = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
     internal lateinit var store: ProjectStore
     internal lateinit var settings: AppSettings
     private lateinit var templates: TemplateStore
@@ -148,6 +152,8 @@ class MainActivity : ComponentActivity() {
     private var recovered by mutableStateOf<RecoveryOffer?>(null)
     private var crashed by mutableStateOf<CrashEntry?>(null)
     private var importFailed by mutableStateOf<String?>(null)
+    private var importProgress by mutableStateOf<Float?>(null)
+    private var importDetail by mutableStateOf<String?>(null)
     private var fontOffer by mutableStateOf<Pair<EditorState, List<String>>?>(null)
     private val fontsDeclined = HashSet<String>()
     private var engineProblem by mutableStateOf<String?>(null)
@@ -314,7 +320,11 @@ class MainActivity : ComponentActivity() {
                         if (open.exportOpen) ExportScreen(open.project, open.exportFrame, engine, settings, fromProjectList = false, outdated) { open.exportOpen = false }
                     }
                 }
-                if (opening || openingProject) OpeningOverlay { openJob?.cancel() }
+                if (opening || openingProject) OpeningOverlay(
+                    onCancel = { openJob?.cancel() },
+                    progress = importProgress.takeIf { opening && !openingProject },
+                    detail = importDetail.takeIf { opening && !openingProject },
+                )
                 engineProblem?.takeIf { problemShown }?.let { problem ->
                     UnsupportedPhone(problem, onClose = { problemShown = false }, onRetry = {
                         problemShown = false
@@ -379,11 +389,22 @@ class MainActivity : ComponentActivity() {
             }
         }
         }
+        window.decorView.postDelayed({ askUpdateNotifications() }, 1_500)
         Log.i("AMStart", "onCreate took ${SystemClock.elapsedRealtime() - started} ms")
         androidx.core.view.OneShotPreDrawListener.add(window.decorView) { Log.i("AMStart", "first frame after ${SystemClock.elapsedRealtime() - started} ms") }
     }
 
 
+
+    private fun askUpdateNotifications() {
+        if (Build.VERSION.SDK_INT < 33) return
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
+        if (!settings.autoUpdateCheck) return
+        val prefs = getSharedPreferences("updates", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("permissionAsked", false)) return
+        prefs.edit().putBoolean("permissionAsked", true).apply()
+        runCatching { notifyPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
+    }
 
     private fun updateCalm() = lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) && editor == null && !closingEditor && !opening && !openingProject &&
         editingTemplate == null && exportingFromList == null && importPreview == null && firstRun == null && recovered == null && crashed == null && !problemShown && whatsNew == null &&
@@ -400,17 +421,33 @@ class MainActivity : ComponentActivity() {
             var failure: String? = null
             val overlay = !opening
             if (overlay) { opening = true; openJob = coroutineContext.job }
+            fun size(bytes: Long) = android.text.format.Formatter.formatFileSize(this@MainActivity, bytes)
             try {
                 CrashLogs.during("importing") { withContext(Dispatchers.IO) {
                     val job = coroutineContext.job
                     val importer = Importer.forApp(applicationContext, store)
-                    for (uri in uris) try {
+                    for ((index, uri) in uris.withIndex()) {
+                        val base = index.toFloat() / uris.size
                         val alight = AlightLinks.isShareLink(uri)
+                        importProgress = base
+                        importDetail = null
                         val remote = if (alight) try {
-                            withContext(Dispatchers.IO) { AlightLinks.download(applicationContext, uri) }
+                            runOnUiThread { importDetail = getString(R.string.import_downloaded, size(0)) }
+                            withContext(Dispatchers.IO) {
+                                AlightLinks.download(applicationContext, uri) { done, total ->
+                                    runOnUiThread {
+                                        importProgress = base + if (total > 0) done.toFloat().coerceAtMost(total.toFloat()) / total * 0.85f / uris.size else 0f
+                                        importDetail = if (total > 0) getString(R.string.import_downloading, size(done), size(total)) else getString(R.string.import_downloaded, size(done))
+                                    }
+                                }
+                            }
                         } catch (e: AlightImportException) {
                             throw ImportFailed(txt(R.string.library_err_alight_unavailable))
                         } else null
+                        runOnUiThread {
+                            importProgress = if (alight) base + 0.85f / uris.size else null
+                            importDetail = getString(if (alight) R.string.import_preparing else R.string.import_reading)
+                        }
                         try {
                             reports += importer.import {
                                 (remote?.inputStream() ?: contentResolver.openInputStream(uri))?.let { stoppable(it, job) }
@@ -421,18 +458,20 @@ class MainActivity : ComponentActivity() {
                         } finally {
                             remote?.delete()
                         }
-                    } catch (e: kotlinx.coroutines.CancellationException) {
-                        throw e
-                    } catch (e: OutOfMemoryError) {
-                        Log.w("AMImport", "no memory left to import $uri", e)
-                        failure = failure ?: getString(R.string.crash_reason_memory)
-                    } catch (e: Exception) {
-                        Log.w("AMImport", "cannot import $uri", e)
-                        failure = failure ?: (e as? ImportFailed)?.text?.resolve(this@MainActivity) ?: getString(R.string.backup_open_failed).takeIf { e is SecurityException } ?: e.message ?: getString(R.string.library_err_unsupported_type)
                     }
                 } }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: OutOfMemoryError) {
+                Log.w("AMImport", "no memory left to import", e)
+                failure = failure ?: getString(R.string.crash_reason_memory)
+            } catch (e: Exception) {
+                Log.w("AMImport", "cannot import", e)
+                failure = failure ?: (e as? ImportFailed)?.text?.resolve(this@MainActivity) ?: getString(R.string.backup_open_failed).takeIf { e is SecurityException } ?: e.message ?: getString(R.string.library_err_unsupported_type)
             } finally {
                 if (overlay) opening = false
+                importProgress = null
+                importDetail = null
                 projectsChanged++
             }
             failure?.let { importFailed = it }

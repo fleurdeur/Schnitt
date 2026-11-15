@@ -40,10 +40,11 @@ object AlightLinks {
         return hostSuffixes.any { host == it || host.endsWith(".$it") }
     }
 
-    suspend fun download(context: Context, uri: Uri): File {
+    suspend fun download(context: Context, uri: Uri, onProgress: (done: Long, total: Long) -> Unit = { _, _ -> }): File {
         val target = File(context.cacheDir, "alight-${System.nanoTime()}.zip")
         try {
             val ids = resolve(uri) ?: throw AlightImportException("not an Alight share link")
+            onProgress(0, 0)
             val metadata = metadata(ids.first, ids.second)
             val candidates = LinkedHashSet<String>()
             metadata?.let { firstUrl(it)?.let { url -> candidates += url } }
@@ -53,7 +54,7 @@ object AlightLinks {
             candidates += STORAGE + "share%2Fu%2F${enc(ids.first)}%2Fp%2F${enc(ids.second)}%2Fprojectfiles.zip?alt=media"
             for (url in candidates) {
                 if (!url.startsWith("http", ignoreCase = true)) continue
-                if (fetchTo(url, target, MAX_PACKAGE) && isPackage(target)) return target
+                if (fetchTo(url, target, MAX_PACKAGE, onProgress) && isPackage(target)) return target
                 target.delete()
             }
             throw AlightImportException("Alight did not provide a downloadable package for this link")
@@ -143,7 +144,7 @@ object AlightLinks {
         }
     }
 
-    private fun fetchTo(url: String, target: File, limit: Long): Boolean {
+    private fun fetchTo(url: String, target: File, limit: Long, onProgress: (Long, Long) -> Unit): Boolean {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 30_000
             readTimeout = 120_000
@@ -153,17 +154,22 @@ object AlightLinks {
         }
         return try {
             if (connection.responseCode !in 200..299) return false
+            val expected = connection.contentLengthLong.takeIf { it > 0 } ?: -1L
             connection.inputStream.use { input ->
                 target.outputStream().buffered().use { output ->
                     val buffer = ByteArray(128 * 1024)
                     var total = 0L
+                    var last = -1L
                     while (true) {
                         val read = input.read(buffer)
                         if (read <= 0) break
                         total += read
                         if (total > limit) return false
                         output.write(buffer, 0, read)
+                        val step = if (expected > 0) total * 20 / expected else total / (256L * 1024)
+                        if (step != last) { last = step; onProgress(total, expected) }
                     }
+                    onProgress(total, if (expected > 0) expected else total)
                 }
             }
             target.isFile

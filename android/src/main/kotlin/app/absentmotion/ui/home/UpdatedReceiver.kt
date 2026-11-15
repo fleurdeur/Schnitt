@@ -17,6 +17,7 @@ class UpdatedReceiver : BroadcastReceiver() {
     override fun onReceive(base: Context, intent: Intent) {
         val context = base.inAppLanguage()
         if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        UpdateWorker.schedule(context)
         val manager = NotificationManagerCompat.from(context)
         if (!manager.areNotificationsEnabled()) return
         val open = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return

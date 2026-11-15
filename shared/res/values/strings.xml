@@ -293,6 +293,12 @@
     <string name="update_install">Install</string>
     <string name="update_notify_channel">App updates</string>
     <string name="update_notify_done">Schnitt %1$s is installed. Tap to open it.</string>
+    <string name="update_notify_available">You have Schnitt %1$s. Tap to download the latest version.</string>
+    <string name="import_downloading">Downloading package: %1$s of %2$s</string>
+    <string name="import_downloaded">Downloading package: %1$s</string>
+    <string name="import_preparing">Preparing project…</string>
+    <string name="import_reading">Importing project…</string>
+    <string name="import_finishing">Finishing import…</string>
     <string name="update_not_installed">The update was not installed. You can install it now or later.</string>
     <string name="update_stopped">The update stopped</string>
     <string name="update_err_offline">You are offline. Connect to the internet and try again.</string>
