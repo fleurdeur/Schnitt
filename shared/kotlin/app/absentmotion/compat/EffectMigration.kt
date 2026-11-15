@@ -3,6 +3,7 @@ package app.absentmotion.compat
 import app.absentmotion.model.finiteFloat
 import app.absentmotion.effects.EffectCatalog
 import app.absentmotion.effects.EffectDefinition
+import app.absentmotion.effects.EffectParam
 import app.absentmotion.model.Scene
 import app.absentmotion.model.XmlNode
 import app.absentmotion.model.formatFloats
@@ -10,8 +11,10 @@ import app.absentmotion.model.valueAt
 import app.absentmotion.platform.Context
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.pow
+import kotlin.math.roundToInt
 import kotlin.math.withSign
 
 class EffectMigration(private val rules: Map<String, Rule>, private val catalog: EffectCatalog) {
@@ -53,15 +56,22 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
         fun visit(node: XmlNode, dims: FloatArray): XmlNode {
             val nativeAm = if (node.name == "effect") catalog.definitions.firstOrNull { it.id == node["id"] && it.key.startsWith("am-") && it.available } else null
             if (nativeAm != null) return node
-            if (node.name == "effect" && catalog.definitions.none { it.id == node["id"] }) {
-                fallback(node)?.let { return it }
-            }
             val rule = if (node.name == "effect") rules[node["id"]]?.takeIf { r -> r.onlyWith == null || node.children.any { c -> c.name == "property" && c["name"] == r.onlyWith } } else null
             val own = rule?.let { catalog.definitions.firstOrNull { d -> d.key == it.to } }
             val older = own != null && node["id"] == own.id
             if (rule != null && own != null && (!older || node.children.any { c -> c.name == "property" && own.params.none { it.id == c["name"] } })) {
                 if (older) renamed = true else converted.merge("${node["id"]!!.substringAfterLast('.')} → ${own.name}", 1, Int::plus)
                 return convert(node, rule, own, older, dims) { dropped += "${own.name}: $it" }
+            }
+            val alightId = node["id"]?.startsWith("com.alightcreative.") == true
+            if (node.name == "effect" && alightId && catalog.definitions.none { it.id == node["id"] }) {
+                val matched = fallback(node)
+                if (matched != null) {
+                    converted.merge("${node["id"]!!.substringAfterLast('.')} → ${matched.effect.name}", 1, Int::plus)
+                    matched.dropped.forEach { dropped += "${matched.effect.name}: $it" }
+                    return matched.node
+                }
+                dropped += "Unsupported effect: ${node["id"]}"
             }
             val inner = if (node.name in Scene.LAYER_TAGS) layerDims(node, dims) else dims
             return if (node.children.isEmpty()) node else node.copy(children = node.children.map { visit(it, inner) })
@@ -80,35 +90,98 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
      * Match its properties against available effects, then fall back to the
      * closest semantic family.  The effect keeps all properties it can map.
      */
-    private fun fallback(node: XmlNode): XmlNode? {
-        val id = node["id"]?.substringAfterLast('.')?.lowercase() ?: return null
-        val props = node.children.filter { it.name == "property" }
+    private data class FallbackMatch(val node: XmlNode, val effect: EffectDefinition, val dropped: List<String>)
+
+    /**
+     * An imported XML can reference an effect that this build does not ship.
+     * Match the whole effect, not just its id: property names, property labels,
+     * the effect name and its semantic family all vote.  Every parameter that
+     * has a compatible counterpart is kept, including its keyframes, instead
+     * of throwing the animation away.
+     */
+    private fun fallback(node: XmlNode): FallbackMatch? {
+        val rawId = node["id"] ?: return null
+        val id = rawId.substringAfterLast('.')
+        val props = node.children.filter { it.name == "property" && it["name"] != null }.distinctBy { it["name"] }
+        if (props.isEmpty()) return null
         val names = props.mapNotNull { it["name"] }.toSet()
-        val candidates = catalog.definitions.filter { it.available && it.id != node["id"] }
+        val idTokens = tokens(id + " " + (node["name"] ?: ""))
+        val families = familyWords.filter { it in idTokens }.toSet()
+        val candidates = catalog.definitions.filter { it.available && it.id != rawId }
         val scored = candidates.map { d ->
-            val paramNames = d.params.map { it.id }.toSet()
-            d to names.count { it in paramNames }
-        }.filter { it.second > 0 }.maxByOrNull { it.second }
-        val family = when {
-            "blur" in id -> "blur"
-            "glow" in id || "light" in id -> "glow"
-            "glitch" in id || "rgb" in id -> "glitch"
-            "warp" in id || "displace" in id || "distort" in id || "ripple" in id -> "distort"
-            "sharpen" in id || "clarity" in id -> "sharpen"
-            "color" in id || "hue" in id || "tint" in id -> "color"
-            "grid" in id || "mosaic" in id || "pixel" in id -> "grid"
-            "text" in id -> "text"
-            "shake" in id || "jitter" in id || "swing" in id || "spin" in id || "pulsate" in id -> "transform"
-            "glass" in id -> "distort"
-            else -> null
+            val targetIds = d.params.map { it.id }.toSet()
+            val exact = props.count { it["name"] in targetIds }
+            val normalized = props.count { p -> targetIds.any { sameParam(it, p["name"]!!) } }
+            val targetTokens = tokens(d.id.substringAfterLast('.') + " " + d.name)
+            val overlap = (idTokens intersect targetTokens).count { it.length > 2 }
+            val union = (idTokens + targetTokens).count { it.length > 2 }.coerceAtLeast(1)
+            val jaccard = overlap.toFloat() / union
+            val family = families.count { it in targetTokens }
+            val sizePenalty = abs(d.params.size - props.size) * 0.15f
+            d to (exact * 10f + normalized * 5f + overlap * 4f + jaccard * 8f + family * 3f - sizePenalty)
+        }.filter { it.second > 0f }
+        val chosen = scored.maxByOrNull { it.second }?.first ?: return null
+        val dropped = ArrayList<String>()
+        val used = HashSet<String>()
+        val mapped = props.mapNotNull { prop ->
+            val name = prop["name"]!!
+            val label = prop["label"]
+            val target = chosen.params.firstOrNull { it.id == name }
+                ?: chosen.params.firstOrNull { !used.contains(it.id) && sameParam(it.id, name) }
+                ?: label?.let { l -> chosen.params.firstOrNull { !used.contains(it.id) && sameParam(it.label, l) } }
+                ?: byShape(prop, chosen, used, props)
+            if (target == null) {
+                dropped += name
+                null
+            } else {
+                used += target.id
+                property(prop, target.id, target.type) { value -> convertFor(target, prop, value) }
+            }
         }
-        val chosen = scored?.first ?: family?.let { cat -> candidates.firstOrNull { it.category == cat } } ?: return null
-        val mapped = chosen.params.mapNotNull { p ->
-            props.firstOrNull { it["name"] == p.id }?.let { prop -> prop.copy(attrs = prop.attrs + ("type" to p.type)) }
-                ?: (if (scored == null) null else null)
-        }
-        return node.copy(attrs = node.attrs + ("id" to chosen.id), children = mapped)
+        if (mapped.isEmpty()) return null
+        return FallbackMatch(node.copy(attrs = node.attrs + ("id" to chosen.id)), chosen, dropped)
     }
+
+    private fun byShape(prop: XmlNode, effect: EffectDefinition, used: Set<String>, all: List<XmlNode>): EffectParam? {
+        val sourceType = prop["type"] ?: return null
+        val same = all.count { (it["type"] ?: "float") == sourceType }
+        if (same != 1) return null
+        return effect.params.filter { !used.contains(it.id) && it.type == sourceType }.singleOrNull()
+    }
+
+    private fun convertFor(target: EffectParam, source: XmlNode, raw: String): String {
+        val text = raw.trim()
+        val first = text.split(',').firstOrNull()?.trim()?.finiteFloat()
+        return when (target.kind) {
+            "float", "angle" -> when (text) { "true" -> "1"; "false" -> "0"; else -> first?.let { formatFloats(floatArrayOf(it.coerceIn(target.min, target.max))) } ?: target.default }
+            "point" -> {
+                val numbers = text.split(',').mapNotNull { it.trim().finiteFloat() }
+                if (numbers.size >= 2) formatFloats(floatArrayOf(numbers[0], numbers[1])) else target.default
+            }
+            "color" -> if (text.startsWith("#")) text else target.default
+            "switch" -> when (text) { "true", "1" -> "true"; "false", "0" -> "false"; else -> if ((first ?: 0f) != 0f) "true" else "false" }
+            "choice" -> first?.let { n -> formatFloats(floatArrayOf(n.roundToInt().coerceIn(target.min.toInt(), target.max.toInt()).toFloat())) } ?: target.default
+            else -> text.ifBlank { target.default }
+        }
+    }
+
+    private fun sameParam(a: String, b: String): Boolean = normalizeParam(a) == normalizeParam(b)
+
+    private fun normalizeParam(value: String): String = value.lowercase(Locale.US)
+        .replace(Regex("([a-z0-9])([A-Z])"), "$1 $2")
+        .replace(Regex("[^a-z0-9]+"), " ")
+        .trim()
+        .replace(Regex("\\s+"), " ")
+        .replace(" ", "")
+
+    private fun tokens(value: String): Set<String> = value.lowercase(Locale.US)
+        .replace(Regex("([a-z0-9])([A-Z])"), "$1 $2")
+        .split(Regex("[^a-z0-9]+"))
+        .filter { it.length > 2 && it !in stopWords }
+        .toSet()
+
+    private val stopWords = setOf("com", "alightcreative", "alight", "motion", "effect", "effects", "the", "and", "for", "with", "from", "this", "that", "into", "default", "image", "texture", "input", "output", "buffer", "comp", "layer")
+    private val familyWords = listOf("blur", "glow", "light", "shadow", "streak", "ray", "star", "shake", "jitter", "swing", "spin", "pulsate", "oscillate", "wave", "ripple", "displace", "distort", "warp", "glass", "mosaic", "pixel", "grid", "tile", "hex", "repeat", "color", "hue", "tint", "tone", "contrast", "brightness", "exposure", "saturation", "vibrance", "sharpen", "clarity", "glitch", "rgb", "chromatic", "outline", "border", "stroke", "matte", "key", "mask", "noise", "grain", "cloud", "smoke", "fire", "particle", "curl", "vortex", "zoom", "mirror", "flip", "wipe", "vignette", "gradient", "map", "text", "3d", "cube", "sphere", "cylinder", "torus", "prism", "pyramid", "ring")
 
     private fun layerDims(layer: XmlNode, dims: FloatArray): FloatArray {
         val size = sizeOf(layer)

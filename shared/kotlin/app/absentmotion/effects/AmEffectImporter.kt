@@ -45,15 +45,15 @@ object AmEffectImporter {
 
     private fun parse(xml: String): EffectDefinition? {
         val id = Regex("""<effect\s+[^>]*id="([^"]+)""" + "\"").find(xml)?.groupValues?.get(1) ?: return null
-        val params = parseParams(xml)
+        val strings = strings(xml)
+        val params = parseParams(xml, strings)
         val unsupported = xml.contains("<passes>") || xml.contains("srcType=\"buffer\"") || xml.contains("acPass") ||
             xml.contains("acLayerToScreen") || xml.contains("acLayerNorm")
         val shader = Regex("""<shader[^>]*>\s*<!\[CDATA\[(.*?)\]\]></shader>""", RegexOption.DOT_MATCHES_ALL).find(xml)?.groupValues?.get(1)
         val passes = parsePasses(xml)
-        val name = Regex("""<locale lang="en">[\s\S]*?<string name="name">([^<]+)</string>""").find(xml)?.groupValues?.get(1)
+        val name = strings["name"]?.takeIf { !it.startsWith("@") }
             ?: id.substringAfterLast('.').replace('-', ' ').replaceFirstChar { it.uppercase() }
-        val description = Regex("""<locale lang="en">[\s\S]*?<string name="desc">([^<]+)</string>""").find(xml)?.groupValues?.get(1)
-            ?: "Alight Motion effect"
+        val description = strings["desc"]?.takeIf { !it.startsWith("@") } ?: "Alight Motion effect"
         val category = Regex("""<effect\s+[^>]*category="([^"]+)""" + "\"").find(xml)?.groupValues?.get(1) ?: "other"
         val chained = shader?.let { if (passes.size > 1) translatePasses(it, params, passes) else null }
         val native = shader?.let { if (passes.size > 1) nativePasses(it, params, passes) else null }
@@ -78,7 +78,21 @@ object AmEffectImporter {
             alsoIn = listOf("external"), page = key, passes = native.orEmpty())
     }
 
-    private fun parseParams(xml: String): List<EffectParam> {
+    private fun strings(xml: String): Map<String, String> = Regex("""<string\s+name="([^"]+)">([^<]*)</string>""")
+        .findAll(xml).associate { it.groupValues[1] to it.groupValues[2].trim() }
+
+    private fun label(id: String, raw: String?, strings: Map<String, String>): String {
+        val value = raw?.trim().orEmpty()
+        val key = when {
+            value.startsWith("@string/") -> value.substringAfterLast('/')
+            value.startsWith("@am:string/") -> value.substringAfter("@am:string/")
+            value.startsWith("@") -> value.substringAfterLast('/')
+            else -> return value.ifBlank { id.replace('_', ' ') }
+        }
+        return strings[key] ?: key.replace('_', ' ')
+    }
+
+    private fun parseParams(xml: String, strings: Map<String, String>): List<EffectParam> {
         val out = ArrayList<EffectParam>()
         val tag = Regex("""<(spinner|slider|switch|point|xyz|color|selector|int|texture|orient|hue-disc|float)\s+([^>]*?)/?>""", RegexOption.DOT_MATCHES_ALL)
         for (m in tag.findAll(xml)) {
@@ -87,30 +101,32 @@ object AmEffectImporter {
             fun attr(n: String): String? = Regex("""\b$n="([^"]*)""" + "\"").find(attrs)?.groupValues?.get(1)
             val id = attr("id") ?: continue
             val def = attr("default").orEmpty()
+            val shown = label(id, attr("label"), strings)
             when (kind) {
                 "spinner", "slider", "int", "orient", "hue-disc", "float" -> {
                     val type = attr("type")
-                    out += EffectParam(id, attr("label")?.substringAfterLast('/') ?: id.replace('_', ' '),
+                    out += EffectParam(id, shown,
                         if (type == "angle") "angle" else "float", format(def.toFloatOrNull() ?: 0f),
                         attr("min")?.toFloatOrNull() ?: -Float.MAX_VALUE, attr("max")?.toFloatOrNull() ?: Float.MAX_VALUE,
                         attr("step")?.toFloatOrNull() ?: 0.01f, percent = type == "percent")
                 }
-                "switch" -> out += EffectParam(id, id.replace('_', ' '), "switch", if (def == "true") "true" else "false")
+                "switch" -> out += EffectParam(id, shown, "switch", if (def == "true") "true" else "false")
                 "point", "xyz" -> {
                     val p = def.split(',').mapNotNull { it.trim().toFloatOrNull() }
-                    out += EffectParam(id, id.replace('_', ' '), "point", format(p.getOrElse(0) { 0f }) + "," + format(p.getOrElse(1) { 0f }))
+                    out += EffectParam(id, shown, "point", format(p.getOrElse(0) { 0f }) + "," + format(p.getOrElse(1) { 0f }))
                 }
-                "texture" -> out += EffectParam(id, attr("label")?.substringAfterLast('/') ?: id.replace('_', ' '), "text", def)
-                "color" -> out += EffectParam(id, id.replace('_', ' '), "color", def.takeIf { it.startsWith("#") } ?: "#ffffffff")
+                "texture" -> out += EffectParam(id, shown, "text", def)
+                "color" -> out += EffectParam(id, shown, "color", def.takeIf { it.startsWith("#") } ?: "#ffffffff")
                 "selector" -> {
                     val block = xml.substring(m.range.last + 1).substringBefore("</selector>")
-                    val options = Regex("""<choice[^>]*label="([^"]*)""" + "\"").findAll(block).map { it.groupValues[1].substringAfterLast('/').replace('_', ' ') }.toList()
-                    out += EffectParam(id, id.replace('_', ' '), "choice", format(def.toFloatOrNull() ?: 0f), 0f,
+                    val options = Regex("""<choice[^>]*label="([^"]*)""" + "\"").findAll(block)
+                        .map { label(it.groupValues[1].substringAfterLast('/'), it.groupValues[1], strings) }.toList()
+                    out += EffectParam(id, shown, "choice", format(def.toFloatOrNull() ?: 0f), 0f,
                         (options.size - 1).coerceAtLeast(1).toFloat(), 1f, options = options.ifEmpty { listOf("Off", "On") })
                 }
             }
         }
-        return out
+        return out.distinctBy { it.id }
     }
 
     private fun motionShader(name: String, params: List<EffectParam>): String {
