@@ -546,6 +546,8 @@ private fun EffectTile(catalog: EffectCatalog, effect: EffectDefinition, width: 
         }
         Text(preset?.name ?: effect.name, Modifier.fillMaxWidth().padding(top = 4.dp), color = Am.OnDark, fontSize = if (PlatformFeatures.desktop) 12.sp else if (width > 100) 10.sp else 8.sp,
             lineHeight = if (PlatformFeatures.desktop) 14.sp else 9.sp, textAlign = TextAlign.Center, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        Text(effect.origin, Modifier.fillMaxWidth().padding(top = 1.dp), color = if (effect.external) Color(0xFF8FD8FF) else Am.Accent.copy(alpha = 0.85f),
+            fontSize = if (PlatformFeatures.desktop) 9.sp else 6.5.sp, lineHeight = if (PlatformFeatures.desktop) 10.sp else 7.sp, textAlign = TextAlign.Center, maxLines = 1)
     }
 }
 
@@ -572,6 +574,8 @@ private fun EffectHero(catalog: EffectCatalog, effect: EffectDefinition) {
             Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.Transparent, 0.5f to Color.Transparent, 0.8f to BrowserBg.copy(alpha = 0.72f), 1f to BrowserBg)))
             Column(Modifier.align(Alignment.BottomStart).padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
                 Text(effect.name, color = Am.OnDark, fontSize = 26.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(effect.origin, Modifier.padding(top = 2.dp).clip(RoundedCornerShape(3.dp)).background(if (effect.external) Color(0xFF155A7A) else Am.Accent.copy(alpha = 0.8f))
+                    .padding(horizontal = 5.dp, vertical = 1.dp), color = if (effect.external) Color(0xFFC8F1FF) else Am.OnAccent, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                 Text(effect.description, Modifier.padding(top = 4.dp), color = Am.OnDark, fontSize = 15.sp)
             }
         }

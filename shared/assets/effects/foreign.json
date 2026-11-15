@@ -2766,16 +2766,22 @@
     "to": "warpAngle"
    },
    "damping": {
-    "neutral": 0
+    "to": "damping",
+    "min": -1,
+    "max": 1
    },
    "dampingSpace": {
-    "neutral": 0
+    "to": "dampingSpace",
+    "min": -1,
+    "max": 1
    },
    "dampingOrigin": {
-    "neutral": 0.5
+    "to": "dampingOrigin",
+    "min": 0,
+    "max": 1
    },
    "screenSpace": {
-    "neutral": false
+    "to": "screenSpace"
    }
   },
   "set": {
@@ -3164,10 +3170,12 @@
     "to": "invert"
    },
    "highThreshold": {
-    "neutral": 1
+    "to": "highThreshold",
+    "min": 0,
+    "max": 1
    },
    "weighted": {
-    "neutral": true
+    "to": "weighted"
    }
   }
  },
@@ -3188,10 +3196,12 @@
     "to": "invert"
    },
    "highThreshold": {
-    "neutral": 1
+    "to": "highThreshold",
+    "min": 0,
+    "max": 1
    },
    "weighted": {
-    "neutral": true
+    "to": "weighted"
    }
   }
  },
@@ -10038,8 +10048,10 @@
   "to": "liquidglass",
   "params": {
    "strength": {
-    "to": "intensity",
-    "scale": 0.01
+    "to": "refraction",
+    "scale": 0.5,
+    "min": -300,
+    "max": 300
    },
    "blurMax": {
     "to": "blur",
@@ -10057,7 +10069,7 @@
     "max": 1
    },
    "alpha": {
-    "to": "blend",
+    "to": "tint",
     "min": 0,
     "max": 1
    }

@@ -21,7 +21,17 @@ constexpr double kTau = 6.283185307179586;
 const char* const kMotionIds[] = {"absent.autoshake", "absent.randomdisplace", "absent.randomjitter", "absent.oscillate",
                                   "absent.swing", "absent.spin", "absent.pulsesize", "absent.pulseopacity",
                                   "absent.echo", "absent.videofeedback", "absent.timequant", "absent.shutterblur", "absent.motionblur", "absent.movealongpath",
-                                  "absent.scaleassist", "absent.parenthelper"};
+                                  "absent.scaleassist", "absent.parenthelper",
+                                  "com.alightcreative.effects.oscillate", "com.alightcreative.effects.oscillate2",
+                                  "com.alightcreative.effects.oscillate3", "com.alightcreative.effects.spin",
+                                  "com.alightcreative.effects.pulsate", "com.alightcreative.effects.pulsate2",
+                                  "com.alightcreative.effects.swing", "com.alightcreative.effects.swing2",
+                                  "com.alightcreative.effects.jitter", "com.alightcreative.effects.randomdisplace",
+                                  "com.alightcreative.effects.shake", "com.alightcreative.effects.shake2",
+                                  "com.alightcreative.effects.scaleassist", "com.alightcreative.effects.blink",
+                                  "com.alightcreative.effects.blink2", "com.alightcreative.effects.fade",
+                                  "com.alightcreative.effects.flicker", "com.alightcreative.effects.flicker2",
+                                  "com.alightcreative.effects.pulse-opacity", "com.alightcreative.effects.pulse_opacity2"};
 
 thread_local bool gFastShutter = false;
 
@@ -432,10 +442,75 @@ void ApplyMotion(const Layer& l, double timeMs, Placement* p) {
     const double s = Seconds(l, timeMs);
     bool repeated = false;
     for (const LayerEffect& e : l.effects) {
-        if (e.hidden || e.id.compare(0, 7, "absent.") != 0) continue;
-        const std::string_view id = std::string_view(e.id).substr(7);
+        const bool alight = e.id.rfind("com.alightcreative.effects.", 0) == 0;
+        if (e.hidden || (!alight && e.id.compare(0, 7, "absent.") != 0)) continue;
+        const std::string_view id = std::string_view(e.id).substr(alight ? 27 : 7);
         if (RepeatEffect(e.id)) {
             repeated = true;
+            continue;
+        }
+        if (alight) {
+            const double sec = Seconds(l, timeMs);
+            if (id == "oscillate" || id == "oscillate2" || id == "oscillate3") {
+                const float freq = Param(e, "freq", t, 2), mag = Param(e, "mag", t, 25), angle = Param(e, "angle", t, 45);
+                const float phase = Param(e, "phase", t, 0), kind = Param(e, "type", t, 0);
+                const long direction = std::lround(Param(e, "direction", t, 0));
+                double cycles = sec * freq;
+                if (id == "oscillate2") cycles = freq + phase * 2.0;
+                else if (id == "oscillate3") cycles = freq * 2.0 + phase * 2.0;
+                else cycles += phase * 2.0;
+                const double m = kind >= 0.5f ? 2.0 * Wave(cycles / 2.0, 1) - 1.0 : std::sin(cycles * 3.141592653589793);
+                const float a = (id == "oscillate3" ? (90.0f - angle) : angle) * 0.0174532925f;
+                if (direction == 1) p->z += (float)(mag * m);
+                else if (direction == 2) {
+                    p->location += Toward(a, (float)(mag * m)) + Toward(a + 90, (float)(mag * m));
+                    const double m2 = kind >= 0.5f ? 2.0 * Wave((cycles + 0.5) / 2.0, 1) - 1.0 : std::sin((cycles + 0.5) * 3.141592653589793);
+                    p->z += (float)(mag * m2);
+                } else p->location += Toward(a, (float)(mag * m));
+            } else if (id == "spin") {
+                p->rotation += (float)(sec * Param(e, "rpm", t, 60) * 6.0);
+            } else if (id == "pulsate" || id == "pulsate2") {
+                const double cycles = id == "pulsate" ? sec * Param(e, "freq", t, 2) + Param(e, "phase", t, 0)
+                                                       : Param(e, "freq", t, 2) + Param(e, "phase", t, 0);
+                const double m = Param(e, "type", t, 0) >= 0.5f ? 2.0 * Wave(cycles / 2.0, 1) - 1.0 : std::sin(cycles * 3.141592653589793);
+                const float lo = Param(e, "minsize", t, 0.9f), hi = Param(e, "maxsize", t, 1.1f);
+                const float ds = (float)(lo + (hi - lo) * ((m + 1.0) / 2.0));
+                p->scale = {p->scale.fX * ds, p->scale.fY * ds};
+            } else if (id == "swing" || id == "swing2") {
+                const double cycles = id == "swing" ? sec * Param(e, "freq", t, 2) + Param(e, "phase", t, 0)
+                                                    : Param(e, "freq", t, 2) + Param(e, "phase", t, 0);
+                const double m = Param(e, "type", t, 0) >= 0.5f ? 2.0 * Wave(cycles / 2.0, 1) - 1.0 : std::sin(cycles * 3.141592653589793);
+                const float a1 = Param(e, "a1", t, -30), a2 = Param(e, "a2", t, 30);
+                p->rotation += (float)(((a2 - a1) * ((m + 1.0) / 2.0)) + a1);
+            } else if (id == "scaleassist") {
+                const float sc = Param(e, "scale", t, 1), damp = Param(e, "damp", t, 1);
+                const long axis = std::lround(Param(e, "axis", t, 3));
+                if (axis == 0) p->scale.fX *= sc;
+                else if (axis == 1) p->scale.fY *= sc;
+                else if (axis == 2) { p->scale.fX *= sc; p->scale.fY *= sc * damp; }
+                else { p->scale.fX *= sc; p->scale.fY *= 1 - (sc - 1) * damp; }
+            } else if (id == "jitter") {
+                const double global = sec, step = std::max(Param(e, "freq", t, 2), 0.01f);
+                const double tq = global - std::fmod(global, 1.0 / step);
+                const float a = Param(e, "angle", t, 45) * 0.0174532925f, m = Param(e, "mag", t, 25);
+                const float n = (float)Noise(tq * 637.729, Param(e, "seed", t, 0) * 394.417);
+                p->location += Toward(a, m * n);
+                if (Param(e, "slack", t, 0) > 0) p->location += Toward(a + 90, m * Param(e, "slack", t, 0) * (float)Noise(tq * 951.217 + 149.231, Param(e, "seed", t, 0) * 894.417 + 2773.908));
+                p->z += Param(e, "zjitter", t, 0) * (float)Noise(tq * 637.729 + 241.386, Param(e, "seed", t, 0) * 394.417 + 1729.361);
+            } else if (id == "randomdisplace") {
+                const float ev = Param(e, "evolution", t, 0), seed = Param(e, "seed", t, 0), mag = Param(e, "mag", t, 50);
+                p->location += SkPoint{(float)(mag * Noise(p->location.fX * Param(e, "scatter", t, .5f) / 50 + seed * 54623.245,
+                                                               p->location.fY * Param(e, "scatter", t, .5f) / 500, ev + seed * 49235.319)),
+                                       (float)(mag * Noise(p->location.fX * Param(e, "scatter", t, .5f) / 50,
+                                                           p->location.fY * Param(e, "scatter", t, .5f) / 500 + seed * 8723.565, ev + 7468.329 + seed * 19337.94))};
+            } else if (id == "shake" || id == "shake2") {
+                const float ev = Param(e, "evolution", t, 0) + (id == "shake" ? (float)sec * Param(e, "speed", t, 1) : Param(e, "freq", t, 1));
+                const float a = Param(e, "angle", t, 0) * 0.0174532925f, m = Param(e, "mag", t, 25);
+                const float dx = m * (float)Noise(ev + Param(e, "seed", t, 0) * 49235.319, Param(e, "seed", t, 0) * 49235.319);
+                const float dy = m * Param(e, "slack", t, .25f) * (float)Noise(ev + 7468.329 + Param(e, "seed", t, 0) * 19337.94, 0);
+                p->location += SkPoint{dx * std::cos(a) - dy * std::sin(a), dx * std::sin(a) + dy * std::cos(a)};
+                p->z += Param(e, "zshake", t, 0) * (float)Noise(ev + 14192.277, Param(e, "seed", t, 0) * 71401.17);
+            }
             continue;
         }
         if (id == "autoshake") {
@@ -529,11 +604,38 @@ void ParentRoll(const Layer& l, double timeMs, Placement* own) {
 
 float MotionOpacity(const Layer& l, double timeMs) {
     float opacity = 1;
+    const double sec = Seconds(l, timeMs);
     for (const LayerEffect& e : l.effects) {
-        if (e.hidden || e.id != "absent.pulseopacity") continue;
+        if (e.hidden) continue;
         const float t = l.localTime(timeMs);
-        const double w = Wave(Integral(e, "frequency", l, Seconds(l, timeMs), 2) + Param(e, "phase", t, 0) / 2, Param(e, "wave", t, 0));
-        opacity *= 1 - std::clamp(Param(e, "strength", t, 1), 0.0f, 1.0f) * (float)(0.5 - 0.5 * w);
+        if (e.id == "absent.pulseopacity") {
+            const double w = Wave(Integral(e, "frequency", l, sec, 2) + Param(e, "phase", t, 0) / 2, Param(e, "wave", t, 0));
+            opacity *= 1 - std::clamp(Param(e, "strength", t, 1), 0.0f, 1.0f) * (float)(0.5 - 0.5 * w);
+        } else if (e.id == "com.alightcreative.effects.fade") {
+            const double inTime = Param(e, "inTime", t, 0.5f), outTime = Param(e, "outTime", t, 0.5f);
+            const double duration = std::max(0.001, (l.endTime - l.startTime) / 1000.0);
+            auto ease = [](double x) { x = std::clamp(x, 0.0, 1.0); return x < .5 ? 2 * x * x : -1 + (4 - 2 * x) * x; };
+            if (sec < inTime) opacity *= (float)ease(sec / std::max(0.001, inTime));
+            if (sec > duration - outTime) opacity *= (float)ease((duration - sec) / std::max(0.001, outTime));
+        } else if (e.id == "com.alightcreative.effects.blink" || e.id == "com.alightcreative.effects.blink2") {
+            const double freq = Param(e, "freq", t, 1);
+            const bool off = e.id == "com.alightcreative.effects.blink" ? std::fmod(sec * freq, 1.0) > 0.5 : std::fmod(freq, 1.0) > 0.5;
+            if (off) opacity = 0;
+        } else if (e.id == "com.alightcreative.effects.pulse-opacity" || e.id == "com.alightcreative.effects.pulse_opacity2") {
+            const double cycles = e.id == "com.alightcreative.effects.pulse-opacity"
+                ? sec * Param(e, "freq", t, 2) + Param(e, "phase", t, 0)
+                : Param(e, "freq", t, 2) + Param(e, "phase", t, 0);
+            const double m = Param(e, "type", t, 0) >= 0.5f ? 2.0 * Wave(cycles / 2.0, 1) - 1.0 : std::sin(cycles * 3.141592653589793);
+            const float strength = std::clamp(Param(e, "strength", t, 1), 0.0f, 1.0f);
+            opacity *= (1 - strength) + (float)((m + 1.0) / 2.0) * strength;
+        } else if (e.id == "com.alightcreative.effects.flicker" || e.id == "com.alightcreative.effects.flicker2") {
+            const float freq = Param(e, "freq", t, 8), mag = Param(e, "mag", t, 0.5f), seed = Param(e, "seed", t, 0);
+            const double x = (e.id == "com.alightcreative.effects.flicker" ? sec : 1.0) * freq / 4.0;
+            const float a = (float)Noise(x, seed);
+            const float b = (float)Noise(x * 2.0 + 234.34, seed + 547.931);
+            const float c = (float)Noise(x * 4.0 + 468.68, seed + 1095.862);
+            opacity *= (1 - mag) + mag * (0.25f + 0.25f * a + 0.25f * b + 0.25f * c);
+        }
     }
     return opacity;
 }

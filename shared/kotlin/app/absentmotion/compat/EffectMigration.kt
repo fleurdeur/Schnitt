@@ -54,17 +54,23 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
         val dropped = sortedSetOf<String>()
         var renamed = false
         fun visit(node: XmlNode, dims: FloatArray): XmlNode {
-            val nativeAm = if (node.name == "effect") catalog.definitions.firstOrNull {
-                it.id == node["id"] && (it.key.startsWith("am-") || it.external)
-            } else null
-            if (nativeAm != null) return align(node, nativeAm)
             val rule = if (node.name == "effect") rules[node["id"]]?.takeIf { r -> r.onlyWith == null || node.children.any { c -> c.name == "property" && c["name"] == r.onlyWith } } else null
             val own = rule?.let { catalog.definitions.firstOrNull { d -> d.key == it.to } }
             val older = own != null && node["id"] == own.id
+            // A curated rule is a promise that the built-in effect is the
+            // implementation we want. A bundled Alight shader must not win just
+            // because it also parsed: several of them cannot be translated
+            // faithfully (multi-pass buffers, layer matrices) and render as a
+            // placeholder. The rule keeps the imported property names and
+            // keyframes while switching to the known-good native effect.
             if (rule != null && own != null && (!older || node.children.any { c -> c.name == "property" && own.params.none { it.id == c["name"] } })) {
                 if (older) renamed = true else converted.merge("${node["id"]!!.substringAfterLast('.')} → ${own.name}", 1, Int::plus)
                 return convert(node, rule, own, older, dims) { dropped += "${own.name}: $it" }
             }
+            val nativeAm = if (node.name == "effect") catalog.definitions.firstOrNull {
+                it.id == node["id"] && (it.key.startsWith("am-") || it.external)
+            } else null
+            if (nativeAm != null) return align(node, nativeAm)
             val alightId = node["id"]?.startsWith("com.alightcreative.") == true
             if (node.name == "effect" && alightId && catalog.definitions.none { it.id == node["id"] }) {
                 val matched = fallback(node)

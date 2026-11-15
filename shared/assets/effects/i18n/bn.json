@@ -3336,6 +3336,12 @@
         },
         "threshold": {
           "label": "থ্রেশহোল্ড"
+        },
+        "highThreshold": {
+          "label": "High"
+        },
+        "weighted": {
+          "label": "Weighted"
         }
       }
     },
@@ -6915,6 +6921,18 @@
         },
         "warpAngle": {
           "label": "ওয়ার্প অ্যাঙ্গেল"
+        },
+        "damping": {
+          "label": "Damping"
+        },
+        "dampingSpace": {
+          "label": "Damping Spacing"
+        },
+        "dampingOrigin": {
+          "label": "Origin"
+        },
+        "screenSpace": {
+          "label": "Screen Space"
         }
       }
     },

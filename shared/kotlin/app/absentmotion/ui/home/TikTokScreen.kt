@@ -156,7 +156,7 @@ internal fun TikTokScreen(onClose: () -> Unit, onImportXml: (Uri) -> Unit) {
                 failed -> Box(Modifier.fillMaxSize().padding(24.dp), Alignment.Center) { Text(stringResource(R.string.tiktok_empty), color = Am.HomeDim, fontSize = 14.sp) }
                 items.isEmpty() -> Box(Modifier.fillMaxSize().padding(24.dp), Alignment.Center) { Text(stringResource(R.string.tiktok_hint), color = Am.HomeDim, fontSize = 14.sp) }
                 else -> LazyColumn(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    items(items, key = { it.id }) { item ->
+                    items(items.distinctBy { it.id }, key = { it.id }) { item ->
                         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Am.Card).clickable { open = item }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(56.dp, 72.dp).clip(RoundedCornerShape(10.dp)).background(Am.HomeBg), Alignment.Center) {
                                 if (item.cover != null) coil3.compose.AsyncImage(item.cover, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)

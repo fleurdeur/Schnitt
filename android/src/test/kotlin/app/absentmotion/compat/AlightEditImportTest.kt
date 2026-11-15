@@ -1,11 +1,13 @@
 package app.absentmotion.compat
 
+import app.absentmotion.effects.AmEffectImporter
 import app.absentmotion.effects.EffectCatalog
 import app.absentmotion.model.Scene
 import app.absentmotion.model.XmlNode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.json.JSONObject
 import org.junit.Test
 import java.io.File
 
@@ -125,4 +127,61 @@ class AlightEditImportTest {
         val kept = effects(migration.migrate(old).scene).single()
         assertTrue(kept.children.none { it["name"] == "pattern" })
     }
+    @Test fun curatedAliasesWinOverBundledAlightShadersAndKeepKeyframes() {
+        val amFolder = File("../shared/assets/am-effects")
+        val words = JSONObject(File(amFolder, "strings.json").readText())
+            .let { json -> json.keys().asSequence().associateWith { json.optString(it) } }
+        val bundled = listOf("tile.xml", "lumakey3.xml", "wavewarp2.xml").mapNotNull { name ->
+            AmEffectImporter.parse(File(amFolder, name).readText(), words)
+        }
+        assertEquals(3, bundled.size)
+        val withAm = catalog.copy(definitions = catalog.definitions + bundled)
+        val migrate = EffectMigration.parse(File(pack, "foreign.json").readText(), withAm)
+        val result = migrate.migrate(Scene.parse("""
+            <scene title="aliases" width="1080" height="1080" fps="30" totalTime="2000">
+              <shape id="1" startTime="0" endTime="2000" s=".rect">
+                <effect id="com.alightcreative.effects.tile">
+                  <property name="scale" type="float"><kf t="0" v="1"/><kf t="1" v="2"/></property>
+                  <property name="phase" type="float" value="0.25"/>
+                  <property name="mirror" type="bool" value="true"/>
+                  <property name="vertoffs" type="bool" value="false"/>
+                  <property name="angle" type="float" value="15"/>
+                </effect>
+                <effect id="com.alightcreative.effects.lumakey3">
+                  <property name="lowThreshold" type="float"><kf t="0" v="0.2"/><kf t="1" v="0.4"/></property>
+                  <property name="highThreshold" type="float" value="0.8"/>
+                  <property name="feather" type="float" value="0.1"/>
+                  <property name="invert" type="bool" value="true"/>
+                  <property name="weighted" type="bool" value="false"/>
+                </effect>
+                <effect id="com.alightcreative.effects.wavewarp2">
+                  <property name="phase" type="float" value="1.5"/>
+                  <property name="a1d" type="float" value="30"/>
+                  <property name="m1" type="float"><kf t="0" v="10"/><kf t="1" v="20"/></property>
+                  <property name="m2" type="float" value="4"/>
+                  <property name="a2d" type="float" value="90"/>
+                  <property name="damping" type="float" value="-1"/>
+                  <property name="dampingSpace" type="float" value="0.5"/>
+                  <property name="dampingOrigin" type="float" value="0.7"/>
+                  <property name="screenSpace" type="bool" value="true"/>
+                </effect>
+              </shape>
+            </scene>
+        """.trimIndent()))
+        val made = result.scene.node.children.single().children.filter { it.name == "effect" }
+        assertEquals(listOf("absent.tiles", "absent.lumakey", "absent.wavewarp"), made.map { it["id"] })
+        val tile = made[0].children.associateBy { it["name"] }
+        assertEquals(listOf("1.000000", "2.000000"), tile.getValue("zoom").children.map { it["v"] })
+        assertEquals("0.250000", tile.getValue("offset")["value"])
+        val luma = made[1].children.associateBy { it["name"] }
+        assertEquals(listOf("0.200000", "0.400000"), luma.getValue("threshold").children.map { it["v"] })
+        assertEquals("0.800000", luma.getValue("highThreshold")["value"])
+        assertEquals("false", luma.getValue("weighted")["value"])
+        val wave = made[2].children.associateBy { it["name"] }
+        assertEquals(listOf("10.000000", "20.000000"), wave.getValue("spacing").children.map { it["v"] })
+        assertEquals("-1.000000", wave.getValue("damping")["value"])
+        assertEquals("true", wave.getValue("screenSpace")["value"])
+        assertTrue(result.dropped.toString(), result.dropped.isEmpty())
+    }
+
 }

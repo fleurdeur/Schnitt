@@ -55,6 +55,7 @@ private:
         bool external = false;
         std::map<std::string, Anim> defaults;
         std::map<std::string, std::string> texts;
+        std::map<std::string, sk_sp<SkImage>> images;
     };
     const Definition* find(const std::string& id) const;
     int liftAt(const Layer& layer) const;

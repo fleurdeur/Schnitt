@@ -3336,6 +3336,12 @@
         },
         "threshold": {
           "label": "Seuil"
+        },
+        "highThreshold": {
+          "label": "High"
+        },
+        "weighted": {
+          "label": "Weighted"
         }
       }
     },
@@ -6915,6 +6921,18 @@
         },
         "warpAngle": {
           "label": "Angle de déformation"
+        },
+        "damping": {
+          "label": "Damping"
+        },
+        "dampingSpace": {
+          "label": "Damping Spacing"
+        },
+        "dampingOrigin": {
+          "label": "Origin"
+        },
+        "screenSpace": {
+          "label": "Screen Space"
         }
       }
     },

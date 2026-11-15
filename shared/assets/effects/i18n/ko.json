@@ -3336,6 +3336,12 @@
         },
         "threshold": {
           "label": "기준값"
+        },
+        "highThreshold": {
+          "label": "High"
+        },
+        "weighted": {
+          "label": "Weighted"
         }
       }
     },
@@ -6915,6 +6921,18 @@
         },
         "warpAngle": {
           "label": "워프 각도"
+        },
+        "damping": {
+          "label": "Damping"
+        },
+        "dampingSpace": {
+          "label": "Damping Spacing"
+        },
+        "dampingOrigin": {
+          "label": "Origin"
+        },
+        "screenSpace": {
+          "label": "Screen Space"
         }
       }
     },

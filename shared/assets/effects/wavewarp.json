@@ -2,7 +2,7 @@
  "id": "wavewarp",
  "name": "Wave Warp",
  "category": "distort",
- "description": "Bends the layer with a sine wave: Spacing sets how many waves cross it, Magnitude how far they push, Angle the direction the waves run and Warp Angle the direction they push.",
+ "description": "Distorts the layer with the Alight cosine wave, including direction, spacing, magnitude, warp angle, damping and screen-space mode.",
  "params": [
   {
    "id": "phase",
@@ -15,12 +15,12 @@
   },
   {
    "id": "angle",
-   "label": "Angle",
+   "label": "Direction",
    "type": "angle",
    "default": 0,
-   "min": -3600,
-   "max": 3600,
-   "step": 1
+   "min": -1800,
+   "max": 1800,
+   "step": 0.5
   },
   {
    "id": "spacing",
@@ -47,7 +47,40 @@
    "default": 90,
    "min": -3600,
    "max": 3600,
-   "step": 1
+   "step": 0.5
+  },
+  {
+   "id": "damping",
+   "label": "Damping",
+   "type": "float",
+   "default": 0,
+   "min": -1,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "dampingSpace",
+   "label": "Damping Spacing",
+   "type": "float",
+   "default": 0,
+   "min": -1,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "dampingOrigin",
+   "label": "Origin",
+   "type": "float",
+   "default": 0.5,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "screenSpace",
+   "label": "Screen Space",
+   "type": "switch",
+   "default": false
   },
   {
    "id": "speed",
@@ -59,5 +92,5 @@
    "step": 0.1
   }
  ],
- "sksl": "uniform shader image;\nuniform float2 size;\nuniform float4 screen;\nuniform float time;\nuniform float phase;\nuniform float angle;\nuniform float spacing;\nuniform float magnitude;\nuniform float warpAngle;\nuniform float speed;\n\nhalf4 main(float2 coord) {\n    float a = radians(angle);\n    float b = radians(warpAngle);\n    float u = dot(coord / max(size, float2(1.0)), float2(cos(a), sin(a)));\n    float d = magnitude * min(screen.z, screen.w) * 0.01 * sin(spacing * u + 6.2831853 * phase + time * speed);\n    return image.eval(coord + d * float2(cos(b), sin(b)));\n}"
+ "sksl": "uniform shader image;\nuniform float2 size;\nuniform float4 screen;\nuniform float2 layer;\nuniform float3x3 toLayer;\nuniform float3x3 fromLayer;\nuniform float3x3 acLayerToScreen;\nuniform float time;\nuniform float phase;\nuniform float angle;\nuniform float spacing;\nuniform float magnitude;\nuniform float warpAngle;\nuniform float damping;\nuniform float dampingSpace;\nuniform float dampingOrigin;\nuniform float screenSpace;\nuniform float speed;\nfloat2 AcLayerNorm(float2 p) {\n    float3 h = toLayer * float3(p, 1.0);\n    return h.xy / max(layer, float2(1.0));\n}\nhalf4 main(float2 coord) {\n    float a1 = radians(angle);\n    float a2 = radians(angle + warpAngle);\n    float2 st = screenSpace > 0.5 ? (coord - screen.xy) / max(screen.zw, float2(1.0)) : AcLayerNorm(coord);\n\n    float2 rawV = float2(cos(a1), -sin(a1));\n    float rawP = dot(st, rawV);\n    float spaceDamp = 1.0;\n    if (dampingSpace < 0.0) {\n        spaceDamp = 1.0 - clamp(abs(rawP - dampingOrigin), 0.0, 1.0) * -dampingSpace;\n    } else if (dampingSpace > 0.0) {\n        spaceDamp = 1.0 - (1.0 - clamp(abs(rawP - dampingOrigin), 0.0, 1.0)) * dampingSpace;\n    }\n    float space = max(spacing * max(spaceDamp, 0.0), 0.0001);\n    float p = dot(st, rawV * space);\n    float ddist = abs(p / space);\n    float damp = 1.0;\n    if (damping < 0.0) {\n        damp = 1.0 - clamp(abs(ddist - dampingOrigin), 0.0, 1.0) * -damping;\n    } else if (damping > 0.0) {\n        damp = 1.0 - (1.0 - clamp(abs(ddist - dampingOrigin), 0.0, 1.0)) * damping;\n    }\n    float2 offs = float2(cos(a2), -sin(a2)) * (magnitude * max(damp, 0.0)) / 100.0;\n    offs *= sin(p + phase * 6.28318 + time * speed);\n    float2 sampleNorm = screenSpace > 0.5 ? st : (float3(st, 1.0) * acLayerToScreen).xy;\n    return image.eval((sampleNorm + offs) * screen.zw + screen.xy);\n}\n"
 }

@@ -2,11 +2,11 @@
  "id": "lumakey",
  "name": "Luma Key",
  "category": "key",
- "description": "Removes the dark parts of the layer (or the light ones).",
+ "description": "Keeps or removes pixels inside a low/high luminance range, with soft edges and an optional inverted result.",
  "params": [
   {
    "id": "threshold",
-   "label": "Threshold",
+   "label": "Low",
    "type": "float",
    "default": 0.3,
    "min": 0,
@@ -14,13 +14,28 @@
    "step": 0.01
   },
   {
+   "id": "highThreshold",
+   "label": "High",
+   "type": "float",
+   "default": 1,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
+  },
+  {
    "id": "softness",
-   "label": "Softness",
+   "label": "Feather",
    "type": "float",
    "default": 0.1,
    "min": 0,
    "max": 1,
    "step": 0.01
+  },
+  {
+   "id": "weighted",
+   "label": "Weighted",
+   "type": "switch",
+   "default": true
   },
   {
    "id": "invert",
@@ -29,5 +44,5 @@
    "default": false
   }
  ],
- "sksl": "uniform shader image;\nuniform float2 size;\nuniform float time;\nuniform float threshold;\nuniform float softness;\nuniform float invert;\nhalf4 main(float2 coord) {\n    half4 c = image.eval(coord);\n    float lum = dot(float3(unpremul(c).rgb), float3(0.2126, 0.7152, 0.0722));\n    float keep = softness > 0.0 ? smoothstep(threshold, threshold + softness + 0.0001, lum) : step(threshold, lum);\n    return c * (invert > 0.5 ? 1 - keep : keep);\n}\n"
+ "sksl": "uniform shader image;\nuniform float2 size;\nuniform float time;\nuniform float threshold;\nuniform float highThreshold;\nuniform float softness;\nuniform float weighted;\nuniform float invert;\nhalf4 main(float2 coord) {\n    half4 c = image.eval(coord);\n    float3 rgb = unpremul(c).rgb;\n    float lum = weighted > 0.5 ? dot(rgb, float3(0.2126, 0.7152, 0.0722)) : dot(rgb, float3(0.3333, 0.3334, 0.3333));\n    float lowA = clamp(threshold - softness * 0.5, 0.0, 1.0);\n    float lowB = clamp(lowA + softness, 0.0, 1.0);\n    float highA = clamp(highThreshold - softness * 0.5, 0.0, 1.0);\n    float highB = clamp(highA + softness, 0.0, 1.0);\n    float keep = min(smoothstep(lowA, lowB, lum), 1.0 - smoothstep(highA, highB, lum));\n    if (invert > 0.5) keep = 1.0 - keep;\n    return c * keep;\n}\n"
 }
