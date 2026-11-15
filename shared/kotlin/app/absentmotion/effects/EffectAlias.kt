@@ -62,7 +62,7 @@ internal object EffectAlias {
         val extra = ArrayList<EffectParam>()
 
         for (param in target.params) {
-            val exact = byId[param.id]?.takeIf { compatible(param, it) }
+            val exact = byId[param.id]?.takeIf { it.id !in used && compatible(param, it) }
             val match = exact ?: candidates(param)
                 .asSequence()
                 .mapNotNull(byId::get)
@@ -92,17 +92,38 @@ internal object EffectAlias {
         )
     }
 
-    private fun candidates(param: EffectParam): List<String> = when (param.kind) {
-        "point" -> listOf("center", "offset", "position", "origin", "light", "from", "to")
-        "color" -> listOf("color", "color1", "color2", "color3", "tint", "ink", "paper", "background", "key")
-        "angle" -> listOf("angle", "rotation", "direction")
-        "switch", "bool" -> listOf("invert", "mirror", "screenSpace", "mono", "freeze", "colored", "fill", "show", "vertical")
-        "choice" -> listOf("mode", "style", "pattern", "blend", "shape", "direction", "source", "sizing", "axis")
-        else -> listOf(
-            "strength", "amount", "intensity", "blur", "radius", "size", "blockSize", "blurLength", "reach",
-            "scale", "spread", "alpha", "opacity", "feather", "threshold", "phase", "seed", "evolution",
-            "count", "segments", "stretch", "offset", "zoom", "frequency", "speed", "width", "height",
-        )
+    private val ExplicitParam = mapOf(
+        "punch" to listOf("punchout", "punch"),
+        "screenSpace" to listOf("screenSpace", "screen", "screenspace"),
+        "blockSize" to listOf("size", "blockSize", "blocksize"),
+        "blurLength" to listOf("length", "blurLength", "blur", "amount"),
+        "sizing" to listOf("sizing", "size", "scale", "mode"),
+        "reach" to listOf("reach", "length", "distance", "amount"),
+        "center" to listOf("center", "position", "origin", "light"),
+        "offset" to listOf("offset", "position", "center", "origin"),
+        "position" to listOf("position", "offset", "center", "origin"),
+        "stretch" to listOf("stretch", "scale", "aspect"),
+        "zoom" to listOf("zoom", "scale", "size"),
+        "color" to listOf("color", "tint", "color1"),
+        "color1" to listOf("color1", "color", "tint"),
+        "color2" to listOf("color2", "color", "tint"),
+    )
+
+    private fun candidates(param: EffectParam): List<String> {
+        val explicit = ExplicitParam[param.id].orEmpty()
+        val generic = when (param.kind) {
+            "point" -> listOf("center", "offset", "position", "origin", "light", "from", "to")
+            "color" -> listOf("color", "color1", "color2", "color3", "tint", "ink", "paper", "background", "key")
+            "angle" -> listOf("angle", "rotation", "direction")
+            "switch", "bool" -> listOf("invert", "mirror", "mono", "freeze", "colored", "fill", "show")
+            "choice" -> listOf("mode", "style", "pattern", "blend", "shape", "direction", "source", "axis")
+            else -> listOf(
+                "strength", "amount", "intensity", "blur", "radius", "size", "blockSize", "blurLength", "reach",
+                "scale", "spread", "alpha", "opacity", "feather", "threshold", "phase", "seed", "evolution",
+                "count", "segments", "stretch", "offset", "zoom", "frequency", "speed", "width", "height",
+            )
+        }
+        return explicit + generic
     }
 
     private fun compatible(target: EffectParam, candidate: EffectParam): Boolean {

@@ -76,6 +76,22 @@ class AmEffectLibraryTest {
         val catalog = EffectCatalog(builtIns + bound)
         val external = catalog.listed("external")
         assertEquals("duplicate names in external", external.size, external.map { it.name.trim().lowercase() }.toSet().size)
+        val uniforms = Regex("""uniform\s+(?:shader|[A-Za-z0-9]+)\s+([A-Za-z_][A-Za-z0-9_]*)""")
+        for (effect in bound) {
+            val shaders = listOfNotNull(effect.sksl) + effect.passes.map { it.sksl }
+            for (shader in shaders) {
+                val names = uniforms.findAll(shader).map { it.groupValues[1] }.toList()
+                assertEquals("${effect.name} duplicate uniforms $names", names.size, names.toSet().size)
+                val inputs = Regex("""uniform\s+shader\s+([A-Za-z_][A-Za-z0-9_]*)""").findAll(shader).map { it.groupValues[1] }.toSet()
+                val internal = setOf("amSize", "amTime", "amDuration", "screen", "layer", "fromLayer", "toLayer", "orient",
+                    "duration", "paletteSize", "paletteSpread", "swatches", "glyphCount", "glyphColumns", "glyphCell",
+                    "visible", "beat", "beatTime", "beatIndex", "thresholds", "palette", "glyphs", "extent")
+                for (name in names) {
+                    if (name in inputs || name in internal) continue
+                    assertTrue("${effect.name} has uniform $name with no control", effect.params.any { it.id == name })
+                }
+            }
+        }
         val pixelate = bound.first { it.name == "Pixelate" }
         assertTrue(pixelate.sksl!!.contains("uniform float size;"))
         assertTrue(!pixelate.sksl!!.contains("uniform float blockSize;"))
