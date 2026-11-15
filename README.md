@@ -177,11 +177,53 @@ Schnitt extensions are portable **`.sc`** bundles that customize the app without
 
 The first extension is bundled and enabled by default. While the timeline plays, it eases the vertical scroll to the layer under the playhead. It never changes the playhead, the clock or playback speed. Its properties control the follow mode, snap-to-centre, speed and smoothing time.
 
-### Safe reader
+### Make an extension
 
-The extension reader only accepts a manifest and the documented data files. It rejects path traversal, executables, native libraries, HTML, scripts and oversized archives. Themes can only set palette colours, icons only receive vector path data, and effects are shader JSON. Extensions cannot read Schnitt's internal files or bypass app permissions.
+A `.sc` file is a ZIP with `manifest.json` at its **root** (no parent folder). The manifest declares a schema, a stable id, a category, the capabilities the app may read, and the properties the extension exposes.
 
-Read the community guide at **[fleurdeur.github.io/Schnitt/extensions.html](https://fleurdeur.github.io/Schnitt/extensions.html)** and install the example **`auto-scroll.sc`** from that page.
+```json
+{
+  "schema": 1,
+  "id": "my-extension",
+  "name": "My Extension",
+  "version": "1.0.0",
+  "author": "your-name",
+  "description": "What this bundle changes.",
+  "category": "theme",
+  "capabilities": ["theme.css"],
+  "properties": [
+    {"id": "enabled", "label": "Enabled", "type": "toggle", "default": true}
+  ]
+}
+```
+
+Package it from inside the folder:
+
+```bash
+zip -r ../my-extension.sc manifest.json README.md theme.css
+```
+
+### How extension data maps into Schnitt
+
+| Extension data | Target |
+| :--- | :--- |
+| `manifest.category` | The Extensions screen filter and required file set. |
+| `capabilities[]` | The closed allowlist of readers: `timeline.follow`, `theme.css`, `icons.home`, `effects.custom`, `layout.tools`, `automation.safe`. |
+| `properties[]` | Native controls in the extension card; values are stored by extension id and property id. |
+| `theme.css` | Receives only `--palette-name: #hex`; maps to the 61 `Palette` fields used by `Am.*`. |
+| `icons/icons.json` | Maps `home.projects`, `home.plugins`, `home.templates`, `home.tools` and `tools.extensions` to vector path data. |
+| `effects/*.json` | Parsed as normal `EffectDefinition` objects and listed under **Imported** as `ext.<extension-id>.<effect-id>`. |
+| `layout/*.json` | Reads `toolsColumns` (1–3) for the Tools grid. |
+| `automation.safe` + `loopPlayback` | Uses the existing playback loop branch at the scene end. |
+| `timeline.follow` + Auto Scroll properties | Drives only the timeline's vertical scroll; it never edits the frame, clock or scene. |
+
+### Safe reader and limits
+
+The extension reader only accepts `manifest.json`, `README.md`, `LICENSE`, `LICENSE.txt`, `theme.css`, `icons/icons.json`, `effects/*.json` and `layout/*.json`. It rejects path traversal, duplicates, executables, native libraries, images, HTML, scripts and oversized archives. Themes can only set palette colours, icons only receive vector path data, and effects are shader JSON. Extensions cannot read Schnitt's internal files, execute code or bypass app permissions.
+
+Hard caps: 64 entries, 2 MiB per file, 8 MiB total, 64 KiB manifest/theme/icons, 24 properties, 32 icons, 24 effects and 4 layout files. Bundles are not signed; install from authors you trust.
+
+The complete reference — every manifest field, property type, category mapping, the full 61-colour palette, effect JSON and shader contract, packaging commands, testing checklist, error table and versioning rules — is at **[fleurdeur.github.io/Schnitt/extensions.html](https://fleurdeur.github.io/Schnitt/extensions.html)**. The working **`auto-scroll.sc`** bundle is linked there and its source is in [`extensions/auto-scroll`](extensions/auto-scroll).
 
 </div>
 

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Extensions — Schnitt</title>
-  <meta name="description" content="Build .sc extensions for Schnitt: themes, icons, effects, layout, automation and safe timeline behavior.">
+  <meta name="description" content="The complete Schnitt .sc extension reference: package layout, manifest, properties, category mapping, themes, icons, effects, layout, automation, security and troubleshooting.">
   <meta name="theme-color" content="#000000">
   <link rel="icon" href="assets/icon.png">
   <link rel="stylesheet" href="assets/site.css">
@@ -18,13 +18,15 @@
     <symbol id="i-ext" viewBox="0 0 24 24"><path d="M8.5 3H5a2 2 0 0 0-2 2v3.5a2.5 2.5 0 1 1 0 5V19a2 2 0 0 0 2 2h5.5a2.5 2.5 0 1 1 5 0H19a2 2 0 0 0 2-2v-5.5a2.5 2.5 0 1 0 0-5V5a2 2 0 0 0-2-2h-3.5a2.5 2.5 0 1 0-5 0Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.5 3 7.6 7 9 4-1.4 7-4.5 7-9V6Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M14 2v6h6" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 8 4.5-8 4.5-8-4.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m4 12 8 4.5 8-4.5M4 16.5 12 21l8-4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z" fill="currentColor"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-effects" viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="18" cy="17" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
   </svg>
 
   <header class="site-header">
     <div class="shell header-inner">
-      <a class="brand" href="index.html" aria-label="Schnitt home">
-        <img src="assets/icon.png" alt=""><span>Schnitt</span><small>MOTION</small>
-      </a>
+      <a class="brand" href="index.html" aria-label="Schnitt home"><img src="assets/icon.png" alt=""><span>Schnitt</span><small>MOTION</small></a>
       <nav class="header-links" aria-label="Sections">
         <a href="index.html#editor">Editor</a>
         <a href="index.html#effects">Effects</a>
@@ -37,132 +39,275 @@
 
   <main>
     <section class="page-hero shell">
-      <span class="eyebrow">Extensions · .sc</span>
-      <h1>Make Schnitt<br>your own.</h1>
-      <p>An extension is a small, portable <b>.sc</b> bundle. It can change colours, specific icons, effects, layout and safe timeline behavior. It is data, not code — Schnitt reads it, applies it, and never executes it.</p>
+      <span class="eyebrow">Extensions · .sc · complete reference</span>
+      <h1>Build it.<br>Map it. Ship it.</h1>
+      <p>This is the full Schnitt extension manual. It covers the bundle format, every manifest field, every property type, the exact mapping from extension data to app behavior, complete theme and effect schemas, packaging, testing, limits, security and troubleshooting.</p>
       <div class="hero-actions">
         <a class="button button-primary" href="downloads/auto-scroll.sc" download><svg><use href="#i-download"/></svg>Download Auto Scroll</a>
-        <a class="button button-ghost" href="#manifest"><svg><use href="#i-file"/></svg>Read the manifest guide</a>
+        <a class="button button-ghost" href="#contents"><svg><use href="#i-file"/></svg>Jump to contents</a>
       </div>
+      <div class="hero-meta"><span><b>.sc</b> zip container</span><span>schema 1</span><span>manifest-driven</span><span>no executable code</span></div>
     </section>
 
-    <section class="shell" style="padding-bottom:40px">
+    <section class="section shell" id="contents" style="padding-top:0">
+      <div class="section-head"><div><span class="eyebrow">Contents</span><h2>Everything in one place.</h2></div><p>Every section is anchored. The reference tables are the contract; examples use the same fields the app reads.</p></div>
       <div class="feature-grid">
-        <article class="feature">
-          <div class="icon"><svg><use href="#i-ext"/></svg></div>
-          <h3>Install once</h3>
-          <p>Open <b>Home → Tools → Extensions → Import .sc</b>. Schnitt validates the bundle, copies only its supported files, and keeps your property values. Restart once to apply it.</p>
-        </article>
-        <article class="feature">
-          <div class="icon"><svg><use href="#i-shield"/></svg></div>
-          <h3>Sandboxed reader</h3>
-          <p>No JavaScript, DEX, native libraries, HTML or shell. The reader enforces a manifest, an allowlist, path checks, per-file limits and an 8 MB total cap.</p>
-        </article>
-        <article class="feature">
-          <div class="icon"><svg><use href="#i-arrow"/></svg></div>
-          <h3>One format, six categories</h3>
-          <p>Behavior, Theme, Icons, Effects, Automation and Layout. Each category has a small, documented surface instead of an unrestricted app hook.</p>
-        </article>
+        <a class="feature" href="#install"><div class="icon"><svg><use href="#i-ext"/></svg></div><h3>1 · Install</h3><p>Import, enable, update, remove and restart.</p></a>
+        <a class="feature" href="#package"><div class="icon"><svg><use href="#i-file"/></svg></div><h3>2 · Package</h3><p>Zip layout, allowlist, size limits and path rules.</p></a>
+        <a class="feature" href="#manifest"><div class="icon"><svg><use href="#i-file"/></svg></div><h3>3 · Manifest</h3><p>Every field, id rule, capability and category.</p></a>
+        <a class="feature" href="#mapping"><div class="icon"><svg><use href="#i-layers"/></svg></div><h3>4 · Mapping</h3><p>Which data changes which part of Schnitt.</p></a>
+        <a class="feature" href="#properties"><div class="icon"><svg><use href="#i-ext"/></svg></div><h3>5 · Properties</h3><p>All control types and how values are read.</p></a>
+        <a class="feature" href="#auto-scroll"><div class="icon"><svg><use href="#i-play"/></svg></div><h3>6 · Auto Scroll</h3><p>The bundled behavior, algorithm and controls.</p></a>
+        <a class="feature" href="#theme"><div class="icon"><svg><use href="#i-layers"/></svg></div><h3>7 · Theme</h3><p>CSS parser and all 61 palette variables.</p></a>
+        <a class="feature" href="#icons"><div class="icon"><svg><use href="#i-home"/></svg></div><h3>8 · Icons</h3><p>Every supported icon name and path format.</p></a>
+        <a class="feature" href="#effects"><div class="icon"><svg><use href="#i-effects"/></svg></div><h3>9 · Effects</h3><p>Full effect JSON, parameters, presets, shaders.</p></a>
+        <a class="feature" href="#layout"><div class="icon"><svg><use href="#i-layers"/></svg></div><h3>10 · Layout</h3><p>Tools columns and the layout file contract.</p></a>
+        <a class="feature" href="#automation"><div class="icon"><svg><use href="#i-play"/></svg></div><h3>11 · Automation</h3><p>Safe playback automation and loopPlayback.</p></a>
+        <a class="feature" href="#security"><div class="icon"><svg><use href="#i-shield"/></svg></div><h3>12 · Security</h3><p>Threat model, hard limits and rejected files.</p></a>
+        <a class="feature" href="#packaging"><div class="icon"><svg><use href="#i-download"/></svg></div><h3>13 · Packaging</h3><p>Commands for Windows, macOS and Linux.</p></a>
+        <a class="feature" href="#testing"><div class="icon"><svg><use href="#i-check"/></svg></div><h3>14 · Testing</h3><p>Pre-flight checklist and app verification.</p></a>
+        <a class="feature" href="#errors"><div class="icon"><svg><use href="#i-shield"/></svg></div><h3>15 · Errors</h3><p>What every install message means.</p></a>
+        <a class="feature" href="#versions"><div class="icon"><svg><use href="#i-file"/></svg></div><h3>16 · Versions</h3><p>Updates, stable ids and property migration.</p></a>
+        <a class="feature" href="#limits"><div class="icon"><svg><use href="#i-shield"/></svg></div><h3>17 · Limits</h3><p>What the safe reader deliberately does not do.</p></a>
       </div>
     </section>
 
-    <section class="section shell" id="quickstart" style="padding-top:0">
-      <div class="section-head">
-        <div><span class="eyebrow">Quick start</span><h2>Five minutes to a bundle.</h2></div>
-        <p>A .sc file is a zip. Rename the zip after you add a manifest.</p>
-      </div>
+    <section class="section shell" id="install" style="padding-top:0">
+      <div class="section-head"><div><span class="eyebrow">Lifecycle</span><h2>Install, enable, restart.</h2></div><p>A bundle is copied into Schnitt's private files. The app reads the copied manifest; it never executes the archive.</p></div>
       <div class="split">
         <div class="panel panel-pad">
-          <span class="panel-kicker">1 · Create the folder</span>
-          <pre><code>my-extension/
-  manifest.json
-  theme.css        (optional)
-  icons/icons.json (optional)
-  effects/*.json   (optional)
-  layout/*.json    (optional)
-  README.md        (recommended)</code></pre>
-          <span class="panel-kicker" style="display:block;margin-top:20px">2 · Zip it</span>
-          <pre><code># any zip tool works; the suffix must be .sc
-zip -r my-extension.sc my-extension/*</code></pre>
+          <span class="panel-kicker">In the app</span>
+          <ol class="steps">
+            <li><b>Home → Tools → Extensions.</b> The Extensions card is the last card in Tools.</li>
+            <li>Tap <b>Import .sc</b> and choose the bundle.</li>
+            <li>Read the card. Its category, version, author and description come from <code>manifest.json</code>.</li>
+            <li>Turn it on, then open the card and set its declared properties.</li>
+            <li>Tap <b>Restart Schnitt to apply</b>. Restart is required because themes, icons, effects, layout and playback behaviors are read during startup.</li>
+          </ol>
+          <p class="fineprint">The bundled Auto Scroll is installed once on first run and enabled. Importing another bundle with the same id replaces the files but keeps the enabled state and matching property values.</p>
         </div>
         <div class="panel panel-pad">
-          <span class="panel-kicker">3 · Test</span>
-          <p>Import the bundle in Schnitt, open its card, change the declared properties and restart. The extensions page never installs a bundle whose manifest is missing or whose paths leave the bundle.</p>
-          <span class="panel-kicker" style="display:block;margin-top:22px">4 · Share</span>
-          <p>Send the .sc file directly or publish it with a project/preset. Keep the README next to the bundle so people know which properties are safe to change.</p>
-          <p class="fineprint" style="margin-top:18px">The official extension suffix is <b>.sc</b>. APK, DEX, JAR, SO, JS, HTML and executable files are rejected.</p>
+          <span class="panel-kicker">What happens on import</span>
+          <table class="facts">
+            <tr><td><b>1. Check suffix</b></td><td>The picker name must end in <code>.sc</code>.</td></tr>
+            <tr><td><b>2. Unpack</b></td><td>Entries are read into a private temporary directory.</td></tr>
+            <tr><td><b>3. Validate</b></td><td>Paths, allowlist, duplicate entries, sizes, manifest, category files and capabilities.</td></tr>
+            <tr><td><b>4. Commit</b></td><td>The temporary directory is renamed to <code>files/extensions/&lt;id&gt;</code>.</td></tr>
+            <tr><td><b>5. Store</b></td><td>Enabled state and property values are stored in Schnitt preferences.</td></tr>
+            <tr><td><b>6. Restart</b></td><td>The new snapshot is read by the editor, theme, catalog, icons and playback.</td></tr>
+          </table>
         </div>
+      </div>
+      <div class="panel panel-pad" style="margin-top:14px">
+        <h3>Remove and update</h3>
+        <p><b>Remove</b> deletes the private directory and its property values. <b>Update</b> is an import with the same <code>id</code>; matching property ids keep their values and the enabled flag is preserved. The <code>version</code> field is informational and displayed in the card; it does not control installation.</p>
+      </div>
+    </section>
+
+    <section class="section shell" id="package" style="padding-top:0">
+      <div class="section-head"><div><span class="eyebrow">Bundle format</span><h2>The .sc container.</h2></div><p>A .sc file is a standard ZIP. The suffix is the contract; the contents are a manifest plus optional category files.</p></div>
+      <div class="split">
+        <div class="panel panel-pad">
+<pre><code>my-extension.sc              (a zip, never a renamed folder)
+├── manifest.json            required
+├── README.md                optional, recommended
+├── LICENSE                  optional
+├── LICENSE.txt              optional
+├── theme.css                required for THEME
+├── icons/
+│   └── icons.json           required for ICONS
+├── effects/
+│   ├── first.json           required for EFFECTS
+│   └── second.json          optional
+└── layout/
+    └── tools.json           required for LAYOUT</code></pre>
+          <p class="fineprint">There is no nested extension folder inside the zip. <code>manifest.json</code> must be at the archive root.</p>
+        </div>
+        <div class="panel panel-pad">
+          <h3>Allowlist</h3>
+          <p>Only these entries are accepted:</p>
+          <table class="facts">
+            <tr><td><b>root</b></td><td><code>manifest.json</code>, <code>README.md</code>, <code>LICENSE</code>, <code>LICENSE.txt</code>, <code>theme.css</code></td></tr>
+            <tr><td><b>icons/</b></td><td><code>icons.json</code> only</td></tr>
+            <tr><td><b>effects/</b></td><td>up to 24 <code>.json</code> files</td></tr>
+            <tr><td><b>layout/</b></td><td>up to 4 <code>.json</code> files</td></tr>
+          </table>
+          <p class="fineprint">Everything else is rejected: APK, ZIP, DEX, JAR, SO, JS, HTML, CSS outside theme.css, SVG, PNG, hidden metadata and nested executables.</p>
+        </div>
+      </div>
+      <div class="panel panel-pad" style="margin-top:14px">
+        <h3>Hard limits</h3>
+        <table class="facts">
+          <tr><td><b>Archive entries</b></td><td>64 maximum, including directories.</td></tr>
+          <tr><td><b>One extracted file</b></td><td>2 MiB.</td></tr>
+          <tr><td><b>All extracted files</b></td><td>8 MiB.</td></tr>
+          <tr><td><b>Manifest</b></td><td>64 KiB.</td></tr>
+          <tr><td><b>theme.css</b></td><td>64 KiB.</td></tr>
+          <tr><td><b>icons/icons.json</b></td><td>64 KiB.</td></tr>
+          <tr><td><b>Properties</b></td><td>24 per extension; value length 512 characters.</td></tr>
+          <tr><td><b>Capabilities</b></td><td>8 per extension.</td></tr>
+          <tr><td><b>Icons</b></td><td>32 logical names; path length 4–16384 characters.</td></tr>
+          <tr><td><b>Effects</b></td><td>1–24 effect files per effects extension.</td></tr>
+          <tr><td><b>Layout files</b></td><td>1–4 layout files per layout extension.</td></tr>
+          <tr><td><b>Entry path</b></td><td>120 characters maximum; no <code>..</code>, absolute paths, backslashes, colons or NUL.</td></tr>
+        </table>
       </div>
     </section>
 
     <section class="section shell" id="manifest" style="padding-top:0">
-      <div class="section-head">
-        <div><span class="eyebrow">Reference</span><h2>manifest.json</h2></div>
-        <p>Every bundle starts here. Unknown fields are ignored; unknown categories, capabilities and property types are rejected.</p>
-      </div>
+      <div class="section-head"><div><span class="eyebrow">Contract</span><h2>manifest.json field by field.</h2></div><p>Unknown keys are ignored. Unknown values for the fields below fail the install.</p></div>
       <div class="panel panel-pad">
 <pre><code>{
   "schema": 1,
-  "id": "auto-scroll",
-  "name": "Auto Scroll",
+  "id": "my-extension",
+  "name": "My Extension",
   "version": "1.0.0",
   "author": "your-name",
-  "description": "Keeps the timeline on the playing layer.",
+  "description": "One sentence that appears in the extension card.",
   "category": "behavior",
   "capabilities": ["timeline.follow"],
   "properties": [
-    { "id": "enabled", "label": "Follow during playback", "type": "toggle", "default": true },
-    { "id": "mode", "label": "Follow", "type": "choice",
-      "options": ["Playing layer", "Selected layer"],
-      "values": ["playing", "selected"], "default": "playing" },
-    { "id": "snap", "label": "Snap layer to centre", "type": "toggle", "default": true },
-    { "id": "speed", "label": "Scroll speed", "type": "slider",
-      "default": 1.0, "min": 0.25, "max": 3.0, "step": 0.05 }
+    { "id": "enabled", "label": "Enabled", "type": "toggle", "default": true }
   ]
 }</code></pre>
       </div>
+      <table class="facts">
+        <tr><td><b>schema</b></td><td>Required integer. Must be <code>1</code>; another schema is refused with an unsupported version error.</td></tr>
+        <tr><td><b>id</b></td><td>Required. Lowercase <code>a-z</code>, digits, dot, underscore or dash. Pattern <code>[a-z0-9][a-z0-9._-]{1,63}</code>. This is the storage folder and the stable update key.</td></tr>
+        <tr><td><b>name</b></td><td>Required, up to 64 characters. Shown in the Extensions list and card.</td></tr>
+        <tr><td><b>version</b></td><td>Optional display string, up to 24 characters. Defaults to <code>1.0.0</code>. No semver enforcement.</td></tr>
+        <tr><td><b>author</b></td><td>Optional, up to 64 characters. Shown next to category and version.</td></tr>
+        <tr><td><b>description</b></td><td>Optional, up to 400 characters. Shown when the card is expanded.</td></tr>
+        <tr><td><b>category</b></td><td>Required. One of <code>behavior</code>, <code>theme</code>, <code>icons</code>, <code>effects</code>, <code>automation</code>, <code>layout</code>. Controls the app filter and which files are required.</td></tr>
+        <tr><td><b>capabilities</b></td><td>Optional string array, maximum 8. Closed allowlist: <code>timeline.follow</code>, <code>theme.css</code>, <code>icons.home</code>, <code>effects.custom</code>, <code>layout.tools</code>, <code>automation.safe</code>. An unknown capability fails the install.</td></tr>
+        <tr><td><b>properties</b></td><td>Optional array, maximum 24. Each entry uses the property schema below. Ids must be unique inside the bundle.</td></tr>
+      </table>
+    </section>
 
-      <div class="split" style="margin-top:16px">
+    <section class="section shell" id="mapping" style="padding-top:0">
+      <div class="section-head"><div><span class="eyebrow">How mapping works</span><h2>Extension data to app target.</h2></div><p>This is the important part: an extension is not a script. The app reads specific data and maps it to a specific surface.</p></div>
+      <div class="panel panel-pad">
+        <table class="facts">
+          <tr><td><b>manifest.category</b></td><td>Extensions screen filter and card label. It does not automatically grant a behavior; capabilities do.</td></tr>
+          <tr><td><b>capabilities[]</b></td><td>Allowlist of readers. Each capability maps to one documented area below.</td></tr>
+          <tr><td><b>theme.css</b></td><td>Mapped to <code>Palette</code> fields, then to <code>Am.palette</code>. This affects all Compose surfaces that read <code>Am.*</code>.</td></tr>
+          <tr><td><b>icons/icons.json</b></td><td>Mapped to <code>HomeIcons.custom(name, fallback)</code> at the four Home bottom-bar buttons and the Extensions tool card.</td></tr>
+          <tr><td><b>effects/*.json</b></td><td>Parsed as <code>EffectDefinition</code>, appended to the normal effect catalog under <b>Imported</b>.</td></tr>
+          <tr><td><b>layout/*.json</b></td><td>Reads <code>toolsColumns</code>, then passes it to the Tools grid column calculation.</td></tr>
+          <tr><td><b>automation.safe</b></td><td>Reads the <code>loopPlayback</code> property and enables the existing playback loop branch.</td></tr>
+          <tr><td><b>timeline.follow</b></td><td>Reads the Auto Scroll property IDs and drives the timeline's vertical follow animation.</td></tr>
+        </table>
+      </div>
+      <div class="split" style="margin-top:14px">
         <div class="panel panel-pad">
-          <h3>Categories</h3>
+          <h3>Category requirements</h3>
           <table class="facts">
-            <tr><td><b>behavior</b></td><td>Safe timeline behavior. Requires <code>timeline.follow</code>.</td></tr>
-            <tr><td><b>theme</b></td><td>Palette colours from <code>theme.css</code>.</td></tr>
-            <tr><td><b>icons</b></td><td>Home/Tools vector icons from <code>icons/icons.json</code>.</td></tr>
-            <tr><td><b>effects</b></td><td>One or more effect JSON files in <code>effects/</code>.</td></tr>
-            <tr><td><b>automation</b></td><td>Safe playback automation. Requires <code>automation.safe</code>.</td></tr>
-            <tr><td><b>layout</b></td><td>Supported layout values from <code>layout/*.json</code>.</td></tr>
+            <tr><td><b>behavior</b></td><td>Needs <code>timeline.follow</code>.</td></tr>
+            <tr><td><b>theme</b></td><td>Needs <code>theme.css</code>.</td></tr>
+            <tr><td><b>icons</b></td><td>Needs <code>icons/icons.json</code>.</td></tr>
+            <tr><td><b>effects</b></td><td>Needs 1–24 files in <code>effects/</code>.</td></tr>
+            <tr><td><b>automation</b></td><td>Needs <code>automation.safe</code>.</td></tr>
+            <tr><td><b>layout</b></td><td>Needs 1–4 files in <code>layout/</code>.</td></tr>
           </table>
         </div>
         <div class="panel panel-pad">
-          <h3>Capabilities</h3>
-          <p><code>timeline.follow</code>, <code>theme.css</code>, <code>icons.home</code>, <code>effects.custom</code>, <code>layout.tools</code>, <code>automation.safe</code>.</p>
-          <p class="fineprint">Capabilities are a closed list. A bundle cannot request file access, network, app internals, another extension's files, or arbitrary UI.</p>
+          <h3>What is not mapped</h3>
+          <p>Arbitrary property ids are <b>displayed and stored</b> but do nothing unless a capability reader knows them. There is no general-purpose scripting hook, no DOM, no WebView and no callback from the property screen into app internals. This is deliberate.</p>
+          <p class="fineprint">If you add a new property for a future reader, keep its id stable. Renaming an id makes it look like a new property and its saved value starts from the new default.</p>
         </div>
       </div>
     </section>
 
     <section class="section shell" id="properties" style="padding-top:0">
-      <div class="section-head">
-        <div><span class="eyebrow">Custom controls</span><h2>Properties are part of the extension.</h2></div>
-        <p>Declare only what your extension understands. Schnitt renders the controls and stores the chosen values.</p>
-      </div>
+      <div class="section-head"><div><span class="eyebrow">Custom controls</span><h2>Property schema and storage.</h2></div><p>Properties are how an extension becomes configurable without shipping code. Schnitt renders the controls, stores the strings and exposes them to the matching reader.</p></div>
       <div class="panel panel-pad">
-        <table class="facts">
-          <tr><td><b>toggle</b></td><td><code>true</code> / <code>false</code>. Example: enabled, snap, loopPlayback.</td></tr>
-          <tr><td><b>slider</b></td><td>Number with <code>default</code>, <code>min</code>, <code>max</code>, <code>step</code>. Stored as text, read as a bounded float.</td></tr>
-          <tr><td><b>choice</b></td><td><code>options</code> are labels, <code>values</code> are the strings your reader consumes. Both lists must be the same length.</td></tr>
-          <tr><td><b>text</b></td><td>A single line, capped at 512 characters.</td></tr>
-          <tr><td><b>color</b></td><td>A single hex colour. Themes normally belong in <code>theme.css</code>.</td></tr>
-        </table>
+<pre><code>{
+  "id": "speed",
+  "label": "Scroll speed",
+  "type": "slider",
+  "default": 1.0,
+  "min": 0.25,
+  "max": 3.0,
+  "step": 0.05
+}</code></pre>
+      </div>
+      <table class="facts">
+        <tr><td><b>id</b></td><td>Required. Must match <code>[A-Za-z][A-Za-z0-9_.-]{0,47}</code> and be unique in the bundle.</td></tr>
+        <tr><td><b>label</b></td><td>Optional display label, up to 64 characters. Defaults to the id with underscores replaced by spaces.</td></tr>
+        <tr><td><b>type</b></td><td>Required. <code>toggle</code>, <code>slider</code>, <code>choice</code>, <code>text</code> or <code>color</code>.</td></tr>
+        <tr><td><b>default</b></td><td>Type-specific default. Toggle is boolean. Slider is a number. Choice must be one of <code>values</code>. Text/color is a string.</td></tr>
+        <tr><td><b>min / max / step</b></td><td>Slider only. Min and max must be finite; max is forced above min; step must be positive. Values are clamped when read.</td></tr>
+        <tr><td><b>options</b></td><td>Choice only. 1–24 human-readable labels shown as chips.</td></tr>
+        <tr><td><b>values</b></td><td>Choice only. Same length as <code>options</code>; these exact strings are stored and read. If omitted, labels are used as values.</td></tr>
+      </table>
+      <div class="split" style="margin-top:14px">
+        <div class="panel panel-pad">
+          <h3>Built-in reader keys</h3>
+          <table class="facts">
+            <tr><td><b>enabled</b></td><td>Behavior master switch. Missing means enabled.</td></tr>
+            <tr><td><b>mode</b></td><td>Choice with values <code>playing</code> and <code>selected</code>. Defaults to <code>playing</code>.</td></tr>
+            <tr><td><b>snap</b></td><td>Toggle. Centre the active row when true; use the 24–76% comfort band when false.</td></tr>
+            <tr><td><b>speed</b></td><td>Number, 0.1–4.0; used as the Auto Scroll easing multiplier.</td></tr>
+            <tr><td><b>smoothness</b></td><td>Number, 60–2000 ms; base Auto Scroll easing duration.</td></tr>
+            <tr><td><b>toolsColumns</b> / <b>columns</b></td><td>Layout fallback when no layout JSON provides a value. Clamped to 1–3.</td></tr>
+            <tr><td><b>loopPlayback</b></td><td>Automation toggle. True restarts playback at the scene end.</td></tr>
+          </table>
+        </div>
+        <div class="panel panel-pad">
+          <h3>Storage details</h3>
+          <p>Values are stored as strings in Schnitt's private preferences under the bundle id and property id. The UI clamps sliders and resolves choices to the stored value; the reader also clamps again, so a hand-edited preference cannot produce an out-of-range speed.</p>
+          <p>The property screen is scrollable, survives updates with matching ids, and resets to the manifest default when the id changes or the extension is removed. Property values are never written into project files.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell" id="auto-scroll" style="padding-top:0">
+      <div class="section-head"><div><span class="eyebrow">Bundled behavior</span><h2>Auto Scroll in depth.</h2></div><p>Auto Scroll is the reference behavior extension. It shows exactly how a property set maps to a real, bounded app animation.</p></div>
+      <div class="split">
+        <div class="panel panel-pad">
+          <h3>What it reads</h3>
+          <table class="facts">
+            <tr><td><b>enabled</b></td><td>If false, the timeline does not follow.</td></tr>
+            <tr><td><b>mode=playing</b></td><td>At the current frame, choose the visible layer with the latest start time. Among equals, the later layer in the scene wins. Hidden layers and layers outside <code>startTime..endTime</code> are ignored.</td></tr>
+            <tr><td><b>mode=selected</b></td><td>Use <code>state.selectedId</code> instead of the active-layer lookup, so the selected row stays visible while playback runs.</td></tr>
+            <tr><td><b>snap=true</b></td><td>Scroll so the row is centred in the visible timeline rows.</td></tr>
+            <tr><td><b>snap=false</b></td><td>Scroll only when the row leaves the band between 24% and 76% of the visible rows. This is the gentler mode.</td></tr>
+            <tr><td><b>speed</b></td><td>Duration is <code>smoothness / speed</code>, clamped to 60–4000 ms. It does not touch the playback clock.</td></tr>
+            <tr><td><b>smoothness</b></td><td>Base easing duration in milliseconds.</td></tr>
+          </table>
+        </div>
+        <div class="panel panel-pad">
+          <h3>What it changes</h3>
+          <p>Only <code>TimelineView.scrollPx</code>. It never writes the scene, a layer, a keyframe, <code>state.frame</code>, <code>state.playing</code>, audio, export settings or project XML.</p>
+          <p>The behavior collects the active layer id with <code>snapshotFlow</code>, stops at <code>distinctUntilChanged</code>, and starts one tween per row change. A new row cancels the previous tween and retargets from the current scroll. Manual timeline scrolling still works and cancels the animation through the normal gesture path.</p>
+          <p class="fineprint">When playback stops, the follow loop stops. The final eased scroll may finish; no playback state is changed.</p>
+        </div>
+      </div>
+      <div class="panel panel-pad" style="margin-top:14px">
+        <h3>Complete manifest</h3>
+<pre><code>{
+  "schema": 1,
+  "id": "auto-scroll",
+  "name": "Auto Scroll",
+  "version": "1.0.0",
+  "author": "fleurdeur",
+  "description": "Keeps the timeline on the layer that is playing.",
+  "category": "behavior",
+  "capabilities": ["timeline.follow"],
+  "properties": [
+    {"id":"enabled","label":"Follow during playback","type":"toggle","default":true},
+    {"id":"mode","label":"Follow","type":"choice",
+     "options":["Playing layer","Selected layer"],"values":["playing","selected"],"default":"playing"},
+    {"id":"snap","label":"Snap layer to centre","type":"toggle","default":true},
+    {"id":"speed","label":"Scroll speed","type":"slider","default":1.0,"min":0.25,"max":3.0,"step":0.05},
+    {"id":"smoothness","label":"Smoothing time","type":"slider","default":260,"min":80,"max":1200,"step":20}
+  ]
+}</code></pre>
       </div>
     </section>
 
     <section class="section shell" id="theme" style="padding-top:0">
-      <div class="section-head">
-        <div><span class="eyebrow">Theme category</span><h2>CSS that can only touch the palette.</h2></div>
-        <p>Use familiar custom properties. Schnitt reads hex colours from <code>--palette-name</code> declarations and ignores selectors, URLs, imports and everything else.</p>
-      </div>
+      <div class="section-head"><div><span class="eyebrow">Theme category</span><h2>CSS mapped to the palette.</h2></div><p>Theme extensions use a deliberately small CSS reader. They can set palette colours; they cannot inject layout CSS, selectors, images or JavaScript.</p></div>
       <div class="split">
         <div class="panel panel-pad">
 <pre><code>/* theme.css */
@@ -176,20 +321,101 @@ zip -r my-extension.sc my-extension/*</code></pre>
   --timeline-bg: #080b09;
   --preview-bg: #050706;
 }</code></pre>
+          <span class="panel-kicker" style="display:block;margin-top:18px">Manifest</span>
+<pre><code>{
+  "schema": 1,
+  "id": "night-garden",
+  "name": "Night Garden",
+  "category": "theme",
+  "capabilities": ["theme.css"]
+}</code></pre>
         </div>
         <div class="panel panel-pad">
-          <h3>Supported names</h3>
-          <p>Every name in the Schnitt palette: <code>TopBar</code>, <code>PreviewBg</code>, <code>TimelineBg</code>, <code>Panel</code>, <code>Card</code>, <code>Navy</code>, <code>HomeBg</code>, <code>HomeInk</code>, <code>Accent</code>, <code>AccentLit</code>, <code>AccentDeep</code>, <code>OnAccent</code>, <code>Line</code>, <code>Gold</code>, <code>Warning</code> and the rest.</p>
-          <p class="fineprint">Kebab-case is converted to the palette name, so <code>--home-bg</code> → <code>HomeBg</code>. Invalid colours and unsupported names are ignored.</p>
+          <h3>Parser rules</h3>
+          <ul class="bullets">
+            <li>Comments are stripped. Only <code>--name: value</code> declarations are read; selectors and other CSS are ignored.</li>
+            <li>The last valid declaration for a name wins.</li>
+            <li>Accepted colours: <code>#RGB</code>, <code>#RRGGBB</code> and <code>#AARRGGBB</code> (alpha first). Invalid colours are ignored.</li>
+            <li>Kebab-case is converted to the palette name: <code>--home-bg</code> → <code>HomeBg</code>.</li>
+            <li>Camel-case is accepted directly: <code>--HomeBg</code> also works.</li>
+            <li>Names outside the palette are ignored. <code>--bad: red</code>, <code>url(...)</code>, <code>@import</code> and selectors do nothing.</li>
+            <li>Only enabled theme extensions are concatenated, in installed order. The base theme is applied first, then the extension overrides.</li>
+            <li>Theme changes apply after restart because the palette is built when <code>AppSettings</code> starts.</li>
+          </ul>
         </div>
+      </div>
+      <div class="panel panel-pad" style="margin-top:14px">
+        <h3>Complete palette mapping</h3>
+        <p>These are all 61 names. The CSS variable column is the recommended form; the field is the exact <code>Palette</code> name used by the app.</p>
+        <table class="facts">
+          <tr><td><b>CSS variable</b></td><td><b>Palette field</b></td></tr>
+                    <tr><td><code>--top-bar</code></td><td><code>TopBar</code></td></tr>
+          <tr><td><code>--preview-bg</code></td><td><code>PreviewBg</code></td></tr>
+          <tr><td><code>--timeline-bg</code></td><td><code>TimelineBg</code></td></tr>
+          <tr><td><code>--panel</code></td><td><code>Panel</code></td></tr>
+          <tr><td><code>--panel-inset</code></td><td><code>PanelInset</code></td></tr>
+          <tr><td><code>--button</code></td><td><code>Button</code></td></tr>
+          <tr><td><code>--field</code></td><td><code>Field</code></td></tr>
+          <tr><td><code>--field-hi</code></td><td><code>FieldHi</code></td></tr>
+          <tr><td><code>--chosen</code></td><td><code>Chosen</code></td></tr>
+          <tr><td><code>--well</code></td><td><code>Well</code></td></tr>
+          <tr><td><code>--deepest</code></td><td><code>Deepest</code></td></tr>
+          <tr><td><code>--line</code></td><td><code>Line</code></td></tr>
+          <tr><td><code>--menu-line</code></td><td><code>MenuLine</code></td></tr>
+          <tr><td><code>--key-digit</code></td><td><code>KeyDigit</code></td></tr>
+          <tr><td><code>--key-symbol</code></td><td><code>KeySymbol</code></td></tr>
+          <tr><td><code>--scrim</code></td><td><code>Scrim</code></td></tr>
+          <tr><td><code>--press-editor</code></td><td><code>PressEditor</code></td></tr>
+          <tr><td><code>--on-dark</code></td><td><code>OnDark</code></td></tr>
+          <tr><td><code>--on-dark-dim</code></td><td><code>OnDarkDim</code></td></tr>
+          <tr><td><code>--caption</code></td><td><code>Caption</code></td></tr>
+          <tr><td><code>--faint</code></td><td><code>Faint</code></td></tr>
+          <tr><td><code>--inactive</code></td><td><code>Inactive</code></td></tr>
+          <tr><td><code>--on-scrim</code></td><td><code>OnScrim</code></td></tr>
+          <tr><td><code>--accent</code></td><td><code>Accent</code></td></tr>
+          <tr><td><code>--accent-lit</code></td><td><code>AccentLit</code></td></tr>
+          <tr><td><code>--accent-glow</code></td><td><code>AccentGlow</code></td></tr>
+          <tr><td><code>--accent-deep</code></td><td><code>AccentDeep</code></td></tr>
+          <tr><td><code>--on-accent</code></td><td><code>OnAccent</code></td></tr>
+          <tr><td><code>--cool</code></td><td><code>Cool</code></td></tr>
+          <tr><td><code>--cool-deep</code></td><td><code>CoolDeep</code></td></tr>
+          <tr><td><code>--gold</code></td><td><code>Gold</code></td></tr>
+          <tr><td><code>--warning</code></td><td><code>Warning</code></td></tr>
+          <tr><td><code>--bookmark</code></td><td><code>Bookmark</code></td></tr>
+          <tr><td><code>--layer-bar</code></td><td><code>LayerBar</code></td></tr>
+          <tr><td><code>--layer-bar-stripe</code></td><td><code>LayerBarStripe</code></td></tr>
+          <tr><td><code>--text-bar</code></td><td><code>TextBar</code></td></tr>
+          <tr><td><code>--text-bar-stripe</code></td><td><code>TextBarStripe</code></td></tr>
+          <tr><td><code>--audio-bar</code></td><td><code>AudioBar</code></td></tr>
+          <tr><td><code>--audio-wave</code></td><td><code>AudioWave</code></td></tr>
+          <tr><td><code>--on-bar</code></td><td><code>OnBar</code></td></tr>
+          <tr><td><code>--on-audio-bar</code></td><td><code>OnAudioBar</code></td></tr>
+          <tr><td><code>--home-bg</code></td><td><code>HomeBg</code></td></tr>
+          <tr><td><code>--card</code></td><td><code>Card</code></td></tr>
+          <tr><td><code>--sheet-bg</code></td><td><code>SheetBg</code></td></tr>
+          <tr><td><code>--navy</code></td><td><code>Navy</code></td></tr>
+          <tr><td><code>--home-accent</code></td><td><code>HomeAccent</code></td></tr>
+          <tr><td><code>--on-navy</code></td><td><code>OnNavy</code></td></tr>
+          <tr><td><code>--on-navy-accent</code></td><td><code>OnNavyAccent</code></td></tr>
+          <tr><td><code>--navy-hi</code></td><td><code>NavyHi</code></td></tr>
+          <tr><td><code>--navy-line</code></td><td><code>NavyLine</code></td></tr>
+          <tr><td><code>--home-ink</code></td><td><code>HomeInk</code></td></tr>
+          <tr><td><code>--home-mid</code></td><td><code>HomeMid</code></td></tr>
+          <tr><td><code>--home-dim</code></td><td><code>HomeDim</code></td></tr>
+          <tr><td><code>--home-faint</code></td><td><code>HomeFaint</code></td></tr>
+          <tr><td><code>--home-line</code></td><td><code>HomeLine</code></td></tr>
+          <tr><td><code>--home-panel</code></td><td><code>HomePanel</code></td></tr>
+          <tr><td><code>--home-drawer</code></td><td><code>HomeDrawer</code></td></tr>
+          <tr><td><code>--switch-off</code></td><td><code>SwitchOff</code></td></tr>
+          <tr><td><code>--thumb</code></td><td><code>Thumb</code></td></tr>
+          <tr><td><code>--menu-scrim</code></td><td><code>MenuScrim</code></td></tr>
+          <tr><td><code>--press-home</code></td><td><code>PressHome</code></td></tr>
+        </table>
       </div>
     </section>
 
     <section class="section shell" id="icons" style="padding-top:0">
-      <div class="section-head">
-        <div><span class="eyebrow">Icons category</span><h2>Replace a specific icon.</h2></div>
-        <p>Icons are vector path data, not images or HTML. Supported names are the Home and Tools buttons.</p>
-      </div>
+      <div class="section-head"><div><span class="eyebrow">Icons category</span><h2>Path data for named buttons.</h2></div><p>An icon extension replaces a logical button icon. The app supplies the fallback, so an invalid path cannot leave a button empty.</p></div>
       <div class="split">
         <div class="panel panel-pad">
 <pre><code>// icons/icons.json
@@ -197,45 +423,124 @@ zip -r my-extension.sc my-extension/*</code></pre>
   "home.projects": {
     "path": "M5 3h14v18H5Z M9 8h6 M9 12h6 M9 16h4",
     "stroke": true,
-    "width": 1.8
+    "width": 1.8,
+    "mirror": false
   },
   "home.tools": "M4 12h16 M12 4v16"
 }</code></pre>
+          <span class="panel-kicker" style="display:block;margin-top:18px">Manifest</span>
+<pre><code>{
+  "schema": 1,
+  "id": "line-icons",
+  "name": "Line Icons",
+  "category": "icons",
+  "capabilities": ["icons.home"]
+}</code></pre>
         </div>
         <div class="panel panel-pad">
-          <h3>Names</h3>
-          <p><code>home.projects</code>, <code>home.templates</code>, <code>home.tools</code>, <code>home.plugins</code>, <code>home.community</code>, <code>tools.extensions</code>.</p>
-          <p>The path uses the same SVG path syntax as the app icons. A path can be up to 16 KB. Scripts and URL references are rejected.</p>
+          <h3>Supported names</h3>
+          <table class="facts">
+            <tr><td><b>home.projects</b></td><td>Home bottom bar, Projects.</td></tr>
+            <tr><td><b>home.plugins</b></td><td>Home bottom bar, Plugins.</td></tr>
+            <tr><td><b>home.templates</b></td><td>Home bottom bar, Templates.</td></tr>
+            <tr><td><b>home.tools</b></td><td>Home bottom bar, Tools.</td></tr>
+            <tr><td><b>tools.extensions</b></td><td>The Extensions card in Tools.</td></tr>
+          </table>
+          <p class="fineprint">A value may be a plain string (a stroke path) or an object with <code>path</code>, <code>stroke</code> (boolean), <code>width</code> (0.5–6) and <code>mirror</code> (boolean). A missing object means stroke is true and width is 1.8. Paths are SVG <code>d</code> data; <code>&lt;</code> and <code>url(</code> are rejected. Invalid path data falls back at render time.</p>
         </div>
       </div>
     </section>
 
     <section class="section shell" id="effects" style="padding-top:0">
-      <div class="section-head">
-        <div><span class="eyebrow">Effects category</span><h2>Ship an effect with its own controls.</h2></div>
-        <p>Each file in <code>effects/</code> is a Schnitt effect definition. It appears in the normal Effects library under <b>Imported</b>, with keyframeable properties and its own shader.</p>
-      </div>
+      <div class="section-head"><div><span class="eyebrow">Effects category</span><h2>A complete effect definition.</h2></div><p>Each JSON file is parsed by the same effect parser as the built-in library. It gets editable properties, keyframes, presets and its own shader.</p></div>
       <div class="panel panel-pad">
-<pre><code>{
+        <h3>How an extension effect is mapped</h3>
+        <table class="facts">
+          <tr><td><b>Bundle file</b></td><td>Every <code>effects/*.json</code> is parsed once, in filename order, up to 24 files.</td></tr>
+          <tr><td><b>Catalog id</b></td><td><code>ext.&lt;extension-id&gt;.&lt;effect-id&gt;</code>. This prevents an extension from replacing a built-in effect.</td></tr>
+          <tr><td><b>Catalog key</b></td><td><code>ext-&lt;extension-id&gt;-&lt;effect-key&gt;</code>. The key is also used as the stable effect page key.</td></tr>
+          <tr><td><b>Category</b></td><td>Forced to <code>custom</code> in the catalog and shown under <b>Imported</b>; the JSON still needs a valid source category.</td></tr>
+          <tr><td><b>Status</b></td><td>Malformed files are skipped and logged under the <code>Extensions</code> log tag. They do not crash the catalog.</td></tr>
+        </table>
+      </div>
+      <div class="panel panel-pad" style="margin-top:14px">
+        <h3>Top-level JSON fields</h3>
+        <table class="facts">
+          <tr><td><b>id</b></td><td>Required. Unique inside the bundle; used as the id suffix. Use lowercase letters, digits and dashes.</td></tr>
+          <tr><td><b>name</b></td><td>Optional display name. Defaults to the id.</td></tr>
+          <tr><td><b>category</b></td><td>Required and must be one of: <code>color</code>, <code>blur</code>, <code>distort</code>, <code>stylize</code>, <code>noise</code>, <code>repeat</code>, <code>key</code>, <code>move</code>, <code>beat</code>, <code>3d</code>, <code>text</code>, <code>other</code>, <code>external</code>, <code>custom</code>.</td></tr>
+          <tr><td><b>description</b></td><td>Optional description shown in the effect browser.</td></tr>
+          <tr><td><b>sksl</b></td><td>Required for a shader effect. The complete SkSL source with the shader contract below.</td></tr>
+          <tr><td><b>native</b></td><td>Optional boolean. Reserved for the app's built-in native effects. Extension effects should omit it or set <code>false</code>; a native extension effect has no executable code path.</td></tr>
+          <tr><td><b>since</b></td><td>Optional version label. Extension effects default to the bundle version.</td></tr>
+          <tr><td><b>params</b></td><td>Optional array of parameter objects. Each non-text parameter becomes a uniform with the same id.</td></tr>
+          <tr><td><b>presets</b></td><td>Optional array of named presets.</td></tr>
+          <tr><td><b>shortcuts</b></td><td>Optional array of additional catalog tiles that point at the same shader with different names and descriptions.</td></tr>
+        </table>
+      </div>
+      <div class="panel panel-pad" style="margin-top:14px">
+        <h3>Parameter fields</h3>
+        <table class="facts">
+          <tr><td><b>id</b></td><td>Required. Becomes the property name and shader uniform name. Letters, digits and underscore; start with a letter.</td></tr>
+          <tr><td><b>label</b></td><td>Optional UI label.</td></tr>
+          <tr><td><b>type</b></td><td><code>float</code>, <code>angle</code>, <code>point</code>, <code>point3</code>, <code>hue</code>, <code>color</code>, <code>switch</code>, <code>choice</code> or <code>text</code>.</td></tr>
+          <tr><td><b>default</b></td><td>Float/angle/switch number or boolean; <code>[x,y]</code> for point; <code>[x,y,z]</code> for point3/hue; a choice value; <code>#RRGGBB</code>/<code>#AARRGGBB</code> for colour; a string for text.</td></tr>
+          <tr><td><b>min / max / step</b></td><td>Numeric range and UI step. The UI uses these; defaults should be inside the range.</td></tr>
+          <tr><td><b>options / values</b></td><td>Choice only. Labels and the numeric values written into the effect. They must have the same length.</td></tr>
+          <tr><td><b>percent / pixels / unit</b></td><td>UI hints. <code>percent</code> shows a percent suffix; <code>unit</code> appends a label; <code>pixels</code> changes display formatting.</td></tr>
+          <tr><td><b>layerTime</b></td><td>Number is limited by the layer duration.</td></tr>
+          <tr><td><b>after</b></td><td>Id of an earlier numeric parameter; this parameter cannot go below that value.</td></tr>
+          <tr><td><b>legacyDefault</b></td><td>Fallback default for old project files that do not contain the property.</td></tr>
+          <tr><td><b>when</b></td><td>Show this control only when another property equals one of the listed integer values: <code>{"style":[1,2]}</code>.</td></tr>
+          <tr><td><b>palette</b></td><td>Text only. Shows the app palette picker.</td></tr>
+          <tr><td><b>slow</b></td><td>Integer 1–20; slower slider sensitivity.</td></tr>
+        </table>
+        <p class="fineprint">Choice values are stored as their actual <code>values</code> entry, not as the chip index. Keep choice values stable across updates. Text parameters do not create a shader uniform.</p>
+      </div>
+      <div class="panel panel-pad" style="margin-top:14px">
+        <h3>Shader contract</h3>
+        <p>An extension effect shader must declare <code>image</code>, <code>size</code> and <code>time</code>, and must define <code>half4 main(float2 pos)</code>. Numeric parameters become uniforms with the same type. The app supplies <code>size</code> (layer size) and <code>time</code> (layer-local time); read the source with <code>image.eval(pos)</code>.</p>
+<pre class="wrap"><code>{
   "id": "my-lens",
   "name": "My Lens",
   "category": "distort",
   "description": "A small radial lens with a strength control.",
   "params": [
-    { "id": "strength", "label": "Strength", "type": "float",
-      "default": 0.5, "min": 0.0, "max": 1.0, "step": 0.01 }
+    {"id":"strength","label":"Strength","type":"float","default":0.5,"min":0.0,"max":1.0,"step":0.01}
   ],
-  "sksl": "uniform shader image; uniform float2 amSize; uniform float strength; half4 main(float2 p) { float2 uv = p / amSize; float2 d = uv - 0.5; float r = dot(d,d); return image.eval(p + d * r * strength * 40.0); }"
+  "sksl": "uniform shader image; uniform float2 size; uniform float time; uniform float strength; half4 main(float2 pos) { float2 uv = pos / size; float2 d = uv - 0.5; float r = dot(d,d); return image.eval(pos + d * r * strength * 40.0); }"
 }</code></pre>
-        <p class="fineprint">Use an id prefixed with your extension id. Effects are compiled by the normal graphics engine; a malformed shader is rejected and never becomes a native code path. See the existing effect JSON files for presets, choices and multi-pass examples.</p>
+        <p class="fineprint">SkSL on strict ES2 devices needs constant loop bounds. Use a fixed maximum and a break, for example <code>for (int i=0; i&lt;64; i++) { if (i &gt;= count) break; ... }</code>. Do not declare <code>pos</code> yourself. Avoid texture reads outside the layer; the engine expects an effect image. A malformed shader is skipped by the catalog, not installed as a native path.</p>
+      </div>
+      <div class="split" style="margin-top:14px">
+        <div class="panel panel-pad">
+          <h3>Presets</h3>
+<pre><code>"presets": [{
+  "name": "Soft",
+  "params": {
+    "strength": 0.35,
+    "center": [0.5, 0.5],
+    "phase": [[0.0, 0.0], [1.0, 1.0, "ease"]]
+  }
+}]</code></pre>
+          <p class="fineprint">A scalar becomes a static value. An array of <code>[t, value, easing?]</code> arrays becomes keyframes. Time is normalized; the app fits preset keys to the layer duration.</p>
+        </div>
+        <div class="panel panel-pad">
+          <h3>Shortcuts</h3>
+<pre><code>"shortcuts": [{
+  "key": "lens-soft",
+  "name": "Soft Lens",
+  "description": "A softer lens tile.",
+  "since": "1.0.0",
+  "also": ["distort"]
+}]</code></pre>
+          <p class="fineprint"><code>also</code> adds extra catalog categories. Every category in it must be a valid effect category.</p>
+        </div>
       </div>
     </section>
 
     <section class="section shell" id="layout" style="padding-top:0">
-      <div class="section-head">
-        <div><span class="eyebrow">Layout category</span><h2>A few honest layout switches.</h2></div>
-        <p>Layout is deliberately narrow. The supported value is the Tools grid column count, so a layout extension cannot move controls into an unsafe or unusable position.</p>
-      </div>
+      <div class="section-head"><div><span class="eyebrow">Layout category</span><h2>A narrow, usable layout surface.</h2></div><p>Layout extensions are intentionally limited. They cannot position arbitrary controls or cover the editor.</p></div>
       <div class="split">
         <div class="panel panel-pad">
 <pre><code>// layout/tools.json
@@ -243,68 +548,177 @@ zip -r my-extension.sc my-extension/*</code></pre>
   "surface": "tools",
   "toolsColumns": 2
 }</code></pre>
+          <span class="panel-kicker" style="display:block;margin-top:18px">Manifest</span>
+<pre><code>{
+  "schema": 1,
+  "id": "two-column-tools",
+  "name": "Two Column Tools",
+  "category": "layout",
+  "capabilities": ["layout.tools"],
+  "properties": [
+    {"id":"toolsColumns","label":"Tools columns","type":"slider","default":2,"min":1,"max":3,"step":1}
+  ]
+}</code></pre>
         </div>
         <div class="panel panel-pad">
-          <h3>Manifest property</h3>
-          <p>Declare a <code>toolsColumns</code> slider with min 1, max 3 and step 1. The bundle remains a normal <b>layout</b> category extension and is toggled from the Extensions screen.</p>
+          <h3>Mapping</h3>
+          <p>The last enabled layout extension's layout JSON is read. If it has <code>toolsColumns</code> in 1–3, that wins. Otherwise the reader falls back to the manifest property <code>toolsColumns</code> or <code>columns</code>. If neither exists, the normal responsive column calculation is used.</p>
+          <p>Only the Tools grid is affected. The editor, timeline, project list, export screen and dialogs do not move. Other layout JSON keys are ignored. Values outside 1–3 are ignored.</p>
+          <p class="fineprint">The JSON is still required by the installer for a layout category, even when the manifest property provides the fallback.</p>
         </div>
       </div>
     </section>
 
     <section class="section shell" id="automation" style="padding-top:0">
-      <div class="section-head">
-        <div><span class="eyebrow">Automation category</span><h2>Small, predictable playback rules.</h2></div>
-        <p>The safe automation hook is <code>loopPlayback</code>. When enabled, playback restarts at the beginning at the scene end. It does not change speed, frames, audio or project data.</p>
-      </div>
+      <div class="section-head"><div><span class="eyebrow">Automation category</span><h2>Small, predictable playback rules.</h2></div><p>The safe automation reader currently supports one action: loop at the scene end. It is a real playback branch, not a script.</p></div>
       <div class="panel panel-pad">
 <pre><code>{
   "schema": 1,
   "id": "loop-playback",
   "name": "Loop Playback",
+  "version": "1.0.0",
   "category": "automation",
   "capabilities": ["automation.safe"],
   "properties": [
-    { "id": "loopPlayback", "label": "Loop at scene end", "type": "toggle", "default": true }
+    {"id":"loopPlayback","label":"Loop at scene end","type":"toggle","default":true}
   ]
 }</code></pre>
-      </div>
-    </section>
-
-    <section class="section shell" id="auto-scroll" style="padding-top:0">
-      <div class="section-head">
-        <div><span class="eyebrow">First extension</span><h2>Auto Scroll, explained.</h2></div>
-        <p>Bundled and enabled by default. It follows the playing layer vertically and only touches the timeline scroll.</p>
-      </div>
-      <div class="split">
-        <div class="panel panel-pad">
-          <h3>Properties</h3>
-          <table class="facts">
-            <tr><td><b>Follow during playback</b></td><td>Master switch.</td></tr>
-            <tr><td><b>Follow</b></td><td>Playing layer or selected layer.</td></tr>
-            <tr><td><b>Snap to centre</b></td><td>Centre the row, or only scroll when it leaves the middle band.</td></tr>
-            <tr><td><b>Scroll speed</b></td><td>0.25x–3x. Changes the ease duration only.</td></tr>
-            <tr><td><b>Smoothing time</b></td><td>80–1200 ms base ease.</td></tr>
-          </table>
-        </div>
-        <div class="panel panel-pad">
-          <h3>What it never does</h3>
-          <p>It never changes the playhead, frame, playback clock, audio, project XML or export. It does not create keyframes and it stops following when playback stops. The timeline can still be scrolled by hand.</p>
-          <a class="button button-ghost" href="downloads/auto-scroll.sc" download style="margin-top:10px"><svg><use href="#i-download"/></svg>Download auto-scroll.sc</a>
-        </div>
+        <p class="fineprint">The reader looks for an enabled extension with <code>automation.safe</code> and a true <code>loopPlayback</code> value. Missing property means off. The existing playback loop branch then restarts at frame 0 at the end. It does not alter audio, keyframes, speed curves, the scene duration or export.</p>
       </div>
     </section>
 
     <section class="section shell" id="security" style="padding-top:0">
-      <div class="section-head">
-        <div><span class="eyebrow">Security model</span><h2>No shortcuts into the app.</h2></div>
-        <p>The reader is intentionally boring. That is what makes it safe to share extensions with strangers.</p>
-      </div>
+      <div class="section-head"><div><span class="eyebrow">Security model</span><h2>What the reader refuses.</h2></div><p>The extension system is a parser, not a plugin runtime. This is the security boundary.</p></div>
       <div class="how-grid">
-        <article class="how"><b>01</b><h3>Allowlist only</h3><p>Manifest, README, LICENSE, theme.css, icons/icons.json, effects/*.json and layout/*.json. Everything else is rejected.</p></article>
-        <article class="how"><b>02</b><h3>Path and size checks</h3><p>Absolute paths, <code>..</code>, backslashes, duplicate entries, executables and oversized archives are rejected before install.</p></article>
-        <article class="how"><b>03</b><h3>Data, never code</h3><p>No JavaScript interpreter, DEX loader, native library, HTML panel or network request. CSS only sets colours; icons only set path data.</p></article>
+        <article class="how"><b>01</b><h3>Allowlist</h3><p>Only manifest, README, license, theme.css, icons/icons.json, effects/*.json and layout/*.json. Everything else is rejected, including images and hidden metadata.</p></article>
+        <article class="how"><b>02</b><h3>Paths and archives</h3><p>Absolute paths, <code>..</code>, backslashes, colons, NUL, duplicate entries, oversized entries and archives over the total cap are rejected before commit.</p></article>
+        <article class="how"><b>03</b><h3>Data, never code</h3><p>No JavaScript, DEX, JAR, native library, shell command, WebView, network request or internal file read. Extensions live in their own <code>files/extensions/&lt;id&gt;</code> directory.</p></article>
       </div>
-      <p class="fineprint" style="max-width:760px;margin-top:20px">Extensions still run inside the same process as the app. A malicious shader can be expensive to render, so install bundles you trust and keep effects small. Schnitt reports a failed extension instead of hiding it.</p>
+      <div class="panel panel-pad" style="margin-top:20px">
+        <h3>Threat model details</h3>
+        <ul class="bullets">
+          <li>The bundle is not signed. Schnitt validates structure, not identity. Download from authors you trust and read the README.</li>
+          <li>Theme CSS cannot contain <code>url()</code>, <code>@import</code>, selectors or HTML; only palette hex declarations are read.</li>
+          <li>Icon paths are vector data, not markup. Invalid paths fall back to the built-in icon.</li>
+          <li>Effect JSON is shader source. It runs on the normal GPU engine and is not a native code path, but a pathological shader can still be expensive. Keep effects bounded.</li>
+          <li>Property strings are capped at 512 characters. Sliders are clamped again when read, so editing preferences by hand cannot create an unbounded behavior.</li>
+          <li>The extensions directory is private app storage. Other apps cannot read it without root or a Schnitt bug.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section shell" id="packaging" style="padding-top:0">
+      <div class="section-head"><div><span class="eyebrow">Build the archive</span><h2>Zip it without a parent folder.</h2></div><p>The most common install failure is a zip that contains a folder wrapper instead of <code>manifest.json</code> at its root.</p></div>
+      <div class="split">
+        <div class="panel panel-pad">
+          <span class="panel-kicker">macOS / Linux</span>
+<pre><code>cd my-extension
+zip -r ../my-extension.sc \
+  manifest.json README.md theme.css \
+  icons effects layout</code></pre>
+          <span class="panel-kicker" style="display:block;margin-top:18px">Windows PowerShell</span>
+<pre><code>Compress-Archive -Path manifest.json,README.md,theme.css,icons,effects,layout `
+  -DestinationPath my-extension.zip
+Rename-Item my-extension.zip my-extension.sc</code></pre>
+        </div>
+        <div class="panel panel-pad">
+          <span class="panel-kicker">Check the root</span>
+<pre><code>unzip -l my-extension.sc</code></pre>
+          <p>The output should start with <code>manifest.json</code>. It must not start with <code>my-extension/manifest.json</code>.</p>
+          <p>Remove <code>.DS_Store</code>, <code>__MACOSX</code>, <code>Thumbs.db</code> and editor backups. They are not on the allowlist and cause an install error.</p>
+          <p class="fineprint">A zip with the wrong suffix is refused. Rename the archive after compression; do not rename a folder.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell" id="testing" style="padding-top:0">
+      <div class="section-head"><div><span class="eyebrow">Pre-flight</span><h2>Test like a stranger will install it.</h2></div><p>Use a release build, a clean install state and the actual import picker. The app validates on the device.</p></div>
+      <div class="panel panel-pad">
+        <table class="facts">
+          <tr><td><b>Manifest</b></td><td><code>schema</code> is 1, id matches the pattern, category and capabilities are known, every property id is unique and typed.</td></tr>
+          <tr><td><b>Root</b></td><td><code>manifest.json</code> is at the archive root; no parent folder; no unlisted files.</td></tr>
+          <tr><td><b>Category files</b></td><td>Theme has theme.css. Icons has icons/icons.json. Effects has effects/*.json. Layout has layout/*.json. Behavior/automation has the right capability.</td></tr>
+          <tr><td><b>Properties</b></td><td>Every control opens, changes, survives a restart and resets only when you intend it to.</td></tr>
+          <tr><td><b>Theme</b></td><td>Foreground/background contrast is readable in AMOLED mode, the editor and Home. The extension only changes intended colours.</td></tr>
+          <tr><td><b>Effects</b></td><td>The effect appears under Imported, every property is visible, keyframes work, preview and export agree, and a malformed shader is not silently black.</td></tr>
+          <tr><td><b>Behavior</b></td><td>Auto Scroll follows only while playing, does not move the playhead, and manual scrolling still works.</td></tr>
+          <tr><td><b>Uninstall</b></td><td>Remove the extension, restart and confirm the theme/icon/effect/layout/behavior returns to normal.</td></tr>
+        </table>
+        <p class="fineprint">The repository includes extension-system unit tests for manifest parsing, path rejection, the bundled bundle, CSS mapping and active-layer selection. Device rendering still needs a human pass on a phone or tablet.</p>
+      </div>
+    </section>
+
+    <section class="section shell" id="errors" style="padding-top:0">
+      <div class="section-head"><div><span class="eyebrow">Messages</span><h2>Install errors and fixes.</h2></div><p>The Extensions screen shows the first failure. These are the exact conditions behind the common messages.</p></div>
+      <div class="panel panel-pad">
+        <table class="facts">
+          <tr><td><b>Choose a .sc extension file</b></td><td>The display name does not end in <code>.sc</code>. Rename the archive; do not rename a folder.</td></tr>
+          <tr><td><b>manifest.json is missing</b></td><td>The zip has a parent folder or omits the manifest. Re-zip from inside the extension folder.</td></tr>
+          <tr><td><b>Unsupported file in extension</b></td><td>Remove dotfiles, images, HTML, scripts, native libraries or any file outside the allowlist.</td></tr>
+          <tr><td><b>Unsafe path in extension</b></td><td>An entry is absolute, contains <code>..</code>, a backslash, a colon or NUL. Rebuild the zip with relative slash paths.</td></tr>
+          <tr><td><b>Duplicate file in extension</b></td><td>The same entry name appears twice. Remove one copy.</td></tr>
+          <tr><td><b>This extension is too large</b></td><td>The archive exceeds 64 entries, 2 MiB per file or 8 MiB total.</td></tr>
+          <tr><td><b>unknown extension category</b></td><td>Use exactly behavior, theme, icons, effects, automation or layout.</td></tr>
+          <tr><td><b>unknown extension capability</b></td><td>Use only the six documented capabilities.</td></tr>
+          <tr><td><b>theme.css missing or too large</b></td><td>A theme category needs a theme.css at the root, under 64 KiB.</td></tr>
+          <tr><td><b>icons/icons.json missing or too large</b></td><td>An icons category needs that exact path, under 64 KiB.</td></tr>
+          <tr><td><b>effects extension needs 1-24 effect files</b></td><td>Add at least one .json directly inside effects/.</td></tr>
+          <tr><td><b>A layout extension needs a layout file</b></td><td>Add a .json directly inside layout/.</td></tr>
+          <tr><td><b>A behavior extension needs a safe capability</b></td><td>Add <code>timeline.follow</code> to capabilities.</td></tr>
+          <tr><td><b>Nothing changed after import</b></td><td>Enable the extension and tap Restart Schnitt to apply. Check that its category is the one you edited.</td></tr>
+          <tr><td><b>Auto Scroll does not move</b></td><td>Playback must be running, the layer must be visible at the playhead, and the behavior must be enabled. Selected mode follows the selected layer.</td></tr>
+          <tr><td><b>Custom icon did not appear</b></td><td>The name must be one of the six supported names; the path must be valid SVG path data; restart after changing it.</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <section class="section shell" id="versions" style="padding-top:0">
+      <div class="section-head"><div><span class="eyebrow">Evolution</span><h2>Keep ids stable.</h2></div><p>Updates are identified by <code>manifest.id</code>, not by filename or version.</p></div>
+      <div class="split">
+        <div class="panel panel-pad">
+          <h3>Update rules</h3>
+          <ul class="bullets">
+            <li>Keep the same <code>id</code> to update in place. The enabled flag is preserved.</li>
+            <li>Keep property ids stable to preserve values. Renaming an id starts that control from its new default.</li>
+            <li>Changing <code>category</code> is allowed but the card and required files change; re-test.</li>
+            <li><code>version</code> is a display string. Semver is recommended, not enforced.</li>
+            <li>New effects get new catalog ids; removing an effect used by a project leaves the project effect unresolved, so keep backward-compatible effect ids.</li>
+            <li>Changing a theme's palette keys is safe; removed keys return to the base theme.</li>
+          </ul>
+        </div>
+        <div class="panel panel-pad">
+          <h3>Schema future</h3>
+          <p>The reader only accepts schema 1. A future schema will be rejected by older app versions rather than guessed. When a new capability is added, older versions reject it because capabilities are a closed allowlist.</p>
+          <p class="fineprint">This is why the extension reader is predictable: an old app refuses what it does not understand instead of running it partially.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell" id="limits" style="padding-top:0">
+      <div class="section-head"><div><span class="eyebrow">Deliberate limits</span><h2>What is not in the contract.</h2></div><p>These are not missing features waiting to be enabled. They are outside the current safe reader.</p></div>
+      <div class="panel panel-pad">
+        <ul class="bullets">
+          <li><b>No executable code.</b> No JavaScript, DEX, JAR, native library, shell command, WebView, network access or internal file reads.</li>
+          <li><b>No full CSS themes.</b> Only palette colour variables. No selectors, fonts, spacing, images, animations or layout rules.</li>
+          <li><b>No arbitrary icons.</b> Only the four Home bar names and <code>tools.extensions</code>. Path data only, no images or markup.</li>
+          <li><b>No editor layout redesign.</b> The layout reader only changes the Tools column count; it cannot move, hide or resize editor controls.</li>
+          <li><b>No scripting automation.</b> The only safe automation action is looping playback at the scene end.</li>
+          <li><b>No custom property bindings.</b> A property that no reader knows is stored and displayed, but it does not execute an action.</li>
+          <li><b>No extension store or signature.</b> Bundles are local files. Install trusted authors and read the manifest.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section shell" style="padding-top:0;padding-bottom:60px">
+      <div class="panel panel-pad" style="text-align:center">
+        <span class="eyebrow">Start from the working example</span>
+        <h2 style="margin-top:10px">Auto Scroll is a complete bundle.</h2>
+        <p style="max-width:620px;margin:10px auto 0">Download the exact bundle that ships with Schnitt, open the zip, compare the manifest to the behavior section above, then change one property and reinstall it.</p>
+        <div class="hero-actions" style="justify-content:center;margin-top:22px">
+          <a class="button button-primary" href="downloads/auto-scroll.sc" download><svg><use href="#i-download"/></svg>Download auto-scroll.sc</a>
+          <a class="button button-ghost" href="https://github.com/fleurdeur/Schnitt/tree/main/extensions/auto-scroll" target="_blank" rel="noopener"><svg><use href="#i-file"/></svg>View source</a>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -324,7 +738,5 @@ zip -r my-extension.sc my-extension/*</code></pre>
     <button class="nav-download" data-download type="button" aria-label="Download latest APK"><span class="disc"><svg><use href="#i-download"/></svg></span><span>Download</span></button>
     <a class="nav-item" href="community/index.html"><svg><use href="#i-community"/></svg>Community</a>
   </nav>
-
-  <script src="assets/site.js" defer></script>
 </body>
 </html>
