@@ -311,7 +311,7 @@ private fun DeskTransport(state: EditorState, modifier: Modifier) {
         val centred = (maxWidth - 16.dp - centre) / 2 >= tools
         Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                Text(TimelineMath.timecode(state.frame, state.scene.fps), color = Am.OnDark, fontSize = 13.sp, style = Tabular, maxLines = 1, softWrap = false)
+                Text(TimelineMath.playbackTimecode(state.frame, state.scene.fps), color = Am.OnDark, fontSize = 13.sp, style = Tabular, maxLines = 1, softWrap = false)
                 if (total) Text(" / " + TimelineMath.timecode(state.scene.lastFrame + 1, state.scene.fps), color = Am.OnDarkDim, fontSize = 13.sp, style = Tabular, maxLines = 1, softWrap = false)
             }
             if (skips) DeskIcon(ChromeIcons.SkipBack, deskShortcut(R.string.desk_start, "Home"), size = 32.dp) { state.playing = false; state.frame = 0 }

@@ -163,7 +163,7 @@ private fun DrawingTimeBar(state: EditorState, mode: DrawingMode, modifier: Modi
             keys.lastOrNull { it < state.frame }?.let { if (first <= last) state.frame = it.coerceIn(first, last) }
         }
         BarButton(DrawingIcons.Prev, stringResource(R.string.draw_previous_frame), cell, enabled = !locked && state.frame > first) { state.frame = (state.frame - 1).coerceAtLeast(first) }
-        Text(TimelineMath.timecode(state.frame, state.scene.fps), Modifier.weight(1f), color = Am.OnDark, fontSize = 13.sp, maxLines = 1, textAlign = TextAlign.Center)
+        Text(TimelineMath.playbackTimecode(state.frame, state.scene.fps), Modifier.weight(1f), color = Am.OnDark, fontSize = 13.sp, maxLines = 1, textAlign = TextAlign.Center)
         BarButton(DrawingIcons.Next, stringResource(R.string.draw_next_frame), cell, enabled = !locked && state.frame < last) { state.frame = (state.frame + 1).coerceAtMost(last) }
         if (point != null) {
             BarButton(ChromeIcons.SkipForward, stringResource(R.string.draw_next_shape_keyframe), cell, enabled = keys.any { it > state.frame }) {

@@ -80,12 +80,13 @@ object AmEffectImporter {
         }
         val description = label("desc", tagAttr("desc"), strings).takeIf { it.isNotBlank() } ?: "Alight Motion effect"
         val category = Regex("""<effect\s+[^>]*category="([^"]+)""" + "\"").find(xml)?.groupValues?.get(1) ?: "other"
-        val chained = shader?.let { if (passes.size > 1) translatePasses(it, params, passes) else null }
-        val native = shader?.let { if (passes.size > 1) nativePasses(it, params, passes) else null }
+        val textures = textureIds(xml)
+        val chained = shader?.let { if (passes.size > 1) translatePasses(it, params, passes, textures) else null }
+        val native = shader?.let { if (passes.size > 1) nativePasses(it, params, passes, textures) else null }
         val stem = id.substringAfterLast('.')
         val auto = shader == null && stem in AutoEffects
         val alpha = shader == null && stem in OpacityEffects
-        val sksl = if (!native.isNullOrEmpty()) null else chained ?: shader?.let { translate(it, params) } ?: when {
+        val sksl = if (!native.isNullOrEmpty()) null else chained ?: shader?.let { translate(it, params, textures) } ?: when {
             auto -> null
             alpha -> null
             else -> fallback(name, category, params)
@@ -93,8 +94,8 @@ object AmEffectImporter {
         val key = "am-" + id.substringAfterLast('.').lowercase().replace(Regex("[^a-z0-9]+"), "") + "-" + digest(id).take(4)
         val resourcePaths = Regex("""<texture\s+([^>]*?)/?>""").findAll(xml).mapNotNull { match ->
             val attrs = match.groupValues[1]
-            val textureId = Regex("""id="([^"]+)"""").find(attrs)?.groupValues?.get(1) ?: return@mapNotNull null
-            val src = Regex("""src="([^"]+)"""").find(attrs)?.groupValues?.get(1) ?: return@mapNotNull null
+            val textureId = Regex("""\bid="([^"]+)"""").find(attrs)?.groupValues?.get(1) ?: return@mapNotNull null
+            val src = Regex("""\bsrc="([^"]+)"""").find(attrs)?.groupValues?.get(1) ?: return@mapNotNull null
             textureId to src
         }.toMap()
         val note = when {
@@ -271,9 +272,36 @@ object AmEffectImporter {
      * their real intermediate data instead of being collapsed into a random
      * generic filter.
      */
-    private fun nativePasses(source: String, params: List<EffectParam>, passes: List<Pass>): List<EffectPass>? {
+    private fun nativePasses(source: String, params: List<EffectParam>, passes: List<Pass>, textures: Set<String>): List<EffectPass>? {
         val clean = common(expandMacros(source))
         if (clean.contains("acLayerToScreen")) { /* handled by header uniforms */ }
+        val allTargets = passes.mapNotNull { it.target?.takeIf { t -> t.isNotBlank() && t != "image" && t != "comp" } }.distinct()
+        if (!clean.contains("acPass")) {
+            val images = textures - allTargets.toSet()
+            val targetHeader = buildString { for (t in allTargets) if (t.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) appendLine("uniform shader $t;") }
+            val out = ArrayList<EffectPass>(passes.size)
+            for (pass in passes) {
+                if (pass.effect != null) {
+                    val shader = when {
+                        pass.effect.contains("blur", true) -> blurShader()
+                        pass.effect.contains("findedges", true) -> edgeShader()
+                        else -> return null
+                    }
+                    out += EffectPass(shader, pass.target?.takeIf { it.isNotBlank() })
+                    continue
+                }
+                var stage = clean
+                stage = specializeSampler(stage)
+                stage = convertBody(stage, "coord", emptyMap(), images)
+                stage = sampleTargets(stage, allTargets)
+                stage = stage.replace(Regex("""\bgl_FragColor\s*=\s*([^;]+);"""), "return $1;")
+                stage = stage.replace(Regex("""\breturn\s*;"""), "return half4(0.0);")
+                val shader = header(params, images) + targetHeader +
+                    "half4 main(float2 coord) {\n" + stage + "\n}\n"
+                out += EffectPass(shader, pass.target?.takeIf { it.isNotBlank() })
+            }
+            return out
+        }
         val main = Regex("""void\s+main\s*\(\s*\)\s*\{""").find(clean) ?: return null
         val open = main.range.last
         val close = matchingBrace(clean, open) ?: return null
@@ -283,7 +311,7 @@ object AmEffectImporter {
         val preamble = body.substring(0, first)
         val suffix = body.substring(branchEnd(body) + 1)
         val targets = passes.mapNotNull { it.target?.takeIf { t -> t.isNotBlank() && t != "image" && t != "comp" } }.distinct()
-        val textures = textureIds(source) - targets.toSet()
+        val images = textures - targets.toSet()
         val targetHeader = buildString { for (t in targets) if (t.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) appendLine("uniform shader $t;") }
         val out = ArrayList<EffectPass>(passes.size)
         for (i in passes.indices) {
@@ -295,12 +323,13 @@ object AmEffectImporter {
             val branch = branches[i] ?: if (i == passes.lastIndex) branches[-1] else null
             if (branch == null) return null
             var stage = common(preamble + branch + suffix)
+            stage = Regex("""acPass""").replace(stage, i.toString())
             stage = specializeSampler(stage)
-            stage = convertBody(stage, "coord", emptyMap(), textures)
+            stage = convertBody(stage, "coord", emptyMap(), images)
             stage = sampleTargets(stage, targets)
             stage = stage.replace(Regex("""\bgl_FragColor\s*=\s*([^;]+);"""), "return $1;")
             stage = stage.replace(Regex("""\breturn\s*;"""), "return half4(0.0);")
-            val shader = header(params, textures) + targetHeader +
+            val shader = header(params, images) + targetHeader +
                 "half4 main(float2 coord) {\n" + stage + "\n}\n"
             out += EffectPass(shader, passes[i].target?.takeIf { it.isNotBlank() })
         }
@@ -340,7 +369,21 @@ object AmEffectImporter {
         appendLine("}")
     }
 
-    private fun translatePasses(source: String, params: List<EffectParam>, passes: List<Pass>): String? {
+    private fun edgeShader(): String = buildString {
+        appendLine("uniform shader image;")
+        appendLine("uniform float2 amSize;")
+        appendLine("uniform float4 screen;")
+        appendLine("half4 main(float2 coord) {")
+        appendLine("float2 px = max(screen.zw, float2(1.0)) / max(amSize, float2(1.0));")
+        appendLine("float l = dot(float3(image.eval(coord).rgb), float3(0.2126, 0.7152, 0.0722));")
+        appendLine("float lx = dot(float3(image.eval(coord + float2(px.x, 0.0)).rgb), float3(0.2126, 0.7152, 0.0722));")
+        appendLine("float ly = dot(float3(image.eval(coord + float2(0.0, px.y)).rgb), float3(0.2126, 0.7152, 0.0722));")
+        appendLine("float edge = clamp(length(float2(lx - l, ly - l)) * 2.0, 0.0, 1.0);")
+        appendLine("return half4(half3(edge), 1.0);")
+        appendLine("}")
+    }
+
+    private fun translatePasses(source: String, params: List<EffectParam>, passes: List<Pass>, textures: Set<String>): String? {
         val clean = common(expandMacros(source))
         if (clean.contains("acPass")) return null
         val main = Regex("""void\s+main\s*\(\s*\)\s*\{""").find(clean) ?: return null
@@ -353,18 +396,19 @@ object AmEffectImporter {
         val suffix = body.substring(branchEnd(body) + 1)
         val targets = HashMap<String, Int>()
         for (i in passes.indices) passes[i].target?.takeIf { it.isNotBlank() }?.let { targets[it] = i }
-        val textures = textureIds(source) - targets.keys
+        val images = textures - targets.keys
         val stages = ArrayList<String>(passes.size)
         for (i in passes.indices) {
             val branch = branches[i] ?: if (i == passes.lastIndex) branches[-1] else null
             if (branch == null) return null
             var stage = common(preamble + branch + suffix)
-            stage = convertBody(stage, "uv", targets, textures, normalized = true)
+            stage = Regex("""acPass""").replace(stage, i.toString())
+            stage = convertBody(stage, "uv", targets, images, normalized = true)
             stage = stage.replace(Regex("""\bgl_FragColor\s*=\s*([^;]+);"""), "return $1;")
             stage = stage.replace(Regex("""\breturn\s*;"""), "return half4(0.0);")
             stages += stage
         }
-        val out = StringBuilder(header(params, textures))
+        val out = StringBuilder(header(params, images))
         for (i in stages.indices) out.append("half4 pass").append(i).append("(float2 uv);\n")
         for (i in stages.indices) {
             out.append("half4 pass").append(i).append("(float2 uv) {\n")
@@ -390,17 +434,18 @@ object AmEffectImporter {
         var at = 0
         var last = -1
         while (true) {
-            val match = Regex("""if\s*\(\s*acPass\s*==\s*(\d+)\s*\)\s*\{""").find(body, at) ?: break
+            val match = Regex("""if\s*\(\s*acPass\s*==\s*(\d+)(?:\s*\|\|\s*acPass\s*==\s*(\d+))?\s*\)\s*\{""").find(body, at) ?: break
             val open = match.range.last
             val close = matchingBrace(body, open) ?: break
             val index = match.groupValues[1].toInt()
             out[index] = body.substring(open + 1, close)
+            if (match.groupValues[2].isNotBlank()) out[match.groupValues[2].toInt()] = body.substring(open + 1, close)
             last = close
             at = close + 1
             val tail = Regex("""^\s*else\s*""").find(body.substring(at))
             if (tail != null) {
                 val afterElse = at + tail.range.last + 1
-                val nested = Regex("""^\s*if\s*\(\s*acPass\s*==\s*(\d+)\s*\)\s*\{""").find(body.substring(afterElse))
+                val nested = Regex("""^\s*if\s*\(\s*acPass\s*==\s*(\d+)(?:\s*\|\|\s*acPass\s*==\s*(\d+))?\s*\)\s*\{""").find(body.substring(afterElse))
                 if (nested != null) {
                     at = afterElse + nested.range.first
                     continue
@@ -443,8 +488,7 @@ object AmEffectImporter {
         return end
     }
 
-    private fun translate(source: String, params: List<EffectParam>): String? {
-        val textures = textureIds(source)
+    private fun translate(source: String, params: List<EffectParam>, textures: Set<String>): String? {
         var s = expandMacros(source)
         s = common(s)
         s = convertBody(s, "coord", emptyMap(), textures)
@@ -534,7 +578,7 @@ object AmEffectImporter {
         var s = source
         s = Regex("""sampler2D\s+${Regex.escape(sampler)}\s*,""").replace(s, "")
         s = Regex("""${Regex.escape(helper)}\s*\(\s*${Regex.escape(sampler)}\.texture\s*,""").replace(s, "$helper(")
-        s = Regex("""${Regex.escape(sampler)}""").replace(s, sampler.let { call.groupValues[2] })
+        s = Regex("""\b${Regex.escape(sampler)}\b""").replace(s, sampler.let { call.groupValues[2] })
         // The sampler variable name and the buffer name are sometimes the same
         // (texture), so move the actual child name in from the call.
         s = Regex("""texture2DCv\s*\(\s*${Regex.escape(call.groupValues[2])}\s*,""").replace(s, "texture2DCv(${call.groupValues[2]}.texture,")
@@ -656,6 +700,41 @@ object AmEffectImporter {
         .replace(Regex("""\b(?:highp|mediump|lowp)\b"""), "")
         .replace(Regex("""\bin\s+"""), "")
         .replace("acTime", "amTime").replace("acResolution", "acPreviewSize")
+        .let { boundedLoops(it) }
+
+    /** Alight shaders often loop with a float index and a uniform bound. SkSL
+     *  only unrolls constant loops, so turn each one into a bounded integer
+     *  loop and break on the original condition. */
+    private fun boundedLoops(source: String): String {
+        val pattern = Regex("""for\s*\(\s*float\s+(\w+)\s*=\s*([^;]+);\s*\1\s*(<=|>=|<|>)\s*([^;]+);\s*\1\s*([+\-])=\s*([^)]+)\)\s*\{""")
+        var out = source
+        var serial = 0
+        while (true) {
+            val match = pattern.find(out) ?: break
+            val name = match.groupValues[1]
+            val start = match.groupValues[2].trim()
+            val op = match.groupValues[3]
+            val end = match.groupValues[4].trim()
+            val sign = match.groupValues[5]
+            val step = match.groupValues[6].trim()
+            val open = match.range.last
+            var depth = 0
+            var close = -1
+            for (i in open until out.length) {
+                if (out[i] == '{') depth++
+                else if (out[i] == '}') {
+                    depth--
+                    if (depth == 0) { close = i; break }
+                }
+            }
+            if (close < 0) break
+            val id = "__i${serial++}"
+            val delta = if (sign == "-") "-($step)" else step
+            val header = "for (int $id = 0; $id < 512; $id++) { float $name = ($start) + ($delta) * float($id); if (!($name $op $end)) break; "
+            out = out.substring(0, match.range.first) + header + out.substring(open + 1, close + 1) + "}" + out.substring(close + 1)
+        }
+        return out
+    }
 
     private val ReservedUniforms = setOf(
         "image", "amSize", "amTime", "amDuration", "resolution", "coord", "layer", "fromLayer", "toLayer", "orient",

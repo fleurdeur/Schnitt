@@ -89,6 +89,10 @@ class AmEffectLibraryTest {
         for (effect in effects) {
             assertNotNull(effect.name, effect.fallback)
             assertTrue("${effect.name} is native and needs no shader", effect.native || effect.sksl?.isNotBlank() == true)
+            val shader = effect.sksl ?: ""
+            assertTrue("${effect.name} still has an unbounded float loop", !Regex("""for\s*\(\s*float""").containsMatchIn(shader))
+            assertTrue("${effect.name} still has GLSL texture2D", !shader.contains("texture2D"))
+            assertTrue("${effect.name} still has sampler2D", !shader.contains("sampler2D"))
             for (param in effect.params) {
                 assertTrue("${effect.name}.${param.id}", param.id.matches(Regex("[A-Za-z_][A-Za-z0-9_]*")))
                 assertTrue("${effect.name}.${param.id} label", param.label.isNotBlank() && !param.label.startsWith("@"))

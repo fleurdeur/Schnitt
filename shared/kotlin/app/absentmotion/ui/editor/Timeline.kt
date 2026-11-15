@@ -512,6 +512,14 @@ internal object TimelineMath {
         return "${two(frame / fps / 60)}:${two(frame / fps % 60)}:${two(frame % fps)}"
     }
 
+    /** Playback clock: hours, minutes and seconds. Seconds never show 60 or
+     *  above; the next minute starts exactly at the sixtieth second. */
+    fun playbackTimecode(frame: Int, fps: Int): String {
+        fun two(n: Int) = n.toString().padStart(2, '0')
+        val total = max(0, frame) / max(1, fps)
+        return "${two(total / 3600)}:${two(total / 60 % 60)}:${two(total % 60)}"
+    }
+
     fun tickStep(fps: Int, dpPerSecond: Float): Int =
         (1..fps).firstOrNull { fps % it == 0 && it * dpPerSecond / fps >= MIN_TICK_GAP_DP } ?: fps
 
@@ -1817,10 +1825,10 @@ private fun DrawScope.drawTimeline(view: TimelineView, measurer: TextMeasurer, s
     val onBookmark = marks.any { state.scene.frameAt(it) == state.frame }
     if (desktop) {
         clipRect(left = view.headerWidth) { for (ms in marks) drawBookmark(time.x(ms.toFloat()), outline) }
-        if (time.originX in view.headerWidth..size.width) drawPlayhead(time.originX, TimelineMath.timecode(state.frame, fps), measurer, styles, outline, onBookmark, view.headerWidth + PillInset.toPx())
+        if (time.originX in view.headerWidth..size.width) drawPlayhead(time.originX, TimelineMath.playbackTimecode(state.frame, fps), measurer, styles, outline, onBookmark, view.headerWidth + PillInset.toPx())
     } else {
         for (ms in marks) drawBookmark(time.x(ms.toFloat()), outline)
-        drawPlayhead(time.originX, TimelineMath.timecode(state.frame, fps), measurer, styles, outline, onBookmark)
+        drawPlayhead(time.originX, TimelineMath.playbackTimecode(state.frame, fps), measurer, styles, outline, onBookmark)
     }
 }
 

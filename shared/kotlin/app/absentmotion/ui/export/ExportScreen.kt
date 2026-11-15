@@ -1680,7 +1680,7 @@ private fun ThumbnailPicker(scene: Scene, engine: EngineThread, community: app.a
                     SquareChooser(scene.width, scene.height, square, 10.dp, Modifier.fillMaxSize()) { square = it }
                 }
                 Row(Modifier.fillMaxWidth().height(46.dp).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(app.absentmotion.ui.editor.TimelineMath.timecode(state.frame, scene.fps), color = Am.OnDark, fontSize = 14.sp, maxLines = 1, style = Mixed)
+                    Text(app.absentmotion.ui.editor.TimelineMath.playbackTimecode(state.frame, scene.fps), color = Am.OnDark, fontSize = 14.sp, maxLines = 1, style = Mixed)
                     Spacer(Modifier.width(14.dp))
                     Text(stringResource(R.string.community_picker_hint), Modifier.weight(1f), color = Am.OnDark.copy(alpha = 0.7f), fontSize = 12.sp, lineHeight = 15.sp, maxLines = 2)
                 }
