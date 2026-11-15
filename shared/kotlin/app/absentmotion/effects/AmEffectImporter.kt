@@ -323,7 +323,7 @@ object AmEffectImporter {
             val branch = branches[i] ?: if (i == passes.lastIndex) branches[-1] else null
             if (branch == null) return null
             var stage = common(preamble + branch + suffix)
-            stage = Regex("""acPass""").replace(stage, i.toString())
+            stage = Regex("""\bacPass\b""").replace(stage, i.toString())
             stage = specializeSampler(stage)
             stage = convertBody(stage, "coord", emptyMap(), images)
             stage = sampleTargets(stage, targets)
@@ -402,7 +402,7 @@ object AmEffectImporter {
             val branch = branches[i] ?: if (i == passes.lastIndex) branches[-1] else null
             if (branch == null) return null
             var stage = common(preamble + branch + suffix)
-            stage = Regex("""acPass""").replace(stage, i.toString())
+            stage = Regex("""\bacPass\b""").replace(stage, i.toString())
             stage = convertBody(stage, "uv", targets, images, normalized = true)
             stage = stage.replace(Regex("""\bgl_FragColor\s*=\s*([^;]+);"""), "return $1;")
             stage = stage.replace(Regex("""\breturn\s*;"""), "return half4(0.0);")
@@ -701,7 +701,7 @@ object AmEffectImporter {
         .replace(Regex("""\b(?:highp|mediump|lowp)\b"""), "")
         .replace(Regex("""\bin\s+"""), "")
         .replace("acTime", "amTime").replace("acResolution", "acPreviewSize")
-        .let { boundedLoops(it) }
+        .let { boundedIntLoops(boundedLoops(it)) }
 
     /** Alight shaders often loop with a float index and a uniform bound. SkSL
      *  only unrolls constant loops, so turn each one into a bounded integer
@@ -732,7 +732,49 @@ object AmEffectImporter {
             val id = "__i${serial++}"
             val delta = if (sign == "-") "-($step)" else step
             val header = "for (int $id = 0; $id < 512; $id++) { float $name = ($start) + ($delta) * float($id); if (!($name $op $end)) break; "
-            out = out.substring(0, match.range.first) + header + out.substring(open + 1, close + 1) + "}" + out.substring(close + 1)
+            out = out.substring(0, match.range.first) + header + out.substring(open + 1, close + 1) + out.substring(close + 1)
+        }
+        return out
+    }
+
+    /** SkSL only unrolls loops with a constant bound. Alight also uses
+     *  uniform-bounded integer loops for sample counts and octave counts, so
+     *  give each one a safe constant bound and break at the real condition. */
+    private fun boundedIntLoops(source: String): String {
+        val pattern = Regex("""for\s*\(\s*int\s+(\w+)\s*=\s*([^;]+);\s*\1\s*(<=|>=|<|>)\s*([^;]+);\s*\1\s*(\+\+|--|\+=|-=)\s*([^)]*)\)\s*\{""")
+        var out = source
+        var searchAt = 0
+        var serial = 0
+        while (true) {
+            val match = pattern.find(out, searchAt) ?: break
+            val end = match.groupValues[4].trim()
+            if (end.matches(Regex("""[0-9.]+"""))) {
+                searchAt = match.range.last + 1
+                continue
+            }
+            val name = match.groupValues[1]
+            val start = match.groupValues[2].trim()
+            val op = match.groupValues[3]
+            val update = match.groupValues[5]
+            val step = match.groupValues[6].trim()
+            val open = match.range.last
+            var depth = 0
+            var close = -1
+            for (i in open until out.length) {
+                if (out[i] == '{') depth++
+                else if (out[i] == '}') { depth--; if (depth == 0) { close = i; break } }
+            }
+            if (close < 0) break
+            val id = "__n${serial++}"
+            val delta = when (update) {
+                "++" -> "1"
+                "--" -> "-1"
+                "+=" -> "($step)"
+                else -> "-($step)"
+            }
+            val header = "for (int $id = 0; $id < 256; $id++) { int $name = ($start) + ($delta) * $id; if (!($name $op $end)) break; "
+            out = out.substring(0, match.range.first) + header + out.substring(open + 1, close + 1) + out.substring(close + 1)
+            searchAt = match.range.first + header.length
         }
         return out
     }

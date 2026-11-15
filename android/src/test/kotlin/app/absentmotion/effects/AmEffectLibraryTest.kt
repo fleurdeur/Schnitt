@@ -93,6 +93,9 @@ class AmEffectLibraryTest {
             assertTrue("${effect.name} still has an unbounded float loop", !Regex("""for\s*\(\s*float""").containsMatchIn(shader))
             assertTrue("${effect.name} still has GLSL texture2D", !shader.contains("texture2D"))
             assertTrue("${effect.name} still has sampler2D", !shader.contains("sampler2D"))
+            for (loop in Regex("""for\s*\(\s*int\s+\w+\s*=\s*[^;]+;\s*\w+\s*(?:<=|>=|<|>)\s*([^;]+);""").findAll(shader)) {
+                assertTrue("${effect.name} still has an unbounded int loop", loop.groupValues[1].trim().matches(Regex("""[0-9.]+""")))
+            }
             for (param in effect.params) {
                 assertTrue("${effect.name}.${param.id}", param.id.matches(Regex("[A-Za-z_][A-Za-z0-9_]*")))
                 assertTrue("${effect.name}.${param.id} label", param.label.isNotBlank() && !param.label.startsWith("@"))
