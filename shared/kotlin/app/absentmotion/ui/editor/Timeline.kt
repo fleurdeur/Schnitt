@@ -512,13 +512,12 @@ internal object TimelineMath {
         return "${two(frame / fps / 60)}:${two(frame / fps % 60)}:${two(frame % fps)}"
     }
 
-    /** Playback clock: hours, minutes, seconds and milliseconds. Seconds never
-     *  show 60 or above; the next minute starts exactly at the sixtieth second. */
+    /** Playback clock: hours, minutes and seconds. The last field is seconds
+     *  and never shows 60 or above; the next minute starts at the sixtieth second. */
     fun playbackTimecode(frame: Int, fps: Int): String {
-        fun digits(n: Long, width: Int) = n.toString().padStart(width, '0')
-        val ms = max(0, frame).toLong() * 1000L / max(1, fps)
-        val seconds = ms / 1000L
-        return "${digits(seconds / 3600, 2)}:${digits(seconds / 60 % 60, 2)}:${digits(seconds % 60, 2)}.${digits(ms % 1000, 3)}"
+        fun two(n: Int) = n.toString().padStart(2, '0')
+        val total = max(0, frame) / max(1, fps)
+        return "${two(total / 3600)}:${two(total / 60 % 60)}:${two(total % 60)}"
     }
 
     fun tickStep(fps: Int, dpPerSecond: Float): Int =
