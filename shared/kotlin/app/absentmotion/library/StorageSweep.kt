@@ -64,6 +64,10 @@ suspend fun sweepStorageDaily(context: Context) = withContext(Dispatchers.IO) {
     if (now - stamp.lastModified() in 0 until StaleTempMs) return@withContext
     runCatching { stamp.writeText("") }
     val external = context.getExternalFilesDir(null)
+    runCatching {
+        File(context.filesDir, "extensions").listFiles { f -> f.name.startsWith(".tmp-") && now - f.lastModified() > StaleTempMs }
+            ?.forEach { it.deleteRecursively() }
+    }
     runCatching { external?.resolve("compress")?.listFiles()?.filter { now - it.lastModified() > StaleTempMs }?.forEach { it.deleteRecursively() } }
     runCatching { sweepStorage(context.filesDir, listOfNotNull(external?.resolve("ai"), external?.resolve("gif")), now) }
         .onSuccess { Log.i("AMStore", "storage clean-up removed $it unused files") }

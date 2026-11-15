@@ -67,6 +67,7 @@ data class EffectCatalog(
             app.absentmotion.i18n.LanguagePacks.prepare(context, tag)
             return parse(tag) { app.absentmotion.i18n.LanguagePacks.open(context, tag, "effects/$it") }
                 .let { if (it.message != null) it.copy(message = context.getString(R.string.effects_not_loaded)) else app.absentmotion.plugins.PluginEffectImporter.append(context, AmEffectImporter.append(context, AexImporter.append(context, it))) }
+                .let { catalog -> app.absentmotion.extensions.ExtensionRuntime.effects().takeIf { it.isNotEmpty() }?.let { catalog.copy(definitions = catalog.definitions + it) } ?: catalog }
         }
 
         fun parse(language: String = "en", open: (String) -> InputStream): EffectCatalog = runCatching {

@@ -798,17 +798,17 @@ private fun BottomBar(onNew: () -> Unit, page: Int, onPage: (Int) -> Unit, modif
                 }.padding(top = 12.dp),
         ) {
             Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
-                BarItem(stringResource(R.string.home_tab_projects), if (page == 0) HomeIcons.ProjectsTab else HomeIcons.ProjectsTabOff, held && page == 0) { onPage(0) }
+                BarItem(stringResource(R.string.home_tab_projects), HomeIcons.custom("home.projects", if (page == 0) HomeIcons.ProjectsTab else HomeIcons.ProjectsTabOff), held && page == 0) { onPage(0) }
             }
             Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
-                BarItem(stringResource(R.string.home_tab_plugins), if (page == 3) HomeIcons.PluginsOn else HomeIcons.Plugins, held && page == 3) { onPage(3) }
+                BarItem(stringResource(R.string.home_tab_plugins), HomeIcons.custom("home.plugins", if (page == 3) HomeIcons.PluginsOn else HomeIcons.Plugins), held && page == 3) { onPage(3) }
             }
             Spacer(Modifier.width(56.dp))
             Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
-                BarItem(stringResource(R.string.home_tab_templates), if (page == 1) HomeIcons.TemplatesTabOn else HomeIcons.TemplatesTab, held && page == 1) { onPage(1) }
+                BarItem(stringResource(R.string.home_tab_templates), HomeIcons.custom("home.templates", if (page == 1) HomeIcons.TemplatesTabOn else HomeIcons.TemplatesTab), held && page == 1) { onPage(1) }
             }
             Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
-                if (tools) BarItem(stringResource(R.string.home_tab_tools), if (page == 2) HomeIcons.ToolsTabOn else HomeIcons.ToolsTab, held && page == 2) { onPage(2) }
+                if (tools) BarItem(stringResource(R.string.home_tab_tools), HomeIcons.custom("home.tools", if (page == 2) HomeIcons.ToolsTabOn else HomeIcons.ToolsTab), held && page == 2) { onPage(2) }
             }
         }
         val press = remember { MutableInteractionSource() }

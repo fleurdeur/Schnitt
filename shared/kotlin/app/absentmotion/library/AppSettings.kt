@@ -37,8 +37,9 @@ class AppSettings(private val context: Context) {
     private var customThemeState by mutableStateOf(Themes.custom(context)?.let { it.name ?: "" })
 
     init {
+        app.absentmotion.extensions.ExtensionRuntime.attach(context)
         if (!prefs.contains("theme")) prefs.edit().putString("theme", themeState).apply()
-        Am.palette = Themes.palette(context, themeState, systemDarkState)
+        Am.palette = app.absentmotion.extensions.ExtensionRuntime.theme(Themes.palette(context, themeState, systemDarkState))
     }
 
     private var savedColoursState by mutableStateOf(
@@ -210,14 +211,14 @@ class AppSettings(private val context: Context) {
             themeState = value
             prefs.edit().putString("theme", value).apply()
             if (value == Themes.SYSTEM) systemDarkState = app.absentmotion.platform.systemDark(context)
-            Am.palette = Themes.palette(context, value, systemDarkState)
+            Am.palette = app.absentmotion.extensions.ExtensionRuntime.theme(Themes.palette(context, value, systemDarkState))
         }
 
     var systemDark: Boolean
         get() = systemDarkState
         set(value) {
             systemDarkState = value
-            if (themeState == Themes.SYSTEM) Am.palette = Themes.palette(context, themeState, value)
+            if (themeState == Themes.SYSTEM) Am.palette = app.absentmotion.extensions.ExtensionRuntime.theme(Themes.palette(context, themeState, value))
         }
 
     val themes: List<Pair<String, UiText>>

@@ -53,6 +53,7 @@ internal object HomeIcons {
             "A1 1 0 0 1 3 20L3 15A1 1 0 0 1 4 14ZM17 14L20 14A1 1 0 0 1 21 15L21 20A1 1 0 0 1 20 21L17 21A1 1 0 0 1 16 20L16 15A1 1 0 0 1 17 14Z", fill = "M4 3L20 3A1 1 0 0 1 21 4L21 9A1 1 0 0 1 20 10L4 10A1 1 0 0 1 3 9L3 4A1 1 0 0 1 4 3Z", width = 1.8f)
     val ToolsTab = icon("ToolsTab", stroke = WRENCH, width = 1.8f)
     val Plugins = icon("Plugins", stroke = "M9 7V4.5A2.5 2.5 0 0 1 11.5 2H12.5A2.5 2.5 0 0 1 15 4.5V7H19A2 2 0 0 1 21 9V12.5A2.5 2.5 0 0 0 18.5 15A2.5 2.5 0 0 0 21 17.5V19A2 2 0 0 1 19 21H15V17.5A2.5 2.5 0 0 0 12.5 15A2.5 2.5 0 0 0 10 17.5V21H5A2 2 0 0 1 3 19V15H5.5A2.5 2.5 0 0 0 8 12.5A2.5 2.5 0 0 0 5.5 10H3V9A2 2 0 0 1 5 7Z")
+    val Extensions = icon("Extensions", stroke = "M8.5 3H5A2 2 0 0 0 3 5V8.5A2.5 2.5 0 1 1 3 13.5V19A2 2 0 0 0 5 21H10.5A2.5 2.5 0 1 1 15.5 21H19A2 2 0 0 0 21 19V13.5A2.5 2.5 0 1 0 21 8.5V5A2 2 0 0 0 19 3H15.5A2.5 2.5 0 1 0 10.5 3Z", width = 1.7f)
     val PluginsOn = icon("PluginsOn", fill = "M9 7V4.5A2.5 2.5 0 0 1 11.5 2H12.5A2.5 2.5 0 0 1 15 4.5V7H19A2 2 0 0 1 21 9V12.5A2.5 2.5 0 0 0 18.5 15A2.5 2.5 0 0 0 21 17.5V19A2 2 0 0 1 19 21H15V17.5A2.5 2.5 0 0 0 12.5 15A2.5 2.5 0 0 0 10 17.5V21H5A2 2 0 0 1 3 19V15H5.5A2.5 2.5 0 0 0 8 12.5A2.5 2.5 0 0 0 5.5 10H3V9A2 2 0 0 1 5 7Z", width = 1.8f)
     val CommunityTab = icon("CommunityTab", stroke = PEOPLE)
     val CommunityTabOn = icon("CommunityTabOn", stroke = PEOPLE, fill = PEOPLE_FILL)
@@ -66,6 +67,24 @@ internal object HomeIcons {
     val Download = icon("Download", stroke = "M12 15L12 3M21 15L21 19A2 2 0 0 1 19 21L5 21A2 2 0 0 1 3 19L3 15M7 10L12 15L17 10", width = 1.8f)
     val TemplatesTab = icon("TemplatesTab", stroke ="M4 3L20 3A1 1 0 0 1 21 4L21 9A1 1 0 0 1 20 10L4 10A1 1 0 0 1 3 9L3 4A1 1 0 0 1 4 3ZM4 14L11 14A1 1 0 0 1 12 15L12 20A1 1 0 0 1 11 21L4 21" +
             "A1 1 0 0 1 3 20L3 15A1 1 0 0 1 4 14ZM17 14L20 14A1 1 0 0 1 21 15L21 20A1 1 0 0 1 20 21L17 21A1 1 0 0 1 16 20L16 15A1 1 0 0 1 17 14Z", width = 1.8f)
+
+    private val customIcons = HashMap<String, ImageVector>()
+    private var customRevision = -1
+
+    /** Home and tools icons can be replaced by an enabled icons extension. */
+    fun custom(name: String, fallback: ImageVector): ImageVector {
+        val revision = app.absentmotion.extensions.ExtensionRuntime.revision
+        if (revision != customRevision) {
+            customIcons.clear()
+            customRevision = revision
+        }
+        return customIcons.getOrPut(name) {
+            val spec = app.absentmotion.extensions.ExtensionRuntime.iconSpec(name) ?: return@getOrPut fallback
+            runCatching {
+                icon("Ext." + name, stroke = spec.path.takeIf { spec.stroke }, fill = spec.path.takeUnless { spec.stroke }, width = spec.width, mirror = spec.mirror)
+            }.getOrDefault(fallback)
+        }
+    }
 }
 
 private const val WRENCH = "M14.7 6.3A1 1 0 0 0 14.7 7.7L16.3 9.3A1 1 0 0 0 17.7 9.3L20.806 6.195C21.126 5.873 21.669 5.975 21.789 6.413A6 6 0 0 1 13.53 13.47L5.62 21.38" +

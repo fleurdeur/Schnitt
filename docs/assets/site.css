@@ -504,3 +504,19 @@ img { max-width: 100%; height: auto; display: block; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
 }
+
+/* Extension guide */
+.facts { width: 100%; border-collapse: collapse; margin-top: 14px; }
+.facts td { padding: 9px 0; border-bottom: 1px solid var(--line); color: var(--dim); font-size: 12.5px; line-height: 1.5; vertical-align: top; }
+.facts td:first-child { width: 34%; padding-right: 18px; color: var(--ink); }
+.facts tr:last-child td { border-bottom: 0; }
+pre { overflow-x: auto; margin: 14px 0 0; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--deepest); color: var(--mid); font: 500 11px/1.65 var(--mono); tab-size: 2; }
+code { font: 500 .92em/1.5 var(--mono); color: var(--accent); }
+pre code { color: var(--mid); font-size: inherit; }
+body[data-page="extensions"] .feature-grid { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 760px) {
+  body[data-page="extensions"] .feature-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 480px) {
+  body[data-page="extensions"] .feature-grid { grid-template-columns: 1fr; }
+}

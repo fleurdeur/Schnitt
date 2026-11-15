@@ -191,10 +191,13 @@ internal fun ToolsTab(modifier: Modifier, store: ProjectStore, settings: AppSett
             }
         }
     }
+    val extensionsCard: @Composable (Modifier) -> Unit = { m ->
+        ToolCard(HomeIcons.custom("tools.extensions", HomeIcons.Extensions), "Extensions", "Themes, icons, effects, layout and safe behaviors from .sc bundles.", modifier = m) { open = 8 }
+    }
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = if (PlatformFeatures.desktop) 28.dp else 16.dp)) {
         Spacer(Modifier.height(24.dp))
-        if (PlatformFeatures.desktop) ToolGrid(listOf(presetsCard, tiktokCard, compressCard, trimCard, extractCard, gifCard, downloaderCard))
-        else if (LocalWide.current || app.absentmotion.ui.editor.LocalTablet.current) ToolGrid(listOf(presetsCard, tiktokCard, compressCard, trimCard, extractCard, gifCard, downloaderCard))
+        if (PlatformFeatures.desktop) ToolGrid(listOf(presetsCard, tiktokCard, compressCard, trimCard, extractCard, gifCard, downloaderCard, extensionsCard))
+        else if (LocalWide.current || app.absentmotion.ui.editor.LocalTablet.current) ToolGrid(listOf(presetsCard, tiktokCard, compressCard, trimCard, extractCard, gifCard, downloaderCard, extensionsCard))
         else {
             presetsCard(Modifier)
             Spacer(Modifier.height(12.dp))
@@ -209,6 +212,8 @@ internal fun ToolsTab(modifier: Modifier, store: ProjectStore, settings: AppSett
             gifCard(Modifier)
             Spacer(Modifier.height(12.dp))
             downloaderCard(Modifier)
+            Spacer(Modifier.height(12.dp))
+            extensionsCard(Modifier)
         }
         Spacer(Modifier.height(28.dp))
         if (asking) AlertDialog(
@@ -229,12 +234,15 @@ internal fun ToolsTab(modifier: Modifier, store: ProjectStore, settings: AppSett
         5 -> GifScreen { open = 0 }
         6 -> PresetsScreen({ open = 0 }, { scene -> open = 0; onPreset(scene) })
         7 -> TikTokScreen({ open = 0 }, onImportXml)
+        8 -> ExtensionScreen { open = 0 }
     }
 }
 
 @Composable
 private fun ToolGrid(cards: List<@Composable (Modifier) -> Unit>) = BoxWithConstraints(Modifier.fillMaxWidth()) {
-    val columns = ((maxWidth + 16.dp) / 336.dp).toInt().coerceIn(1, 3)
+    val revision = app.absentmotion.extensions.ExtensionRuntime.revision
+    val preferred = remember(revision) { app.absentmotion.extensions.ExtensionRuntime.layoutColumns(0) }
+    val columns = preferred.takeIf { it in 1..3 } ?: ((maxWidth + 16.dp) / 336.dp).toInt().coerceIn(1, 3)
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         cards.chunked(columns).forEach { row ->
             Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(16.dp)) {

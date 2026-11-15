@@ -281,6 +281,7 @@ private fun Playback(state: EditorState) {
             var audible = audio?.play(startMs.toDouble()) == true
             var startNanos = withFrameNanos { it }
             var shown = startFrame
+            val loop = state.settings.loopingPlay || app.absentmotion.extensions.ExtensionRuntime.automationLoops()
             while (state.playing) {
                 val now = withFrameNanos { it }
                 if (audio?.interrupted == true) { state.playing = false; break }
@@ -298,7 +299,7 @@ private fun Playback(state: EditorState) {
                     startFrame + (((now - startNanos) * fps + 250_000_000L) / 1_000_000_000L).toInt()
                 }
                 if (frame > state.scene.lastFrame) {
-                    if (state.settings.loopingPlay && state.scene.lastFrame > 0) {
+                    if (loop && state.scene.lastFrame > 0) {
                         startFrame = 0
                         startMs = state.scene.frameStart(0)
                         startNanos = now

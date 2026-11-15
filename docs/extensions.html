@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en" data-root="./">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Extensions — Schnitt</title>
+  <meta name="description" content="Build .sc extensions for Schnitt: themes, icons, effects, layout, automation and safe timeline behavior.">
+  <meta name="theme-color" content="#000000">
+  <link rel="icon" href="assets/icon.png">
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body data-page="extensions" data-root="./">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V21H3Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 21v-7h6v7" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+    <symbol id="i-community" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 20c.5-4 2.8-6 5.5-6s5 2 5.5 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M16 5.2a3.1 3.1 0 0 1 0 5.9M17.5 14.4c2 .7 3.1 2.6 3.4 5.1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-ext" viewBox="0 0 24 24"><path d="M8.5 3H5a2 2 0 0 0-2 2v3.5a2.5 2.5 0 1 1 0 5V19a2 2 0 0 0 2 2h5.5a2.5 2.5 0 1 1 5 0H19a2 2 0 0 0 2-2v-5.5a2.5 2.5 0 1 0 0-5V5a2 2 0 0 0-2-2h-3.5a2.5 2.5 0 1 0-5 0Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.5 3 7.6 7 9 4-1.4 7-4.5 7-9V6Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M14 2v6h6" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+  </svg>
+
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="index.html" aria-label="Schnitt home">
+        <img src="assets/icon.png" alt=""><span>Schnitt</span><small>MOTION</small>
+      </a>
+      <nav class="header-links" aria-label="Sections">
+        <a href="index.html#editor">Editor</a>
+        <a href="index.html#effects">Effects</a>
+        <a href="extensions.html" aria-current="page">Extensions</a>
+        <a href="community/index.html">Community</a>
+      </nav>
+      <a class="header-cta" href="download.html"><svg><use href="#i-download"/></svg><span class="desktop">Get the app</span></a>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero shell">
+      <span class="eyebrow">Extensions · .sc</span>
+      <h1>Make Schnitt<br>your own.</h1>
+      <p>An extension is a small, portable <b>.sc</b> bundle. It can change colours, specific icons, effects, layout and safe timeline behavior. It is data, not code — Schnitt reads it, applies it, and never executes it.</p>
+      <div class="hero-actions">
+        <a class="button button-primary" href="downloads/auto-scroll.sc" download><svg><use href="#i-download"/></svg>Download Auto Scroll</a>
+        <a class="button button-ghost" href="#manifest"><svg><use href="#i-file"/></svg>Read the manifest guide</a>
+      </div>
+    </section>
+
+    <section class="shell" style="padding-bottom:40px">
+      <div class="feature-grid">
+        <article class="feature">
+          <div class="icon"><svg><use href="#i-ext"/></svg></div>
+          <h3>Install once</h3>
+          <p>Open <b>Home → Tools → Extensions → Import .sc</b>. Schnitt validates the bundle, copies only its supported files, and keeps your property values. Restart once to apply it.</p>
+        </article>
+        <article class="feature">
+          <div class="icon"><svg><use href="#i-shield"/></svg></div>
+          <h3>Sandboxed reader</h3>
+          <p>No JavaScript, DEX, native libraries, HTML or shell. The reader enforces a manifest, an allowlist, path checks, per-file limits and an 8 MB total cap.</p>
+        </article>
+        <article class="feature">
+          <div class="icon"><svg><use href="#i-arrow"/></svg></div>
+          <h3>One format, six categories</h3>
+          <p>Behavior, Theme, Icons, Effects, Automation and Layout. Each category has a small, documented surface instead of an unrestricted app hook.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell" id="quickstart" style="padding-top:0">
+      <div class="section-head">
+        <div><span class="eyebrow">Quick start</span><h2>Five minutes to a bundle.</h2></div>
+        <p>A .sc file is a zip. Rename the zip after you add a manifest.</p>
+      </div>
+      <div class="split">
+        <div class="panel panel-pad">
+          <span class="panel-kicker">1 · Create the folder</span>
+          <pre><code>my-extension/
+  manifest.json
+  theme.css        (optional)
+  icons/icons.json (optional)
+  effects/*.json   (optional)
+  layout/*.json    (optional)
+  README.md        (recommended)</code></pre>
+          <span class="panel-kicker" style="display:block;margin-top:20px">2 · Zip it</span>
+          <pre><code># any zip tool works; the suffix must be .sc
+zip -r my-extension.sc my-extension/*</code></pre>
+        </div>
+        <div class="panel panel-pad">
+          <span class="panel-kicker">3 · Test</span>
+          <p>Import the bundle in Schnitt, open its card, change the declared properties and restart. The extensions page never installs a bundle whose manifest is missing or whose paths leave the bundle.</p>
+          <span class="panel-kicker" style="display:block;margin-top:22px">4 · Share</span>
+          <p>Send the .sc file directly or publish it with a project/preset. Keep the README next to the bundle so people know which properties are safe to change.</p>
+          <p class="fineprint" style="margin-top:18px">The official extension suffix is <b>.sc</b>. APK, DEX, JAR, SO, JS, HTML and executable files are rejected.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell" id="manifest" style="padding-top:0">
+      <div class="section-head">
+        <div><span class="eyebrow">Reference</span><h2>manifest.json</h2></div>
+        <p>Every bundle starts here. Unknown fields are ignored; unknown categories, capabilities and property types are rejected.</p>
+      </div>
+      <div class="panel panel-pad">
+<pre><code>{
+  "schema": 1,
+  "id": "auto-scroll",
+  "name": "Auto Scroll",
+  "version": "1.0.0",
+  "author": "your-name",
+  "description": "Keeps the timeline on the playing layer.",
+  "category": "behavior",
+  "capabilities": ["timeline.follow"],
+  "properties": [
+    { "id": "enabled", "label": "Follow during playback", "type": "toggle", "default": true },
+    { "id": "mode", "label": "Follow", "type": "choice",
+      "options": ["Playing layer", "Selected layer"],
+      "values": ["playing", "selected"], "default": "playing" },
+    { "id": "snap", "label": "Snap layer to centre", "type": "toggle", "default": true },
+    { "id": "speed", "label": "Scroll speed", "type": "slider",
+      "default": 1.0, "min": 0.25, "max": 3.0, "step": 0.05 }
+  ]
+}</code></pre>
+      </div>
+
+      <div class="split" style="margin-top:16px">
+        <div class="panel panel-pad">
+          <h3>Categories</h3>
+          <table class="facts">
+            <tr><td><b>behavior</b></td><td>Safe timeline behavior. Requires <code>timeline.follow</code>.</td></tr>
+            <tr><td><b>theme</b></td><td>Palette colours from <code>theme.css</code>.</td></tr>
+            <tr><td><b>icons</b></td><td>Home/Tools vector icons from <code>icons/icons.json</code>.</td></tr>
+            <tr><td><b>effects</b></td><td>One or more effect JSON files in <code>effects/</code>.</td></tr>
+            <tr><td><b>automation</b></td><td>Safe playback automation. Requires <code>automation.safe</code>.</td></tr>
+            <tr><td><b>layout</b></td><td>Supported layout values from <code>layout/*.json</code>.</td></tr>
+          </table>
+        </div>
+        <div class="panel panel-pad">
+          <h3>Capabilities</h3>
+          <p><code>timeline.follow</code>, <code>theme.css</code>, <code>icons.home</code>, <code>effects.custom</code>, <code>layout.tools</code>, <code>automation.safe</code>.</p>
+          <p class="fineprint">Capabilities are a closed list. A bundle cannot request file access, network, app internals, another extension's files, or arbitrary UI.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell" id="properties" style="padding-top:0">
+      <div class="section-head">
+        <div><span class="eyebrow">Custom controls</span><h2>Properties are part of the extension.</h2></div>
+        <p>Declare only what your extension understands. Schnitt renders the controls and stores the chosen values.</p>
+      </div>
+      <div class="panel panel-pad">
+        <table class="facts">
+          <tr><td><b>toggle</b></td><td><code>true</code> / <code>false</code>. Example: enabled, snap, loopPlayback.</td></tr>
+          <tr><td><b>slider</b></td><td>Number with <code>default</code>, <code>min</code>, <code>max</code>, <code>step</code>. Stored as text, read as a bounded float.</td></tr>
+          <tr><td><b>choice</b></td><td><code>options</code> are labels, <code>values</code> are the strings your reader consumes. Both lists must be the same length.</td></tr>
+          <tr><td><b>text</b></td><td>A single line, capped at 512 characters.</td></tr>
+          <tr><td><b>color</b></td><td>A single hex colour. Themes normally belong in <code>theme.css</code>.</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <section class="section shell" id="theme" style="padding-top:0">
+      <div class="section-head">
+        <div><span class="eyebrow">Theme category</span><h2>CSS that can only touch the palette.</h2></div>
+        <p>Use familiar custom properties. Schnitt reads hex colours from <code>--palette-name</code> declarations and ignores selectors, URLs, imports and everything else.</p>
+      </div>
+      <div class="split">
+        <div class="panel panel-pad">
+<pre><code>/* theme.css */
+:root {
+  --home-bg: #0b0f0c;
+  --card: #121a15;
+  --navy: #e6f2e9;
+  --home-ink: #cfe0d5;
+  --accent: #7ed9a0;
+  --accent-deep: #183326;
+  --timeline-bg: #080b09;
+  --preview-bg: #050706;
+}</code></pre>
+        </div>
+        <div class="panel panel-pad">
+          <h3>Supported names</h3>
+          <p>Every name in the Schnitt palette: <code>TopBar</code>, <code>PreviewBg</code>, <code>TimelineBg</code>, <code>Panel</code>, <code>Card</code>, <code>Navy</code>, <code>HomeBg</code>, <code>HomeInk</code>, <code>Accent</code>, <code>AccentLit</code>, <code>AccentDeep</code>, <code>OnAccent</code>, <code>Line</code>, <code>Gold</code>, <code>Warning</code> and the rest.</p>
+          <p class="fineprint">Kebab-case is converted to the palette name, so <code>--home-bg</code> → <code>HomeBg</code>. Invalid colours and unsupported names are ignored.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell" id="icons" style="padding-top:0">
+      <div class="section-head">
+        <div><span class="eyebrow">Icons category</span><h2>Replace a specific icon.</h2></div>
+        <p>Icons are vector path data, not images or HTML. Supported names are the Home and Tools buttons.</p>
+      </div>
+      <div class="split">
+        <div class="panel panel-pad">
+<pre><code>// icons/icons.json
+{
+  "home.projects": {
+    "path": "M5 3h14v18H5Z M9 8h6 M9 12h6 M9 16h4",
+    "stroke": true,
+    "width": 1.8
+  },
+  "home.tools": "M4 12h16 M12 4v16"
+}</code></pre>
+        </div>
+        <div class="panel panel-pad">
+          <h3>Names</h3>
+          <p><code>home.projects</code>, <code>home.templates</code>, <code>home.tools</code>, <code>home.plugins</code>, <code>home.community</code>, <code>tools.extensions</code>.</p>
+          <p>The path uses the same SVG path syntax as the app icons. A path can be up to 16 KB. Scripts and URL references are rejected.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell" id="effects" style="padding-top:0">
+      <div class="section-head">
+        <div><span class="eyebrow">Effects category</span><h2>Ship an effect with its own controls.</h2></div>
+        <p>Each file in <code>effects/</code> is a Schnitt effect definition. It appears in the normal Effects library under <b>Imported</b>, with keyframeable properties and its own shader.</p>
+      </div>
+      <div class="panel panel-pad">
+<pre><code>{
+  "id": "my-lens",
+  "name": "My Lens",
+  "category": "distort",
+  "description": "A small radial lens with a strength control.",
+  "params": [
+    { "id": "strength", "label": "Strength", "type": "float",
+      "default": 0.5, "min": 0.0, "max": 1.0, "step": 0.01 }
+  ],
+  "sksl": "uniform shader image; uniform float2 amSize; uniform float strength; half4 main(float2 p) { float2 uv = p / amSize; float2 d = uv - 0.5; float r = dot(d,d); return image.eval(p + d * r * strength * 40.0); }"
+}</code></pre>
+        <p class="fineprint">Use an id prefixed with your extension id. Effects are compiled by the normal graphics engine; a malformed shader is rejected and never becomes a native code path. See the existing effect JSON files for presets, choices and multi-pass examples.</p>
+      </div>
+    </section>
+
+    <section class="section shell" id="layout" style="padding-top:0">
+      <div class="section-head">
+        <div><span class="eyebrow">Layout category</span><h2>A few honest layout switches.</h2></div>
+        <p>Layout is deliberately narrow. The supported value is the Tools grid column count, so a layout extension cannot move controls into an unsafe or unusable position.</p>
+      </div>
+      <div class="split">
+        <div class="panel panel-pad">
+<pre><code>// layout/tools.json
+{
+  "surface": "tools",
+  "toolsColumns": 2
+}</code></pre>
+        </div>
+        <div class="panel panel-pad">
+          <h3>Manifest property</h3>
+          <p>Declare a <code>toolsColumns</code> slider with min 1, max 3 and step 1. The bundle remains a normal <b>layout</b> category extension and is toggled from the Extensions screen.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell" id="automation" style="padding-top:0">
+      <div class="section-head">
+        <div><span class="eyebrow">Automation category</span><h2>Small, predictable playback rules.</h2></div>
+        <p>The safe automation hook is <code>loopPlayback</code>. When enabled, playback restarts at the beginning at the scene end. It does not change speed, frames, audio or project data.</p>
+      </div>
+      <div class="panel panel-pad">
+<pre><code>{
+  "schema": 1,
+  "id": "loop-playback",
+  "name": "Loop Playback",
+  "category": "automation",
+  "capabilities": ["automation.safe"],
+  "properties": [
+    { "id": "loopPlayback", "label": "Loop at scene end", "type": "toggle", "default": true }
+  ]
+}</code></pre>
+      </div>
+    </section>
+
+    <section class="section shell" id="auto-scroll" style="padding-top:0">
+      <div class="section-head">
+        <div><span class="eyebrow">First extension</span><h2>Auto Scroll, explained.</h2></div>
+        <p>Bundled and enabled by default. It follows the playing layer vertically and only touches the timeline scroll.</p>
+      </div>
+      <div class="split">
+        <div class="panel panel-pad">
+          <h3>Properties</h3>
+          <table class="facts">
+            <tr><td><b>Follow during playback</b></td><td>Master switch.</td></tr>
+            <tr><td><b>Follow</b></td><td>Playing layer or selected layer.</td></tr>
+            <tr><td><b>Snap to centre</b></td><td>Centre the row, or only scroll when it leaves the middle band.</td></tr>
+            <tr><td><b>Scroll speed</b></td><td>0.25x–3x. Changes the ease duration only.</td></tr>
+            <tr><td><b>Smoothing time</b></td><td>80–1200 ms base ease.</td></tr>
+          </table>
+        </div>
+        <div class="panel panel-pad">
+          <h3>What it never does</h3>
+          <p>It never changes the playhead, frame, playback clock, audio, project XML or export. It does not create keyframes and it stops following when playback stops. The timeline can still be scrolled by hand.</p>
+          <a class="button button-ghost" href="downloads/auto-scroll.sc" download style="margin-top:10px"><svg><use href="#i-download"/></svg>Download auto-scroll.sc</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell" id="security" style="padding-top:0">
+      <div class="section-head">
+        <div><span class="eyebrow">Security model</span><h2>No shortcuts into the app.</h2></div>
+        <p>The reader is intentionally boring. That is what makes it safe to share extensions with strangers.</p>
+      </div>
+      <div class="how-grid">
+        <article class="how"><b>01</b><h3>Allowlist only</h3><p>Manifest, README, LICENSE, theme.css, icons/icons.json, effects/*.json and layout/*.json. Everything else is rejected.</p></article>
+        <article class="how"><b>02</b><h3>Path and size checks</h3><p>Absolute paths, <code>..</code>, backslashes, duplicate entries, executables and oversized archives are rejected before install.</p></article>
+        <article class="how"><b>03</b><h3>Data, never code</h3><p>No JavaScript interpreter, DEX loader, native library, HTML panel or network request. CSS only sets colours; icons only set path data.</p></article>
+      </div>
+      <p class="fineprint" style="max-width:760px;margin-top:20px">Extensions still run inside the same process as the app. A malicious shader can be expensive to render, so install bundles you trust and keep effects small. Schnitt reports a failed extension instead of hiding it.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div class="footer-brand"><img src="assets/icon.png" alt=""><div><b>Schnitt</b>A motion editor for Android. Extensions are portable, readable and yours.</div></div>
+      <div class="footer-links">
+        <a href="index.html">Home</a><a href="download.html">Download</a><a href="extensions.html">Extensions</a>
+        <a href="community/index.html">Community</a><a href="https://github.com/fleurdeur/Schnitt" target="_blank" rel="noopener">Source</a>
+      </div>
+    </div>
+    <div class="shell footer-note">© <span data-year>2026</span> Schnitt · .sc is a Schnitt extension bundle.</div>
+  </footer>
+
+  <nav class="bottom-nav" aria-label="Primary">
+    <a class="nav-item" href="index.html"><svg><use href="#i-home"/></svg>Home</a>
+    <button class="nav-download" data-download type="button" aria-label="Download latest APK"><span class="disc"><svg><use href="#i-download"/></svg></span><span>Download</span></button>
+    <a class="nav-item" href="community/index.html"><svg><use href="#i-community"/></svg>Community</a>
+  </nav>
+
+  <script src="assets/site.js" defer></script>
+</body>
+</html>

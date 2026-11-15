@@ -1,11 +1,16 @@
 package app.absentmotion.ui.editor
 
 import app.absentmotion.model.withEdgeMotions
+import app.absentmotion.extensions.AutoScroll
+import app.absentmotion.extensions.AutoScrollConfig
+import app.absentmotion.extensions.ExtensionRuntime
 import app.absentmotion.ui.tutorial.tutorialGuard
 import app.absentmotion.model.Scene
 import app.absentmotion.model.shownName
 import app.absentmotion.model.defaultCameraId
 import androidx.compose.ui.unit.DpSize
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationState
 import androidx.compose.animation.core.animate
@@ -318,6 +323,17 @@ fun Timeline(state: EditorState, modifier: Modifier = Modifier) {
     val appear = remember(state.selectedId) { Animatable(if (state.selectedId == null) 1f else 0f) }
     LaunchedEffect(appear) { appear.animateTo(1f, Motion.enter()) }
     LaunchedEffect(view, state.playing) { if (state.playing) view.followPlayback() }
+    val extensionRevision = ExtensionRuntime.revision
+    val autoScroll = remember(extensionRevision) { ExtensionRuntime.autoScroll() }
+    LaunchedEffect(view, state.playing, autoScroll, extensionRevision) {
+        if (!state.playing || autoScroll == null) return@LaunchedEffect
+        snapshotFlow {
+            if (autoScroll.mode == "selected") state.selectedId
+            else AutoScroll.activeLayerId(state.scene, state.frame, view.fps)
+        }.filterNotNull().distinctUntilChanged().collect { id ->
+            view.rowOf(id)?.let { row -> view.followLayer(row, autoScroll) }
+        }
+    }
     if (PlatformFeatures.desktop) LaunchedEffect(view) {
         snapshotFlow { state.frame to state.playing }.collect { (_, playing) -> if (playing) view.pagePlayback() else view.revealPlayhead() }
     }
@@ -1221,6 +1237,28 @@ private class TimelineView(val state: EditorState, density: Density, private val
     fun followPlayback() {
         stopMotion()
         scrubMs = null
+    }
+
+    /** Vertical follow used by the Auto Scroll extension. It only changes the
+     *  timeline scroll, never the scene, playhead or playback clock. */
+    fun followLayer(row: Int, config: AutoScrollConfig) {
+        if (!state.playing || row !in 0 until layers.size) return
+        val top = rowTop(row)
+        val bottom = top + rowH
+        val bandTop = rulerH + (rowsBottom - rulerH) * 0.24f
+        val bandBottom = rulerH + (rowsBottom - rulerH) * 0.76f
+        val wanted = when {
+            config.snap -> TimelineMath.centredScroll(row, rowH, rulerH, rowsBottom)
+            top < bandTop -> scroll - (bandTop - top)
+            bottom > bandBottom -> scroll + (bottom - bandBottom)
+            else -> scroll
+        }.coerceIn(0f, TimelineMath.maxScroll(layers.size, rowH, rulerH, rowsBottom))
+        if (abs(wanted - scroll) < 0.5f) return
+        val duration = (config.smoothness / config.speed.coerceIn(0.1f, 4f)).roundToInt().coerceIn(60, 4000)
+        motion?.cancel()
+        motion = scope.launch {
+            animate(scroll, wanted, animationSpec = tween(duration)) { value, _ -> scrollPx = value }
+        }
     }
 
     fun zoomBy(factor: Float, anchor: Float = timeScale().originX) {

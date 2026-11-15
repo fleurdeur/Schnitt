@@ -20,7 +20,7 @@
 
 <br/>
 
-[**Download**](#download) · [**Features**](#features) · [**Presets**](#presets) · [**Community**](#community) · [**Plugins**](#plugins) · [**Build**](#build) · [**Credits**](#credits)
+[**Download**](#download) · [**Features**](#features) · [**Presets**](#presets) · [**Community**](#community) · [**Plugins**](#plugins) · [**Extensions**](#extensions) · [**Build**](#build) · [**Credits**](#credits)
 
 <br/>
 
@@ -153,6 +153,35 @@ Schnitt has a sandboxed plugin host for Adobe-style panels and effect packages.
 - **Undo-friendly** — plugin effects use the app's normal effect history.
 
 Native Windows Adobe binaries cannot execute on Android. Where a binary cannot run, Schnitt ports its effect contract and exposes the compatible shader properties rather than pretending to execute the DLL.
+
+</div>
+
+---
+
+<div align="center">
+
+<h1><a id="extensions"></a>Extensions</h1>
+
+Schnitt extensions are portable **`.sc`** bundles that customize the app without executing code. Install them from **Home → Tools → Extensions**, choose a category, change the properties the author declared, then restart Schnitt once to apply them.
+
+| Category | What it can change |
+| :--- | :--- |
+| **Behavior** | Safe timeline behavior, including Auto Scroll and playback follow. |
+| **Theme** | Palette colours through a small, sandboxed `theme.css` file. |
+| **Icons** | A specific set of Home and Tools vector icons. |
+| **Effects** | New effect definitions and their editable, keyframeable properties. |
+| **Automation** | Safe playback automation such as looping at the scene end. |
+| **Layout** | Supported layout choices, including the Tools column count. |
+
+### Auto Scroll
+
+The first extension is bundled and enabled by default. While the timeline plays, it eases the vertical scroll to the layer under the playhead. It never changes the playhead, the clock or playback speed. Its properties control the follow mode, snap-to-centre, speed and smoothing time.
+
+### Safe reader
+
+The extension reader only accepts a manifest and the documented data files. It rejects path traversal, executables, native libraries, HTML, scripts and oversized archives. Themes can only set palette colours, icons only receive vector path data, and effects are shader JSON. Extensions cannot read Schnitt's internal files or bypass app permissions.
+
+Read the community guide at **[fleurdeur.github.io/Schnitt/extensions.html](https://fleurdeur.github.io/Schnitt/extensions.html)** and install the example **`auto-scroll.sc`** from that page.
 
 </div>
 

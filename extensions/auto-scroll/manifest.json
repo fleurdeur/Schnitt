@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "id": "auto-scroll",
+  "name": "Auto Scroll",
+  "version": "1.0.0",
+  "author": "fleurdeur",
+  "description": "Keeps the timeline on the layer that is playing. It scrolls vertically only, never changes the playhead or playback speed, and eases between layers.",
+  "category": "behavior",
+  "capabilities": ["timeline.follow"],
+  "properties": [
+    {
+      "id": "enabled",
+      "label": "Follow during playback",
+      "type": "toggle",
+      "default": true
+    },
+    {
+      "id": "mode",
+      "label": "Follow",
+      "type": "choice",
+      "options": ["Playing layer", "Selected layer"],
+      "values": ["playing", "selected"],
+      "default": "playing"
+    },
+    {
+      "id": "snap",
+      "label": "Snap layer to centre",
+      "type": "toggle",
+      "default": true
+    },
+    {
+      "id": "speed",
+      "label": "Scroll speed",
+      "type": "slider",
+      "default": 1.0,
+      "min": 0.25,
+      "max": 3.0,
+      "step": 0.05
+    },
+    {
+      "id": "smoothness",
+      "label": "Smoothing time",
+      "type": "slider",
+      "default": 260,
+      "min": 80,
+      "max": 1200,
+      "step": 20
+    }
+  ]
+}
