@@ -1,23 +1,13 @@
 {
-  "tag": "v5.4.3",
-  "name": "Schnitt 5.4.3",
-  "published": "2026-11-15T07:46:07Z",
-  "notes": "# Schnitt 5.4.3\n\n## Tiles repeats the layer correctly\nTiles now uses the layer's real screen position and size. The image repeats across all four edges, mirror alternates the copies, row offset and rotation stay aligned, and Crop changes the tile size without stretching the artwork.\n\n## Directional Blur blurs in one direction\nDirectional Blur now uses the Alight Motion sampling path, with a real Strength slider and a linear blur along the chosen angle. Imported Strength values are clamped to the usable range instead of producing empty or black frames.\n\n## Imported effects keep their keyframes\nProjects and links imported from Alight Motion keep every effect property, every keyframe time, every value and every easing curve. Effects are no longer replaced by their defaults, and properties whose names differ slightly are matched to the correct controls.\n\n## Under the hood\nThe layer coordinate helper now converts screen pixels into the layer space used by Tiles and the other Alight shaders. Imported Alight effects use their own definitions and controls instead of a fallback approximation.\n",
+  "tag": "v5.4.4",
+  "name": "Schnitt 5.4.4",
+  "published": "2026-11-15T08:09:31Z",
+  "notes": "# Schnitt 5.4.4\n\n## Milliseconds in the playback clock\nThe playback clock now shows milliseconds as well as hours, minutes and seconds. The seconds field stays between 00 and 59, so the clock rolls from 59.999 to the next minute instead of ever showing 60 or more.\n\n## Imported effects use bounded shader loops\nAlight effects that loop over a sample count, octave count or buffer range now compile with a safe constant loop bound. This keeps imported blurs, glows and multi-pass effects running instead of falling back to an empty result.\n\n## Under the hood\nThe stage splitter now keeps the original shader braces balanced on every pass, so multi-pass effects such as Box Blur receive the correct horizontal and vertical stages.\n",
   "assets": [
     {
-      "name": "Schnitt-5.4.3-arm64-v8a-release.apk",
-      "size": 93130669,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.4.3/Schnitt-5.4.3-arm64-v8a-release.apk"
-    },
-    {
-      "name": "Schnitt-5.4.3-armv7-release.apk",
-      "size": 90974675,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.4.3/Schnitt-5.4.3-armv7-release.apk"
-    },
-    {
-      "name": "Schnitt-5.4.3-universal-release.apk",
-      "size": 145331990,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.4.3/Schnitt-5.4.3-universal-release.apk"
+      "name": "Schnitt-5.4.4-arm64-v8a-release.apk",
+      "size": 93132204,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.4.4/Schnitt-5.4.4-arm64-v8a-release.apk"
     }
   ]
 }
