@@ -3,5 +3,21 @@
   "name": "Schnitt 5.3.9",
   "published": "2026-11-15T02:24:35Z",
   "notes": "Schnitt 5.3.9\n\nCommunity, without the issue thread\n- The official Schnitt site now has one community shelf for presets and XML projects.\n- Upload is a drag-and-drop form with progress, a private status link, and human review. No GitHub account and no issue creation.\n- The app reads approved community entries from the live shelf, with the old archive kept as a fallback.\n\nUpdates outside the app\n- The update check now posts a real system notification while Schnitt is closed or in the background.\n- Checks run every 6 hours, resume after a reboot, and the notification has direct Download and Open actions.\n- Notifications still respect the update-check setting, ignored versions, and Android notification permission.\n\nSite and release plumbing\n- Download always resolves the latest GitHub release and starts the APK download directly.\n- The site has a bottom navigation bar: Home, Download, Community.\n- Release data on the site refreshes automatically when a new version is published.",
-  "assets": []
+  "assets": [
+    {
+      "name": "Schnitt-5.3.9-arm64-v8a-release.apk",
+      "size": 82051932,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.3.9/Schnitt-5.3.9-arm64-v8a-release.apk"
+    },
+    {
+      "name": "Schnitt-5.3.9-armv7-release.apk",
+      "size": 79963278,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.3.9/Schnitt-5.3.9-armv7-release.apk"
+    },
+    {
+      "name": "Schnitt-5.3.9-universal-release.apk",
+      "size": 133473097,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.3.9/Schnitt-5.3.9-universal-release.apk"
+    }
+  ]
 }

@@ -124,7 +124,7 @@
 
   $$("[data-year]").forEach(el => { el.textContent = new Date().getFullYear(); });
 
-  if (isDownload) latestRelease().then(applyRelease);
+  latestRelease().then(applyRelease);
 
   // Community index ---------------------------------------------------------
   function normalizeGithubEntry(item) {
