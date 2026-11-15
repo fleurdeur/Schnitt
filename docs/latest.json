@@ -1,23 +1,13 @@
 {
-  "tag": "v5.4.5",
-  "name": "Schnitt 5.4.5",
-  "published": "2026-11-15T08:34:50Z",
-  "notes": "# Schnitt 5.4.5\n\n## Playback clock stays at hours, minutes and seconds\nThe playback clock is back to the three-field format: hours, minutes and seconds. The final field is seconds and never goes above 59, so it rolls from 00:00:59 to 00:01:00.\n\n## Under the hood\nThe extra millisecond field from 5.4.4 has been removed.\n",
+  "tag": "v5.5.0",
+  "name": "Schnitt 5.5.0",
+  "published": "2026-11-15T10:13:50Z",
+  "notes": "# Schnitt 5.5.0\n\n## Extensions in Tools\nTools now has an Extensions button. Import an official .sc bundle, choose a category, change the properties the author declared, and restart once to apply it.\n\n## Six extension categories\nBehavior, Theme, Icons, Effects, Automation and Layout are visible in the app. Every bundle declares its category, its capabilities, and its own controls.\n\n## Auto Scroll\nThe first bundled extension follows the layer under the playhead while the timeline plays. It only moves the vertical timeline scroll. Follow mode, snap to centre, speed and smoothing are editable in the extension card.\n\n## Themes, icons, effects and layout\nTheme extensions use a small CSS palette reader. Icon extensions replace specific Home and Tools vector icons. Effect extensions add normal keyframeable effects. Layout extensions can choose the Tools column count. Automation extensions can loop playback at the scene end.\n\n## Safe reader\nThe .sc reader accepts a manifest and documented data files only. It rejects path traversal, executables, native libraries, scripts, HTML, duplicate entries and oversized archives. Extensions cannot read Schnitt internal files or bypass permissions.\n\n## Performance and storage\nExtension archives are parsed once per change and cached for preview, icons, effects and themes. The timeline follow behavior only reacts when the playing layer changes. Interrupted installs are cleaned up, stale temporary extension folders are swept, and the Extensions screen shows the storage used.\n\n## Documentation\nThe website now has a full extension guide at fleurdeur.github.io/Schnitt/extensions.html, and the README lists every category and the Auto Scroll extension.\n",
   "assets": [
     {
-      "name": "Schnitt-5.4.5-arm64-v8a-release.apk",
-      "size": 93132303,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.4.5/Schnitt-5.4.5-arm64-v8a-release.apk"
-    },
-    {
-      "name": "Schnitt-5.4.5-armv7-release.apk",
-      "size": 90976305,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.4.5/Schnitt-5.4.5-armv7-release.apk"
-    },
-    {
-      "name": "Schnitt-5.4.5-universal-release.apk",
-      "size": 145333620,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.4.5/Schnitt-5.4.5-universal-release.apk"
+      "name": "Schnitt-5.5.0-arm64-v8a-release.apk",
+      "size": 93252092,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.0/Schnitt-5.5.0-arm64-v8a-release.apk"
     }
   ]
 }
