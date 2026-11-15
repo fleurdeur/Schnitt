@@ -1278,9 +1278,11 @@ void DrawContent(SkCanvas* canvas, const std::vector<Layer>& siblings, const Lay
     };
     SkRect effectArea = scenePath.getBounds();
     SkMatrix effectMatrix = m;
-    if (effects && l.kind == "embedScene" && gEffects->wraps && gEffects->wraps(l)) {
-        const SkRect content = DrawnBounds(l, timeMs, m);
-        if (content.isFinite() && !content.isEmpty()) effectArea = content;
+    // Tiles fills the scene, not just the source layer. The shader maps scene
+    // pixels back into the layer, so the filter must be given the full scene
+    // even when the layer itself is smaller than the canvas.
+    if (effects && gEffects->wraps && gEffects->wraps(l)) {
+        effectArea = SkRect::MakeWH((float)gScene->width, (float)gScene->height);
     }
     if (effects && l.kind == "model") {
         const SkRect body = ModelBounds(l, timeMs);

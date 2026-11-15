@@ -66,6 +66,13 @@ GLuint Compile(GLenum kind, const char* source) {
     return shader;
 }
 
+bool IsTenBit(uint32_t format) {
+    // GL_EXT_YUV_target samples 8-bit external buffers. A P010/P210 frame
+    // handed to it turns into the green blocky picture some drivers show,
+    // so leave those buffers to Skia's own hardware-buffer import.
+    return format == AHARDWAREBUFFER_FORMAT_YCbCr_P010 || format == AHARDWAREBUFFER_FORMAT_YCbCr_P210;
+}
+
 bool IsRgb(uint32_t format) {
     switch (format) {
         case AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM:
@@ -129,7 +136,7 @@ sk_sp<SkImage> GlYuv::convert(GrDirectContext* context, AHardwareBuffer* buffer,
     if (!fDriver && colorStandard != 1 && colorStandard != 2 && colorStandard != 4 && colorStandard != 6) return nullptr;
     AHardwareBuffer_Desc desc;
     AHardwareBuffer_describe(buffer, &desc);
-    if (IsRgb(desc.format)) return nullptr;
+    if (IsRgb(desc.format) || IsTenBit(desc.format)) return nullptr;
     const EGLDisplay display = eglGetCurrentDisplay();
     const EGLint attributes[] = {EGL_IMAGE_PRESERVED_KHR, EGL_TRUE, EGL_NONE};
     EGLImageKHR image = fCreateImage(display, EGL_NO_CONTEXT, EGL_NATIVE_BUFFER_ANDROID, fClientBuffer(buffer), attributes);

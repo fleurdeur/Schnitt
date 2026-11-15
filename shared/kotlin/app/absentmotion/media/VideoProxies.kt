@@ -58,7 +58,7 @@ internal object ProxyRules {
     }
 
     fun needed(width: Int, height: Int, syncGapUs: Long, hdr: Boolean): Boolean =
-        !hdr && width > 0 && height > 0 && (max(width, height) > MAX_LONG_SIDE || min(width, height) > MAX_SHORT_SIDE || syncGapUs > MAX_SYNC_GAP_US)
+        width > 0 && height > 0 && (hdr || max(width, height) > MAX_LONG_SIDE || min(width, height) > MAX_SHORT_SIDE || syncGapUs > MAX_SYNC_GAP_US)
 
     fun size(width: Int, height: Int): Pair<Int, Int> {
         val scale = min(1.0, SHORT_SIDE.toDouble() / min(width, height))
@@ -224,7 +224,7 @@ private fun sourceInfo(context: Context, uri: String): SourceInfo {
         val (width, height) = visibleSize(format)
         val fps = (format.numberOf(MediaFormat.KEY_FRAME_RATE)?.toFloat() ?: 30f).roundToInt().coerceIn(1, 120)
         val durationUs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else 0L
-        return SourceInfo(width, height, isHdrTransfer(format.intOr(MediaFormat.KEY_COLOR_TRANSFER, 0)), fps, durationUs)
+        return SourceInfo(width, height, format.needsSdrCopy(), fps, durationUs)
     } finally { extractor.release() }
 }
 

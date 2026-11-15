@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ProxyRulesTest {
-    @Test fun onlyVideosAbove1080pOrWithLongGopsGetACopy() {
+    @Test fun highDynamicRangeOrLargeVideosGetACopy() {
         assertFalse(ProxyRules.needed(1920, 1080, 1_000_000, hdr = false))
         assertFalse(ProxyRules.needed(1080, 1920, 1_000_000, hdr = false))
         assertTrue(ProxyRules.needed(3840, 2160, 1_000_000, hdr = false))
@@ -18,7 +18,8 @@ class ProxyRulesTest {
         assertFalse(ProxyRules.needed(1280, 720, 2_000_000, hdr = false))
         assertTrue(ProxyRules.needed(1280, 720, 2_000_001, hdr = false))
         assertTrue(ProxyRules.needed(640, 360, Long.MAX_VALUE, hdr = false))
-        assertFalse(ProxyRules.needed(3840, 2160, 10_000_000, hdr = true))
+        assertTrue(ProxyRules.needed(1920, 1080, 1_000_000, hdr = true))
+        assertTrue(ProxyRules.needed(3840, 2160, 10_000_000, hdr = true))
         assertFalse(ProxyRules.needed(0, 0, 10_000_000, hdr = false))
     }
 

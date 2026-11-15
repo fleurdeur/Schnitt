@@ -2,6 +2,7 @@ package app.absentmotion.effects
 
 import org.json.JSONArray
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -41,7 +42,9 @@ class EffectPackTest {
                 (if ("screen" in uniforms) mapOf("screen" to ("float4" to false)) else emptyMap()) +
                 (if ("visible" in uniforms) mapOf("visible" to ("float4" to false)) else emptyMap()) +
                 (if ("layer" in uniforms) mapOf("layer" to ("float2" to false)) else emptyMap()) +
-                listOf("toLayer", "fromLayer", "orient").filter { it in uniforms }.associateWith { "float3x3" to false } +
+                listOf("toLayer", "fromLayer", "acLayerToScreen", "acScreenToLayer", "orient").filter { it in uniforms }.associateWith { "float3x3" to false } +
+                listOf("acScreenSize", "acLayerSize", "acLayerCenterNorm", "acLayerPivot", "acPreviewSize", "acLayerSizeNorm", "amSize").filter { it in uniforms }
+                    .associateWith { if (it == "acScreenSize" || it == "acLayerSize" || it == "acLayerCenterNorm" || it == "acLayerPivot" || it == "acPreviewSize") "float2" to false else if (it == "amSize") "float2" to false else "float" to false } +
                 listOf("palette", "thresholds", "glyphs").filter { it in uniforms }.associateWith { "shader" to false } +
                 listOf("glyphCount", "glyphColumns").filter { it in uniforms }.associateWith { "float" to false } +
                 (if ("glyphCell" in uniforms) mapOf("glyphCell" to ("float2" to false)) else emptyMap()) +
@@ -81,6 +84,13 @@ class EffectPackTest {
     @Test fun onlyLightGlowBlursTheBrightParts() {
         assertEquals(setOf("lightglow"), reads("bright"))
         assertTrue(reads("blurred").containsAll(listOf("darkglow", "edgeglow")))
+    }
+
+    @Test fun tilesKeepsTheAlightPixelToLayerMapping() {
+        val tiles = catalog.find("absent.tiles")!!
+        assertTrue(tiles.sksl!!.contains("float3 h = toLayer * float3(p, 1.0);"))
+        assertFalse(tiles.sksl!!.contains("float2 n = (p - screen.xy)"))
+        assertTrue(tiles.sksl!!.contains("float2 pixelSize = 1.0 / max(layer, float2(1.0));"))
     }
 
     @Test fun defaultsLieWithinTheirRange() {

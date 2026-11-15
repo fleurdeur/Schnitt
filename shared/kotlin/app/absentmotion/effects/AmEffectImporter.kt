@@ -538,8 +538,7 @@ object AmEffectImporter {
         }
         appendLine("float2 AcScreenNorm(float2 p) { return (p - screen.xy) / max(screen.zw, float2(1.0)); }")
         appendLine("float2 AcLayerNorm(float2 p) {")
-        appendLine("    float2 n = (p - screen.xy) / max(screen.zw, float2(1.0));")
-        appendLine("    float3 h = toLayer * float3(n, 1.0);")
+        appendLine("    float3 h = toLayer * float3(p, 1.0);")
         appendLine("    return h.xy / max(layer, float2(1.0));")
         appendLine("}")
         appendLine("float2 AcLayerNormFromScreen(float2 s) { return AcLayerNorm(s * screen.zw + screen.xy); }")

@@ -3,6 +3,7 @@ package app.absentmotion.effects
 import app.absentmotion.TestData
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -56,6 +57,8 @@ class AmEffectLibraryTest {
         assertEquals(listOf("scale", "phase", "mirror", "vertoffs", "angle"), tiles.params.map { it.id })
         assertTrue(tiles.sksl!!.contains("AcLayerNorm"))
         assertTrue(tiles.sksl!!.contains("acLayerToScreen"))
+        assertTrue("Tiles must map filter pixels through toLayer once", tiles.sksl!!.contains("float3 h = toLayer * float3(p, 1.0);"))
+        assertFalse("Tiles must not normalize filter pixels before toLayer", tiles.sksl!!.contains("float2 n = (p - screen.xy)"))
         val blur = byName.getValue("Directional Blur")
         assertEquals(listOf("strength", "angle"), blur.params.map { it.id })
         assertTrue(blur.sksl!!.contains("uniform float strength;"))

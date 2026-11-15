@@ -33,9 +33,9 @@ import kotlin.coroutines.coroutineContext
 import kotlin.math.floor
 import app.absentmotion.library.openableUri
 
-internal data class FrameKey(val uri: String, val version: String, val timeUs: Long)
+internal data class FrameKey(val uri: String, val version: String, val timeUs: Long, val source: String = "")
 
-private data class StripRequest(val uri: String, val version: String?, val tiles: List<Pair<Int, Long>>)
+private data class StripRequest(val uri: String, val version: String?, val tiles: List<Pair<Int, Long>>, val source: String = "")
 
 private val thumbnails = BoundedCache<FrameKey, ImageBitmap>(256)
 private val versions = MutableStateFlow(SourceVersions())
@@ -58,8 +58,8 @@ private fun thumbnailVersion(context: Context, uri: String): String? = if (app.a
     }.getOrNull()
 } else fileVersion(context.contentResolver, Uri.parse(uri))
 
-private fun cachedFrames(uri: String, version: String?, tiles: List<Pair<Int, Long>>): List<Pair<Int, ImageBitmap>> =
-    if (version == null) emptyList() else cachedTiles(tiles) { thumbnails[FrameKey(uri, version, it)] }
+private fun cachedFrames(uri: String, version: String?, tiles: List<Pair<Int, Long>>, source: String = ""): List<Pair<Int, ImageBitmap>> =
+    if (version == null) emptyList() else cachedTiles(tiles) { thumbnails[FrameKey(uri, version, it, source)] }
 
 @Composable
 internal fun VideoLayerThumbnail(layer: Layer, modifier: Modifier) {
@@ -75,17 +75,20 @@ internal fun videoStripPicture(layer: Layer, scene: Scene, fromMs: Float, toMs: 
     if (fromMs > layer.endTime || toMs < layer.startTime) return null
     val tiles = remember(layer.node, fromMs, toMs, tileMs, scene.fps) { thumbnailTimes(layer, scene, fromMs, toMs, tileMs) }
     val checked by versions.collectAsState()
-    val request = StripRequest(uri, checked.versions[uri], tiles)
-    val seed = remember(request, checked.trusted) { cachedFrames(uri, checked.seed(uri), tiles) }
+    val copies by VideoProxies.revision.collectAsState()
+    val version = checked.versions[uri]
+    val copy = remember(uri, version, copies) { VideoProxies.ready(context, uri, version) }
+    val request = StripRequest(uri, version, tiles, copy ?: "")
+    val seed = remember(request, checked.trusted) { cachedFrames(uri, checked.seed(uri), tiles, request.source) }
     val spacing = remember { floatArrayOf(tileMs) }
     val shown by produceState(null as Stamped<StripRequest, List<Pair<Int, ImageBitmap>>>?, request) {
         if (value != null && spacing[0] != tileMs) kotlinx.coroutines.delay(120)
         spacing[0] = tileMs
         val version = withContext(Dispatchers.IO) { thumbnailVersion(context, uri) }
         if (version != request.version) { versions.update { it.with(uri, version) }; return@produceState }
-        val known = cachedFrames(uri, version, tiles)
+        val known = cachedFrames(uri, version, tiles, request.source)
         if (version == null || known.size == tiles.size || value?.key?.uri != uri) value = Stamped(request, known)
-        if (version != null && known.size < tiles.size) value = Stamped(request, withContext(Dispatchers.IO) { retrieving.withLock { thumbnailsAt(context, uri, version, tiles) } }.ifEmpty { known })
+        if (version != null && known.size < tiles.size) value = Stamped(request, withContext(Dispatchers.IO) { retrieving.withLock { thumbnailsAt(context, uri, version, tiles, request.source) } }.ifEmpty { known })
     }
     val pictures = shown.of(request) ?: seed.takeIf { it.size == tiles.size } ?: shown?.takeIf { it.key.uri == uri }?.value?.takeIf { it.size > seed.size } ?: seed
     val bitmap = pictures.firstOrNull()?.second ?: return null
@@ -103,11 +106,11 @@ internal fun thumbnailTimes(layer: Layer, scene: Scene, fromMs: Float, toMs: Flo
     }
 }
 
-private suspend fun thumbnailsAt(context: Context, uri: String, version: String, tiles: List<Pair<Int, Long>>): List<Pair<Int, ImageBitmap>> {
+private suspend fun thumbnailsAt(context: Context, uri: String, version: String, tiles: List<Pair<Int, Long>>, proxy: String = ""): List<Pair<Int, ImageBitmap>> {
     var retriever: MediaMetadataRetriever? = null
     return try {
         val pts = VideoSources.timestamps(context, uri)
-        val source = VideoProxies.ready(context, uri, version) ?: uri
+        val source = proxy.ifEmpty { uri }
         tiles.mapNotNull { (projectTime, timeUs) ->
             coroutineContext.ensureActive()
             while (VideoProxies.paused) {
@@ -116,7 +119,7 @@ private suspend fun thumbnailsAt(context: Context, uri: String, version: String,
                 delay(250)
             }
             val time = pts.ptsAt(timeUs)
-            val key = FrameKey(uri, version, timeUs)
+            val key = FrameKey(uri, version, timeUs, proxy)
             val picture = thumbnails[key] ?: (retriever ?: MediaMetadataRetriever().also {
                 retriever = it
                 it.setDataSource(context, Uri.parse(openableUri(source)))
