@@ -63,8 +63,12 @@ internal object Updates {
     fun installed(context: Context): String = installedOverride ?: versionName(context)
 
     fun atStart(context: Context, settings: AppSettings) {
+        UpdateWorker.schedule(context)
         check(context, settings, manual = false)
     }
+
+    /** Network-only lookup used by the background update worker. */
+    internal fun latest(context: Context): Release? = fetchLatest(source, context.applicationContext)
 
     fun hush() {
         quiet = true
