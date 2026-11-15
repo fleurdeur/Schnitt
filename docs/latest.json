@@ -13,6 +13,11 @@
       "name": "Schnitt-5.5.1-armv7-release.apk",
       "size": 91097557,
       "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.1/Schnitt-5.5.1-armv7-release.apk"
+    },
+    {
+      "name": "Schnitt-5.5.1-universal-release.apk",
+      "size": 145454564,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.1/Schnitt-5.5.1-universal-release.apk"
     }
   ]
 }
