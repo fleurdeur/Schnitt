@@ -64,6 +64,8 @@ class AmEffectLibraryTest {
             "Long Shadow", "Luma Key", "Mirror", "Motion Blur", "Noise", "Omino Diffusion+", "Palette Map",
             "Pinch/Bulge", "Pixelate", "Radial Rays", "Radial Shadow", "Radial Wipe", "Rays", "Squeeze", "Starfield",
             "Stripes", "Tile Shift", "Tile Rotate", "Tiles", "Wave Warp", "Tunnel",
+            "Color Tune", "Smooth Bevel", "Omino Diffusion+", "Streak Strips", "Linear Streaks", "Spin Streaks",
+            "Zoom Streaks", "Swirl", "Zoom Blur", "Rays",
         )
         for (name in listed) {
             val source = effects.firstOrNull { it.name == name }
