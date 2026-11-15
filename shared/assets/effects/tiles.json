@@ -21,7 +21,7 @@
    "default": 0,
    "min": -100,
    "max": 100,
-   "step": 0.01
+   "step": 0.005
   },
   {
    "id": "mirror",
@@ -55,5 +55,5 @@
    ]
   }
  ],
- "sksl": "uniform shader image;\nuniform float2 size;\nuniform float time;\nuniform float2 layer;\nuniform float3x3 toLayer;\nuniform float3x3 fromLayer;\nuniform float zoom;\nuniform float offset;\nuniform float mirror;\nuniform float vertical;\nuniform float angle;\nuniform float sizing;\n\nhalf4 main(float2 coord) {\n    float3 h = toLayer * float3(coord, 1.0);\n    if (abs(h.z) < 0.000001) return half4(0.0);\n    float2 uv = (h.xy / h.z) / max(layer, float2(1.0));\n    if (vertical > 0.5) uv.y += step(1.0, mod(uv.x, 2.0)) * offset;\n    else uv.x += step(1.0, mod(uv.y, 2.0)) * offset;\n    if (mirror > 0.5) uv = abs(mod(uv - float2(1.0), float2(2.0)) - float2(1.0));\n    else uv = mod(uv, float2(1.0));\n    float a = radians(angle);\n    float c = cos(a);\n    float s = sin(a);\n    float2 p = uv - float2(0.5);\n    float2 px = 1.0 / max(layer, float2(1.0));\n    p /= max(float2(zoom, zoom) + px * 4.0, float2(0.0001));\n    p.x *= layer.x / max(layer.y, 1.0);\n    p = float2(c * p.x + s * p.y, -s * p.x + c * p.y);\n    p.x *= layer.y / max(layer.x, 1.0);\n    p += float2(0.5);\n    float3 g = fromLayer * float3(p * layer, 1.0);\n    return image.eval(g.xy / g.z);\n}\n"
+ "sksl": "uniform shader image;\nuniform float2 size;\nuniform float time;\nuniform float4 screen;\nuniform float2 layer;\nuniform float3x3 toLayer;\nuniform float3x3 fromLayer;\nuniform float3x3 acLayerToScreen;\nuniform float zoom;\nuniform float offset;\nuniform float mirror;\nuniform float vertical;\nuniform float angle;\nuniform float sizing;\nfloat2 AcLayerNorm(float2 p) {\n    float2 n = (p - screen.xy) / max(screen.zw, float2(1.0));\n    float3 h = toLayer * float3(n, 1.0);\n    return h.xy / max(layer, float2(1.0));\n}\nhalf4 main(float2 coord) {\n    float2 pixelSize = 1.0 / screen.zw;\n    float2 tiledCoord = AcLayerNorm(coord);\n    if (vertical > 0.5) tiledCoord.y += step(1.0, mod(tiledCoord.x, 2.0)) * offset;\n    else tiledCoord.x += step(1.0, mod(tiledCoord.y, 2.0)) * offset;\n    if (mirror > 0.5) tiledCoord = abs(mod(tiledCoord - float2(1.0), float2(2.0)) - float2(1.0));\n    else tiledCoord = mod(tiledCoord, float2(1.0));\n    float a = radians(angle);\n    float2x2 rot = float2x2(cos(a), -sin(a), sin(a), cos(a));\n    float2 scaledCoord = tiledCoord - float2(0.5);\n    scaledCoord *= float2(1.0) / max(float2(zoom) + pixelSize * 4.0, float2(0.0001));\n    scaledCoord.x *= layer.x / max(layer.y, 1.0);\n    scaledCoord *= rot;\n    scaledCoord.x *= layer.y / max(layer.x, 1.0);\n    scaledCoord += float2(0.5);\n    float2 screenNorm = (float3(scaledCoord, 1.0) * acLayerToScreen).xy;\n    return image.eval(screenNorm * screen.zw + screen.xy);\n}\n"
 }

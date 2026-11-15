@@ -54,8 +54,10 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
         val dropped = sortedSetOf<String>()
         var renamed = false
         fun visit(node: XmlNode, dims: FloatArray): XmlNode {
-            val nativeAm = if (node.name == "effect") catalog.definitions.firstOrNull { it.id == node["id"] && it.key.startsWith("am-") } else null
-            if (nativeAm != null) return node
+            val nativeAm = if (node.name == "effect") catalog.definitions.firstOrNull {
+                it.id == node["id"] && (it.key.startsWith("am-") || it.external)
+            } else null
+            if (nativeAm != null) return align(node, nativeAm)
             val rule = if (node.name == "effect") rules[node["id"]]?.takeIf { r -> r.onlyWith == null || node.children.any { c -> c.name == "property" && c["name"] == r.onlyWith } } else null
             val own = rule?.let { catalog.definitions.firstOrNull { d -> d.key == it.to } }
             val older = own != null && node["id"] == own.id
@@ -256,6 +258,28 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
                 ?: if (!keep && p.missingDefault != p.default) XmlNode("property", mapOf("name" to p.id, "type" to p.type, "value" to p.default)) else null
         }
         return effect.copy(attrs = effect.attrs + ("id" to own.id), children = ordered + others)
+    }
+
+    /** Keeps every imported property and its keyframes while matching the
+     *  original Alight parameter names to the controls of the imported effect
+     *  definition. Unmatched properties are kept verbatim instead of becoming
+     *  defaults. */
+    private fun align(effect: XmlNode, definition: EffectDefinition): XmlNode {
+        if (effect.children.none { it.name == "property" }) return effect
+        val used = HashSet<String>()
+        val children = effect.children.map { child ->
+            if (child.name != "property") return@map child
+            val name = child["name"] ?: return@map child
+            val exact = definition.params.firstOrNull { it.id == name }
+            val target = exact ?: definition.params.firstOrNull { !used.contains(it.id) && sameParam(it.id, name) }
+            if (target == null) child
+            else {
+                used += target.id
+                if (target.id == name) child.copy(attrs = child.attrs + ("type" to target.type))
+                else child.copy(attrs = child.attrs + ("name" to target.id) + ("type" to target.type))
+            }
+        }
+        return effect.copy(children = children)
     }
 
     private fun property(source: XmlNode, name: String, type: String, change: (String) -> String): XmlNode {

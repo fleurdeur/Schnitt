@@ -29,13 +29,13 @@ data class EffectParam(
     val slow: Int = 1,
     val choiceValues: List<Float> = emptyList(),
 ) {
-    val type: String get() = when (kind) { "point" -> "vec2"; "color" -> "color"; "switch" -> "bool"; "text" -> "string"; else -> "float" }
+    val type: String get() = when (kind) { "point" -> "vec2"; "point3", "hue" -> "vec3"; "color" -> "color"; "switch" -> "bool"; "text" -> "string"; else -> "float" }
     val missingDefault: String get() = legacyDefault ?: default
 
     fun format(value: Any?): String = format(id, kind, value)
 
     companion object {
-        val Kinds = setOf("float", "angle", "point", "color", "switch", "choice", "text")
+        val Kinds = setOf("float", "angle", "point", "point3", "hue", "color", "switch", "choice", "text")
 
         fun format(id: String, kind: String, d: Any?): String = when (kind) {
             "point" -> (d as JSONArray).let { formatFloats(floatArrayOf(it.getDouble(0).toFloat(), it.getDouble(1).toFloat())) }
