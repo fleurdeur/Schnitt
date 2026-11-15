@@ -1,0 +1,51 @@
+name: Refresh site release data
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  latest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Fetch latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          req = urllib.request.Request(
+              "https://api.github.com/repos/fleurdeur/Schnitt/releases/latest",
+              headers={"Authorization": "Bearer " + os.environ["GH_TOKEN"],
+                       "Accept": "application/vnd.github+json"})
+          with urllib.request.urlopen(req) as response:
+              release = json.load(response)
+          data = {
+              "tag": release.get("tag_name", ""),
+              "name": release.get("name", ""),
+              "published": release.get("published_at", ""),
+              "notes": release.get("body", ""),
+              "assets": [
+                  {"name": a["name"], "size": a["size"], "url": a["browser_download_url"]}
+                  for a in release.get("assets", []) if a["name"].endswith(".apk")
+              ],
+          }
+          with open("docs/latest.json", "w", encoding="utf-8") as f:
+              json.dump(data, f, indent=2, ensure_ascii=False)
+              f.write("\n")
+          PY
+      - name: Commit release data
+        run: |
+          git config user.name "fleurdeur"
+          git config user.email "319274093+fleurdeur@users.noreply.github.com"
+          if git diff --quiet -- docs/latest.json; then exit 0; fi
+          git add docs/latest.json
+          git commit -m "Refresh site release data"
+          git push

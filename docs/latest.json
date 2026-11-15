@@ -1,0 +1,23 @@
+{
+  "tag": "v5.3.8",
+  "name": "Schnitt 5.3.8",
+  "published": "2026-11-15T01:50:34Z",
+  "notes": "Schnitt 5.3.8\n\nAlight effect library\n- The complete 315-effect Alight Motion definition set stays available in the External library.\n- Property labels now resolve inline strings and @string references, so sliders, colours and switches show their real Alight names.\n- Duplicate parameter ids in imported effect XML are collapsed instead of producing unusable controls.\n\nSmarter imported-effect matching\n- An Alight effect that is not shipped by name is matched by effect name, id words, property names and the visual family instead of being ignored.\n- Matching properties keep their values, keyframes and easing; properties are also matched through labels and compatible types when ids changed.\n- The import report now lists the replacement effect and every setting that could not be mapped, so nothing is silently discarded.",
+  "assets": [
+    {
+      "name": "Schnitt-5.3.8-arm64-v8a-release.apk",
+      "size": 82051593,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.3.8/Schnitt-5.3.8-arm64-v8a-release.apk"
+    },
+    {
+      "name": "Schnitt-5.3.8-armv7-release.apk",
+      "size": 79962935,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.3.8/Schnitt-5.3.8-armv7-release.apk"
+    },
+    {
+      "name": "Schnitt-5.3.8-universal-release.apk",
+      "size": 133472754,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.3.8/Schnitt-5.3.8-universal-release.apk"
+    }
+  ]
+}

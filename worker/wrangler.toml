@@ -1,0 +1,8 @@
+name = "schnitt-community"
+main = "src/index.js"
+compatibility_date = "2026-11-15"
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "COMMUNITY_KV"
+id = "62cf363917e64fa49929f72f414297af"

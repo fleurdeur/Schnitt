@@ -6,6 +6,7 @@ import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.json.JSONObject
 
 internal data class CommunityPreset(
     val id: String,
@@ -19,23 +20,37 @@ internal data class CommunityPreset(
 internal object CommunityPresets {
     private const val ROOT = "https://raw.githubusercontent.com/fleurdeur/Schnitt/main/docs/community/data/"
     private const val INDEX = ROOT + "index.json"
+    private const val LIVE = "https://schnitt-community.darkest.workers.dev/api/index"
     private val absolute = Regex("https?://.+")
 
     suspend fun load(): List<CommunityPreset> = withContext(Dispatchers.IO) {
-        val text = fetch(INDEX) ?: return@withContext emptyList()
-        val array = runCatching { JSONArray(text) }.getOrNull() ?: return@withContext emptyList()
-        (0 until array.length()).mapNotNull { i ->
-            val item = array.optJSONObject(i) ?: return@mapNotNull null
-            val url = item.optString("url").takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            CommunityPreset(
-                id = item.optString("id").ifBlank { url },
-                title = item.optString("title").ifBlank { "Community preset" },
-                author = item.optString("author").ifBlank { "Schnitt community" },
-                type = item.optString("type", "preset").lowercase(),
-                url = if (absolute.matches(url)) url else ROOT + url.removePrefix("/"),
-                status = item.optString("status", "approved").lowercase(),
-            )
-        }.filter { it.status == "approved" }
+        val live = runCatching { parse(JSONArray(fetchJson(LIVE, "entries"))) }.getOrDefault(emptyList())
+        val archive = runCatching { parse(JSONArray(fetch(INDEX) ?: "[]")) }.getOrDefault(emptyList())
+        (live + archive)
+            .filter { it.status == "approved" }
+            .distinctBy { it.title.lowercase() + "|" + it.author.lowercase() }
+    }
+
+    private fun parse(array: JSONArray): List<CommunityPreset> = (0 until array.length()).mapNotNull { i ->
+        val item = array.optJSONObject(i) ?: return@mapNotNull null
+        val url = item.optString("url").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        CommunityPreset(
+            id = item.optString("id").ifBlank { url },
+            title = item.optString("title").ifBlank { "Community preset" },
+            author = item.optString("author").ifBlank { "Schnitt community" },
+            type = item.optString("type", "preset").lowercase(),
+            url = when {
+                absolute.matches(url) -> url
+                url.startsWith("/api/") -> "https://schnitt-community.darkest.workers.dev" + url
+                else -> ROOT + url.removePrefix("/")
+            },
+            status = item.optString("status", "approved").lowercase(),
+        )
+    }
+
+    private fun fetchJson(url: String, arrayKey: String): String {
+        val text = fetch(url) ?: return "[]"
+        return runCatching { JSONObject(text).optJSONArray(arrayKey)?.toString() }.getOrNull() ?: "[]"
     }
 
     suspend fun scene(url: String): Scene? = withContext(Dispatchers.IO) {

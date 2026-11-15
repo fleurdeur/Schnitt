@@ -1,107 +1,138 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-root="../">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Schnitt Community — presets and XML</title>
-<meta name="description" content="Upload and browse community presets and XML for Schnitt. Simple upload, clear approval status, shared directly with the app.">
-<meta name="color-scheme" content="light dark">
-<link rel="icon" href="icon.png">
-<style>
-:root{--bg:#edf5ee;--card:#f8fbf8;--ink:#10241a;--mid:#5a6f60;--line:#cfe0d2;--accent:#2f7d58;--accent-ink:#fff;--soft:#dfeee3;--ok:#2f7d58;--wait:#9a6b12}
-@media(prefers-color-scheme:dark){:root{--bg:#07130d;--card:#0d1f15;--ink:#e7f4ea;--mid:#9fb5a5;--line:#1c3324;--accent:#7fd6a4;--accent-ink:#08130d;--soft:#12291b;--ok:#7fd6a4;--wait:#f0c36a}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:1rem/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-a{color:var(--accent)}.wrap{max-width:840px;margin:auto;padding:22px 18px 60px}
-header{display:flex;align-items:center;gap:12px;padding:4px 0 24px}.logo{width:50px;height:50px;border-radius:14px;background:var(--accent);display:grid;place-items:center;overflow:hidden}.logo img{width:100%;height:100%;object-fit:cover}
-h1{font-size:clamp(30px,6vw,46px);line-height:1.08;margin:0 0 10px}h2{font-size:21px;margin:28px 0 8px}h3{margin:0 0 3px;font-size:16px}
-.lead{font-size:18px;color:var(--mid);margin:0 0 18px}.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin:12px 0}
-.btn{display:inline-block;background:var(--accent);color:var(--accent-ink);text-decoration:none;font-weight:700;border-radius:999px;padding:12px 20px}
-.btn.alt{background:transparent;color:var(--accent);border:1px solid currentColor;padding:10px 16px}
-.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.muted{color:var(--mid);font-size:14px}
-.tabs{display:flex;gap:8px;margin:8px 0 14px}.tab{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 14px;font:inherit;cursor:pointer}.tab[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-.item{display:flex;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:8px 0}.badge{width:48px;height:48px;border-radius:12px;background:var(--soft);display:grid;place-items:center;font-size:10px;font-weight:800;color:var(--accent)}.grow{flex:1;min-width:0}.title{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.status{display:inline-block;border-radius:999px;padding:3px 9px;font-size:10px;font-weight:800;letter-spacing:.02em}.status.approved{color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent)}.status.pending{color:var(--wait);background:color-mix(in srgb,var(--wait) 16%,transparent)}
-.foot{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);color:var(--mid);font-size:13px}ol{padding-left:22px}li{margin:6px 0}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Community — Schnitt</title>
+  <meta name="description" content="Publish and browse Schnitt presets and XML projects. Drag a file, add a name, and it is in the review queue — no GitHub issue required.">
+  <meta name="theme-color" content="#000000">
+  <link rel="icon" href="../assets/icon.png">
+  <link rel="stylesheet" href="../assets/site.css">
 </head>
-<body>
-<div class="wrap">
-<header><div class="logo"><img src="icon.png" alt="Schnitt"></div><div><strong>Schnitt</strong><div class="muted">Community presets and XML</div></div></header>
-<h1>Upload once.<br>Use it in the app.</h1>
-<p class="lead">Choose a file, upload it to the community folder and track whether it is approved. Approved files are picked up by the Schnitt app automatically.</p>
-<div class="row">
-  <a class="btn" id="uploadPreset" href="https://github.com/fleurdeur/Schnitt/issues/new?template=community_submission.yml&labels=community-submission&title=Community%20submission%3A%20Preset">Upload a preset</a>
-  <a class="btn" id="uploadXml" href="https://github.com/fleurdeur/Schnitt/issues/new?template=community_submission.yml&labels=community-submission&title=Community%20submission%3A%20XML">Upload XML</a>
-  <a class="btn alt" href="#uploadHelp">How upload works</a>
-</div>
+<body data-page="community" data-root="../">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V21H3Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 21v-7h6v7" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+    <symbol id="i-community" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 20c.5-4 2.8-6 5.5-6s5 2 5.5 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M16 5.2a3.1 3.1 0 0 1 0 5.9M17.5 14.4c2 .7 3.1 2.6 3.4 5.1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m0 0 5 5m-5-5L7 9M4 20h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M14 2v6h6" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
 
-<div class="card">
-<h2>How it works</h2>
-<ol>
-<li><strong>Upload</strong> your preset or XML through the GitHub issue form. You only need a GitHub account, not write access to the repository.</li>
-<li><strong>Attach the file</strong> by dragging it into the issue's File field. The form accepts XML, .absproj and ZIP packages.</li>
-<li>The file is reviewed by <a href="https://github.com/fleurdeur">wall (@fleurdeur)</a>. The status below changes from <strong>Pending</strong> to <strong>Approved</strong>.</li>
-<li>The app reads only approved entries, so the Presets screen stays clean.</li>
-<li>The app shows one Community section with <strong>Presets</strong> and <strong>XML</strong> subcategories.</li>
-</ol>
-<p class="muted" id="uploadHelp">GitHub Pages is static and cannot safely write files into the repository for anonymous visitors. The issue attachment is the direct upload step: it needs no repository write permission, and only approved submissions are copied into <strong>docs/community/data/presets</strong> or <strong>docs/community/data/xml</strong>. Only upload files you made or have permission to share. No personal data. Do not upload paid or copied presets.</p>
-</div>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="../index.html" aria-label="Schnitt home">
+        <img src="../assets/icon.png" alt=""><span>Schnitt</span><small>MOTION</small>
+      </a>
+      <nav class="header-links" aria-label="Sections">
+        <a href="../index.html#editor">Editor</a>
+        <a href="../index.html#effects">Effects</a>
+        <a href="../index.html#imports">Imports</a>
+        <a href="index.html" aria-current="page">Community</a>
+      </nav>
+      <a class="header-cta" href="../download.html"><svg><use href="#i-download"/></svg><span class="desktop">Download</span></a>
+    </div>
+  </header>
 
-<div class="card">
-<h2>Direct upload</h2>
-<p class="muted">Choose a file here to check its type and size, then continue to the GitHub attachment form. The file is not stored on this page.</p>
-<input id="filePick" type="file" accept=".xml,.absproj,.zip,.json" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--ink)">
-<p id="fileInfo" class="muted" aria-live="polite"></p>
-<a class="btn" id="fileGo" href="https://github.com/fleurdeur/Schnitt/issues/new?template=community_submission.yml&labels=community-submission&title=Community%20submission%3A%20File">Continue with this file</a>
-</div>
+  <main>
+    <section class="page-hero shell">
+      <span class="eyebrow">Community shelf · presets + XML</span>
+      <h1>Share the cut.<br>Not a screenshot of it.</h1>
+      <p>One uploader for both presets and XML projects. Drag the file in, name it, and it goes to a short human review. No issue thread, no attachment scavenger hunt, no GitHub account needed.</p>
+    </section>
 
-<h2>Community files</h2>
-<p class="muted">Status is shared with the app. GitHub rate limits do not block the list because the app keeps a cached copy.</p>
-<div class="tabs"><button class="tab" id="presetTab" aria-pressed="true">Presets</button><button class="tab" id="xmlTab" aria-pressed="false">XML</button></div>
-<div id="list"><div class="muted">Loading community files…</div></div>
+    <section class="shell community-layout">
+      <aside class="upload-card">
+        <h2>Publish something</h2>
+        <p>XML, .absproj, ZIP or JSON · up to 8 MB. Presets and projects live together on the shelf.</p>
 
-<div class="foot">Developer: <a href="https://github.com/fleurdeur">fleurdeur</a> · Schnitt is free and open source under GPLv3.</div>
-</div>
-<script>
-let entries = [];
-let type = "preset";
-const pick = document.getElementById("filePick");
-const info = document.getElementById("fileInfo");
-const go = document.getElementById("fileGo");
-pick.onchange = () => {
-  const f = pick.files && pick.files[0];
-  if (!f) { info.textContent = ""; return; }
-  const ok = /\.(xml|absproj|zip|json)$/i.test(f.name);
-  const sizeOk = f.size <= 8 * 1024 * 1024;
-  info.textContent = (ok && sizeOk ? "Ready: " : "Not accepted: ") + f.name + " · " + Math.ceil(f.size / 1024) + " KB" +
-    (ok && sizeOk ? " — continue and drag it into the File field." : " — use XML, .absproj, ZIP or JSON under 8 MB.");
-  go.href = "https://github.com/fleurdeur/Schnitt/issues/new?template=community_submission.yml&labels=community-submission&title=" +
-    encodeURIComponent("Community submission: " + f.name.replace(/\.[^.]+$/, ""));
-};
-const list = document.getElementById("list");
-const presetTab = document.getElementById("presetTab");
-const xmlTab = document.getElementById("xmlTab");
-function render(){
-  const shown = entries.filter(e => (e.type || "preset") === type);
-  presetTab.setAttribute("aria-pressed", type === "preset");
-  xmlTab.setAttribute("aria-pressed", type === "xml");
-  list.innerHTML = shown.length ? "" : '<div class="card muted">No ' + (type === "preset" ? "presets" : "XML files") + ' yet. Upload one above.</div>';
-  shown.forEach(e => {
-    const approved = (e.status || "approved") === "approved";
-    const row = document.createElement("div"); row.className = "item";
-    const badge = document.createElement("div"); badge.className = "badge"; badge.textContent = type === "xml" ? "XML" : "PRE";
-    const grow = document.createElement("div"); grow.className = "grow";
-    const title = document.createElement("div"); title.className = "title"; title.textContent = e.title || "Community file";
-    const by = document.createElement("div"); by.className = "muted";
-    by.innerHTML = (e.author ? "by " + e.author + " · " : "") + "<span class='status " + (approved ? "approved" : "pending") + "'>" + (approved ? "Approved" : "Pending") + "</span>";
-    grow.append(title, by);
-    const link = document.createElement("a"); link.className = "btn alt"; link.textContent = "Open"; link.href = e.url; link.rel = "noopener";
-    row.append(badge, grow, link); list.append(row);
-  });
-}
-presetTab.onclick = () => { type = "preset"; render(); };
-xmlTab.onclick = () => { type = "xml"; render(); };
-fetch("data/index.json", {cache:"no-store"}).then(r => r.ok ? r.json() : []).then(data => { entries = Array.isArray(data) ? data : []; render(); }).catch(() => { list.innerHTML = '<div class="card muted">The approved list could not be loaded.</div>'; });
-</script>
+        <form data-upload-form novalidate>
+          <input type="hidden" id="community-kind" value="preset">
+          <div class="dropzone" tabindex="0" role="button" aria-label="Choose a community file">
+            <input id="community-file" type="file" accept=".xml,.absproj,.zip,.json,application/xml,application/zip,application/json">
+            <div>
+              <span class="drop-icon"><svg><use href="#i-upload"/></svg></span>
+              <b>Drop a file, or tap to choose</b>
+              <small>Preset · XML project · ZIP package<br>Max 8 MB</small>
+            </div>
+          </div>
+          <div class="file-pill" data-file-pill>
+            <svg><use href="#i-file"/></svg>
+            <span data-file-name></span>
+            <button type="button" data-clear-file aria-label="Remove file"><svg style="width:14px;height:14px"><use href="#i-x"/></svg></button>
+          </div>
+
+          <div class="segmented" role="group" aria-label="Entry type">
+            <button type="button" data-kind="preset" class="active">Preset</button>
+            <button type="button" data-kind="xml">XML project</button>
+          </div>
+
+          <div class="field">
+            <label for="community-title">Name</label>
+            <input id="community-title" name="title" maxlength="90" placeholder="e.g. Glass Bloom — title card" autocomplete="off">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="community-author">Credit</label>
+              <input id="community-author" name="author" maxlength="46" placeholder="Your handle" autocomplete="nickname">
+            </div>
+            <div class="field">
+              <label for="community-note">Note</label>
+              <input id="community-note" name="note" maxlength="240" placeholder="Optional" autocomplete="off">
+            </div>
+          </div>
+
+          <button class="button button-primary upload-submit" data-upload-submit type="submit">
+            <svg><use href="#i-upload"/></svg><span class="button-label">Send to the shelf</span>
+          </button>
+          <div class="progress" data-progress>
+            <div class="trackline"><i data-progress-bar></i></div>
+            <small data-progress-text>Opening the delivery hatch…</small>
+          </div>
+          <div class="upload-result" data-upload-result></div>
+        </form>
+      </aside>
+
+      <div class="community-main">
+        <div class="tabs-row">
+          <button class="tab active" data-filter="all" type="button">All</button>
+          <button class="tab" data-filter="preset" type="button">Presets</button>
+          <button class="tab" data-filter="xml" type="button">XML projects</button>
+          <span class="result-count" data-count>loading…</span>
+        </div>
+        <div class="community-grid" data-community-grid>
+          <div class="shelf-empty" style="grid-column:1/-1">Loading the shelf…</div>
+        </div>
+
+        <div class="how-grid">
+          <article class="how"><b>01 · UPLOAD</b><h3>One file, one form</h3><p>Drag a preset or XML project. The uploader reads the type and size, then sends it straight to the shelf queue.</p></article>
+          <article class="how"><b>02 · REVIEW</b><h3>A human checks it</h3><p>Every entry is previewed before publishing. You get a private status link that turns green when it goes live.</p></article>
+          <article class="how"><b>03 · USE IT</b><h3>Open it in Schnitt</h3><p>Approved entries appear here and inside the app's community shelf. No account and no issue thread required.</p></article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div class="footer-brand"><img src="../assets/icon.png" alt=""><div><b>Schnitt community</b>Presets and XML projects from people who cut. Reviewed, credited, and kept together.</div></div>
+      <div class="footer-links">
+        <a href="../index.html">Home</a><a href="../download.html">Download</a>
+        <a href="https://github.com/fleurdeur/Schnitt" target="_blank" rel="noopener">Source</a>
+        <a href="admin.html" style="color:var(--faint)">Moderation</a>
+      </div>
+    </div>
+    <div class="shell footer-note">© <span data-year>2026</span> Schnitt · Do not upload work you do not have permission to share.</div>
+  </footer>
+
+  <nav class="bottom-nav" aria-label="Primary">
+    <a class="nav-item" href="../index.html"><svg><use href="#i-home"/></svg>Home</a>
+    <button class="nav-download" data-download type="button" aria-label="Download latest APK"><span class="disc"><svg><use href="#i-download"/></svg></span><span>Get</span></button>
+    <a class="nav-item" href="index.html" aria-current="page"><svg><use href="#i-community"/></svg>Community</a>
+  </nav>
+
+  <script src="../assets/site.js" defer></script>
 </body>
 </html>

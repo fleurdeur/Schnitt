@@ -3,6 +3,7 @@ package app.absentmotion.ui.home
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -39,17 +40,34 @@ class UpdateWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         if (!manager.areNotificationsEnabled()) return Result.success()
         manager.createNotificationChannel(
             NotificationChannelCompat.Builder(CHANNEL, NotificationManagerCompat.IMPORTANCE_DEFAULT)
-                .setName(context.getString(R.string.update_notify_channel)).build(),
+                .setName(context.getString(R.string.update_notify_channel))
+                .setDescription(context.getString(R.string.update_notify_available, current))
+                .setShowBadge(true)
+                .build(),
         )
         val open = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return Result.success()
         val body = context.getString(R.string.update_notify_available, current)
+        val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        val appIntent = PendingIntent.getActivity(context, 1, open, flags)
+        val downloadUrl = release.apk?.url ?: release.link
+        val downloadIntent = PendingIntent.getActivity(
+            context,
+            2,
+            Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            flags,
+        )
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
+            .setColor(0xFF7ED9A0.toInt())
             .setContentTitle(context.getString(R.string.update_available, release.version))
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setContentIntent(PendingIntent.getActivity(context, 1, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+            .setContentIntent(appIntent)
+            .addAction(R.drawable.ic_notification, context.getString(R.string.update_notify_download), downloadIntent)
+            .addAction(R.drawable.ic_notification, context.getString(R.string.update_notify_open_app), appIntent)
             .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
@@ -68,9 +86,9 @@ class UpdateWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         fun schedule(context: Context) {
             val app = context.applicationContext
             val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
-            val periodic = PeriodicWorkRequestBuilder<UpdateWorker>(12, TimeUnit.HOURS)
+            val periodic = PeriodicWorkRequestBuilder<UpdateWorker>(6, TimeUnit.HOURS)
                 .setConstraints(constraints)
-                .setInitialDelay(2, TimeUnit.HOURS)
+                .setInitialDelay(30, TimeUnit.MINUTES)
                 .build()
             WorkManager.getInstance(app).enqueueUniquePeriodicWork(PERIODIC, ExistingPeriodicWorkPolicy.UPDATE, periodic)
             val once = OneTimeWorkRequestBuilder<UpdateWorker>().setConstraints(constraints).build()

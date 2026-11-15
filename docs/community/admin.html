@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" data-root="../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Moderation — Schnitt</title>
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#000000">
+  <link rel="icon" href="../assets/icon.png">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body data-page="community" data-root="../">
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="../index.html"><img src="../assets/icon.png" alt=""><span>Schnitt</span><small>MOTION</small></a>
+      <a class="header-cta" href="index.html">Community</a>
+    </div>
+  </header>
+  <main class="shell admin-shell">
+    <div class="admin-card">
+      <span class="eyebrow">Community moderation</span>
+      <h1>Review queue</h1>
+      <p>Approve or reject pending uploads. The token is held by the maintainer and never stored in this page.</p>
+      <form data-admin-form>
+        <div class="field">
+          <label for="admin-token">Moderation token</label>
+          <input id="admin-token" type="password" autocomplete="current-password" placeholder="Paste token">
+        </div>
+        <button class="button button-primary" type="submit" style="margin-top:12px">Open queue</button>
+      </form>
+      <div class="pending-list" data-pending-list>
+        <div class="loading">Queue is locked.</div>
+      </div>
+    </div>
+  </main>
+  <script src="../assets/site.js" defer></script>
+</body>
+</html>

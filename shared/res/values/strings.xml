@@ -294,6 +294,8 @@
     <string name="update_notify_channel">App updates</string>
     <string name="update_notify_done">Schnitt %1$s is installed. Tap to open it.</string>
     <string name="update_notify_available">You have Schnitt %1$s. Tap to download the latest version.</string>
+    <string name="update_notify_download">Download update</string>
+    <string name="update_notify_open_app">Open Schnitt</string>
     <string name="import_downloading">Downloading package: %1$s of %2$s</string>
     <string name="import_downloaded">Downloading package: %1$s</string>
     <string name="import_preparing">Preparing project…</string>
