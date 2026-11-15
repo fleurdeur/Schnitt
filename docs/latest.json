@@ -1,23 +1,13 @@
 {
-  "tag": "v5.4.1",
-  "name": "Schnitt 5.4.1",
-  "published": "2026-11-15T05:08:36Z",
-  "notes": "## Tiles now tiles correctly\n- Tiles repeats the layer image across the screen with seamless wrapping instead of clamping and stretching the edge pixels.\n- Mirror, alternating-row offset, vertical offset and rotation now match the Alight tile effect.\n- Crop changes tile size without changing the layer aspect ratio.\n- External Tiles keeps its Alight controls: Crop, Offset, Mirror, Offset Vertically and Angle.\n\n## Circular Ripple is circular again\n- Circular Ripple now creates rings around the layer centre, measured in screen space so the waves stay circular on any project size.\n- Radius and Feather fade the rings out smoothly at the edge.\n- Center X and Center Y now match the Alight Center control.\n\n## Copy Background copies what is underneath\n- Copy Background now takes the pixels already behind the layer and masks them to the layer shape, like an adjustment layer.\n- Fill 0 keeps the background, Fill 1 keeps the original layer, and values between blend the two.\n- Both the built-in effect and the Alight External Copy Background effect use the same behaviour.\n\n## Under the hood\n- Rebuilt the native engine with lift handling for Alight Copy Background.\n- Added regression coverage for Tiles parameter mapping and Circular Ripple uniforms.\n- Updated the effect library and translation release list.",
+  "tag": "v5.4.2",
+  "name": "Schnitt 5.4.2",
+  "published": "2026-11-15T06:41:28Z",
+  "notes": "# Schnitt 5.4.2\n\n## Alight Motion effects, in full\nEvery bundled Alight Motion effect now imports with its own controls and its own shader. Tiles wraps at all four edges, Directional Blur has a real Strength slider, and Oscillate exposes Frequency, Magnitude, Angle, and Wave as keyframeable properties.\n\n## Exact properties and keyframes\nChoice menus now store the real Alight Motion values, so effects such as Bump Map, Channel Map, Hex Tile, and Mirror keep the option you picked. Three-part controls such as Color Tune and Colorize now show X, Y, and Z sliders instead of dropping the third value.\n\n## OpenGL ES rendering\nEffect previews and exports continue to use one GPU pipeline. The OpenGL ES backend in Settings, Graphics renders the same shaders used by export, so a look that works in the editor also works in the saved video.\n\n## Importing projects and links\nImported Alight Motion projects and shared links keep every effect property and keyframe, even when an effect is still marked as external. Project settings are no longer replaced by defaults during import.\n\n## Under the hood\nShader coordinate uniforms were aligned with Alight Motion screen, layer, and bounds spaces. Image textures used by Bump Map, Grunge, and RGB Noise are embedded into the effect definition so previews and exports find them.\n",
   "assets": [
     {
-      "name": "Schnitt-5.4.1-arm64-v8a-release.apk",
-      "size": 90499670,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.4.1/Schnitt-5.4.1-arm64-v8a-release.apk"
-    },
-    {
-      "name": "Schnitt-5.4.1-armv7-release.apk",
-      "size": 88410256,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.4.1/Schnitt-5.4.1-armv7-release.apk"
-    },
-    {
-      "name": "Schnitt-5.4.1-universal-release.apk",
-      "size": 141923763,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.4.1/Schnitt-5.4.1-universal-release.apk"
+      "name": "Schnitt-5.4.2-arm64-v8a-release.apk",
+      "size": 93129050,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.4.2/Schnitt-5.4.2-arm64-v8a-release.apk"
     }
   ]
 }
