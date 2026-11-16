@@ -2,7 +2,7 @@
   "tag": "v5.5.2",
   "name": "Schnitt 5.5.2",
   "published": "2026-11-15T14:15:10Z",
-  "notes": "# Schnitt 5.5.2\r\n\r\n## Imported Alight effects use working implementations\r\n- Tiles, Luma Key and Wave Warp now switch to the built-in effects instead of an untranslated Alight shader.\r\n- Imported keyframes and property values are kept and converted to the matching controls.\r\n- Curated mappings now win over a bundled Alight shader, so imported links and XML no longer render as placeholders or noise.\r\n- Luma Key has Low, High, Feather, Weighted and Invert controls.\r\n- Wave Warp has the complete Alight controls: Phase, Direction, Spacing, Magnitude, Warp Angle, Damping, Damping Spacing, Origin and Screen Space.\r\n\r\n## Editor and media\r\n- Existing preview-copy, HDR, export fallback and device compatibility behaviour is unchanged.\r\n\r\n\r\n## APK WILL RELEASE TOMORROW",
+  "notes": "# Schnitt 5.5.2\n\n## Imported Alight effects use working implementations\n- Tiles, Luma Key and Wave Warp now switch to the built-in effects instead of an untranslated Alight shader.\n- Imported keyframes and property values are kept and converted to the matching controls.\n- Curated mappings now win over a bundled Alight shader, so imported links and XML no longer render as placeholders or noise.\n- Luma Key has Low, High, Feather, Weighted and Invert controls.\n- Wave Warp has the complete Alight controls: Phase, Direction, Spacing, Magnitude, Warp Angle, Damping, Damping Spacing, Origin and Screen Space.\n\n## Editor and media\n- Existing preview-copy, HDR, export fallback and device compatibility behaviour is unchanged.\n",
   "assets": [
     {
       "name": "Schnitt-5.5.2-arm64-v8a-release.apk",
