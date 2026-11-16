@@ -1,23 +1,13 @@
 {
-  "tag": "v5.5.1",
-  "name": "Schnitt 5.5.1",
-  "published": "2026-11-15T12:30:38Z",
-  "notes": "# Schnitt 5.5.1\n\n## Tiles fixed\nTiles now maps each scene pixel back into the source layer with the correct transform. The effect also renders across the full scene instead of being clipped to the layer bounds, so a layer smaller than the canvas repeats across the screen.\n\n## Imported Alight tiles\nImported Alight Motion Tiles effects use the same corrected mapping. The official shader math and Crop, Offset, Mirror, Offset Vertically and Angle controls are preserved.\n\n## HDR and 10-bit previews\nHDR, wide-gamut and 10-bit videos now get a small SDR preview copy before they reach the editor. The preview and the timeline thumbnails use that copy, so phones that hand the app a buffer in a layout it cannot sample no longer show green or blocked frames. The original file is still used for export, and normal 8-bit videos keep playing directly.\n\n## Smaller fixes\nThe Tiles shader uses the layer size for its crop edge padding, matching Alight Motion. No other effect or extension behavior is changed.\n",
+  "tag": "v5.5.2",
+  "name": "Schnitt 5.5.2",
+  "published": "2026-11-15T14:15:10Z",
+  "notes": "# Schnitt 5.5.2\r\n\r\n## Imported Alight effects use working implementations\r\n- Tiles, Luma Key and Wave Warp now switch to the built-in effects instead of an untranslated Alight shader.\r\n- Imported keyframes and property values are kept and converted to the matching controls.\r\n- Curated mappings now win over a bundled Alight shader, so imported links and XML no longer render as placeholders or noise.\r\n- Luma Key has Low, High, Feather, Weighted and Invert controls.\r\n- Wave Warp has the complete Alight controls: Phase, Direction, Spacing, Magnitude, Warp Angle, Damping, Damping Spacing, Origin and Screen Space.\r\n\r\n## Editor and media\r\n- Existing preview-copy, HDR, export fallback and device compatibility behaviour is unchanged.\r\n\r\n\r\n## APK WILL RELEASE TOMORROW",
   "assets": [
     {
-      "name": "Schnitt-5.5.1-arm64-v8a-release.apk",
-      "size": 93253647,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.1/Schnitt-5.5.1-arm64-v8a-release.apk"
-    },
-    {
-      "name": "Schnitt-5.5.1-armv7-release.apk",
-      "size": 91097557,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.1/Schnitt-5.5.1-armv7-release.apk"
-    },
-    {
-      "name": "Schnitt-5.5.1-universal-release.apk",
-      "size": 145454564,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.1/Schnitt-5.5.1-universal-release.apk"
+      "name": "Schnitt-5.5.2-arm64-v8a-release.apk",
+      "size": 93256422,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.2/Schnitt-5.5.2-arm64-v8a-release.apk"
     }
   ]
 }
