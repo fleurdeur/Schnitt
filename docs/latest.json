@@ -1,23 +1,13 @@
 {
-  "tag": "v5.5.3",
-  "name": "Schnitt 5.5.3",
-  "published": "2026-11-16T11:40:06Z",
-  "notes": "# Schnitt 5.5.3\n\n## Export works on more phones\n- Encoders are no longer rejected because their advertised size list disagrees with the project size. The encoder is now asked to configure the stream, with progressively simpler formats and automatic size fallbacks.\n- Software encoders are used when a hardware encoder refuses the stream.\n- Export verification no longer turns a successful file into \"Export Failed\" when the device decoder is busy or cannot decode its own output.\n- Large exports get a longer verification decode budget.\n\n## Imported Alight effects\n- Alight shaders now use the layer texture size for pixel maths. Blur, edge, outline, noise and similar effects keep the correct radius when a layer is smaller than the project.\n- Tiles maps directly through the layer matrix, so repeats stay aligned on rotated, scaled and nested layers.\n- Inner Shadow is available as a built-in effect and imported Alight Inner Shadow keeps its blur, X, Y, colour and opacity keyframes.\n- Luma Key has a Range mode for the newer Alight threshold formula, with the older formula still selectable.\n- Imported property names, values and keyframes are preserved.\n",
+  "tag": "v5.6.0",
+  "name": "Schnitt 5.6.0",
+  "published": "2026-11-16T13:02:07Z",
+  "notes": "## 3D camera tracking and stabilization\n\n- New 3D panel for shapes, text, drawings, models and cameras.\n- 4-point planar camera solve writes Location, Rotation and Tilt keyframes.\n- Stabilize locks a clip against camera shake with a 2-point inverse track.\n- Depth sorting switch and X/Y/Z, 3D rotation and scale controls with keyframe buttons.\n\n## Expressions in keyframes\n\n- Safe expression language for transform properties: time, t, frame, value, sin, cos, wiggle, noise, clamp, smoothstep, random and more.\n- Expressions bake to ordinary keyframes, so preview, export and imported XML stay compatible.\n- Source text is stored on the property and can be edited again.\n\n## Adaptive preview and effects\n\n- Adaptive preview reduces detail while playing and restores the chosen quality when paused.\n- New Headbop effect with bounce, sway, tilt and squash properties.\n- Deep Glow remains available, alongside the fixed Alight import effects.\n\n## Import and export\n\n- Keeps the 5.5.3 encoder fallbacks, software encoder support and best-effort verification.\n- Keeps imported Alight names, values and keyframes while using corrected layer-size uniforms.\n",
   "assets": [
     {
-      "name": "Schnitt-5.5.3-arm64-v8a-release.apk",
-      "size": 93265703,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.3/Schnitt-5.5.3-arm64-v8a-release.apk"
-    },
-    {
-      "name": "Schnitt-5.5.3-armv7-release.apk",
-      "size": 91109613,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.3/Schnitt-5.5.3-armv7-release.apk"
-    },
-    {
-      "name": "Schnitt-5.5.3-universal-release.apk",
-      "size": 145466620,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.3/Schnitt-5.5.3-universal-release.apk"
+      "name": "Schnitt-5.6.0-arm64-v8a-release.apk",
+      "size": 93269424,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.6.0/Schnitt-5.6.0-arm64-v8a-release.apk"
     }
   ]
 }
