@@ -11,6 +11,9 @@
 
 **A focused Android video editor with a native GPU engine, a real timeline, and no paywalls.**
 
+ [!IMPORTANT]
+> This project is just for fun, yet it is taking most of my time fixing, improving, and adding more features into to the app. Sooner or later this project wil no longer be maintained.
+
 <br/>
 
 [![Latest release](https://img.shields.io/github/v/release/fleurdeur/Schnitt?style=for-the-badge&labelColor=0d1117)](https://github.com/fleurdeur/Schnitt/releases)
