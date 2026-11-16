@@ -78,6 +78,7 @@
  "softglow",
  "deepglow",
  "innerglow",
+ "innershadow",
  "edgeglow",
  "contourlines",
  "contourgradient",

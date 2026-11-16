@@ -105,10 +105,14 @@ internal fun openVideoEncoderDetailed(s: ExportSettings, width: Int, height: Int
     for ((tryWidth, tryHeight) in encoderSizes(width, height)) {
         for (info in infos) {
             if (ExportDebug.refuseHardware && info.hardware) continue
-            val caps = info.getCapabilitiesForType(mime)
-            val video = caps.videoCapabilities ?: continue
-            if (!video.isSizeSupported(tryWidth, tryHeight)) continue
-            val rated = runCatching { video.getSupportedFrameRatesFor(tryWidth, tryHeight).upper }.getOrDefault(0.0)
+            val caps = runCatching { info.getCapabilitiesForType(mime) }.getOrNull() ?: continue
+            val video = caps.videoCapabilities
+            // isSizeSupported() is only a hint on many devices, and some encoders
+            // report an empty/incorrect list while still accepting the size at
+            // configure time. Treat configure() as the real test and keep the
+            // advertised value only for ordering/logging.
+            val announced = video?.let { runCatching { it.isSizeSupported(tryWidth, tryHeight) }.getOrDefault(false) } ?: false
+            val rated = video?.let { runCatching { it.getSupportedFrameRatesFor(tryWidth, tryHeight).upper }.getOrDefault(0.0) } ?: 0.0
             val key = "${info.name} ${tryWidth}x$tryHeight ${s.fps}"
             val high = mime == MediaFormat.MIMETYPE_VIDEO_AVC && key !in HighRefused && caps.profileLevels.any { it.profile == MediaCodecInfo.CodecProfileLevel.AVCProfileHigh }
             val codec = try { MediaCodec.createByCodecName(info.name) } catch (e: Exception) {
@@ -117,10 +121,10 @@ internal fun openVideoEncoderDetailed(s: ExportSettings, width: Int, height: Int
                 continue
             }
             var highFailed = false
-            for (bestEffort in if (hot || rated < 2.0 * s.fps) listOf(true, false) else listOf(false, true)) for (profile in if (high) listOf(true, false) else listOf(false)) {
+            for (compat in 0..2) for (bestEffort in if (hot || rated < 2.0 * s.fps) listOf(true, false) else listOf(false, true)) for (profile in if (high) listOf(true, false) else listOf(false)) {
                 try {
-                    codec.configure(encoderFormat(info, caps, s, tryWidth, tryHeight, profile, bestEffort, hot, bitrate), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-                    Log.i("AMExport", "encoding with ${info.name}${if (profile) " (High)" else ""}${if (bestEffort) " at best effort" else ""}; rated for ${rated.toInt()} fps at ${tryWidth}x$tryHeight")
+                    codec.configure(encoderFormat(info, caps, s, tryWidth, tryHeight, profile, bestEffort, hot, bitrate, compat), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                    Log.i("AMExport", "encoding with ${info.name}${if (profile) " (High)" else ""}${if (bestEffort) " at best effort" else ""}${if (!announced) " despite unadvertised size" else ""}${if (compat > 0) " (compat $compat)" else ""}; rated for ${rated.toInt()} fps at ${tryWidth}x$tryHeight")
                     if (highFailed && !profile) HighRefused += key
                     if (!info.hardware && infos.any { it.hardware }) note(txt(R.string.export_note_software))
                     if (tryWidth != width || tryHeight != height) Log.i("AMExport", "using automatic fallback size ${tryWidth}x$tryHeight for ${s.codec.label}")
@@ -129,7 +133,7 @@ internal fun openVideoEncoderDetailed(s: ExportSettings, width: Int, height: Int
                 } catch (e: Exception) {
                     last = e
                     if (profile) highFailed = true
-                    Log.w("AMExport", "${info.name} refused ${tryWidth}x$tryHeight at ${s.fps} fps${if (profile) " (High)" else ""}${if (bestEffort) " at best effort" else ""}", e)
+                    Log.w("AMExport", "${info.name} refused ${tryWidth}x$tryHeight at ${s.fps} fps${if (profile) " (High)" else ""}${if (bestEffort) " at best effort" else ""}${if (compat > 0) " (compat $compat)" else ""}", e)
                     runCatching { codec.reset() }
                 }
             }
@@ -160,18 +164,22 @@ private fun encoderSizes(width: Int, height: Int): List<Pair<Int, Int>> {
 }
 
 private fun encoderFormat(info: MediaCodecInfo, caps: MediaCodecInfo.CodecCapabilities, s: ExportSettings, width: Int, height: Int,
-                          profile: Boolean, bestEffort: Boolean, hot: Boolean, bitrate: Int?) = MediaFormat.createVideoFormat(s.codec.mime, width, height).apply {
-    val bitrates = caps.videoCapabilities!!.bitrateRange
+                          profile: Boolean, bestEffort: Boolean, hot: Boolean, bitrate: Int?, compat: Int = 0) = MediaFormat.createVideoFormat(s.codec.mime, width, height).apply {
+    val bitrates = caps.videoCapabilities?.bitrateRange ?: android.util.Range(1, Int.MAX_VALUE)
     setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
     setInteger(MediaFormat.KEY_BIT_RATE, (bitrate ?: videoBitrate(width, height, s)).coerceIn(bitrates.lower, bitrates.upper))
     setInteger(MediaFormat.KEY_FRAME_RATE, s.fps)
     setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
-    setInteger(MediaFormat.KEY_COLOR_STANDARD, if (fixedBt601(info)) MediaFormat.COLOR_STANDARD_BT601_NTSC else MediaFormat.COLOR_STANDARD_BT709)
-    setInteger(MediaFormat.KEY_COLOR_RANGE, MediaFormat.COLOR_RANGE_LIMITED)
-    setInteger(MediaFormat.KEY_COLOR_TRANSFER, MediaFormat.COLOR_TRANSFER_SDR_VIDEO)
-    if (profile) setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileHigh)
-    if (bestEffort) setInteger(MediaFormat.KEY_PRIORITY, 1)
-    if (hot) setInteger(MediaFormat.KEY_OPERATING_RATE, s.fps)
+    if (compat < 2) {
+        setInteger(MediaFormat.KEY_COLOR_STANDARD, if (fixedBt601(info)) MediaFormat.COLOR_STANDARD_BT601_NTSC else MediaFormat.COLOR_STANDARD_BT709)
+        setInteger(MediaFormat.KEY_COLOR_RANGE, MediaFormat.COLOR_RANGE_LIMITED)
+        setInteger(MediaFormat.KEY_COLOR_TRANSFER, MediaFormat.COLOR_TRANSFER_SDR_VIDEO)
+    }
+    if (compat < 1) {
+        if (profile) setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileHigh)
+        if (bestEffort) setInteger(MediaFormat.KEY_PRIORITY, 1)
+        if (hot) setInteger(MediaFormat.KEY_OPERATING_RATE, s.fps)
+    }
 }
 
 private fun hardwareEncodes(mime: String, width: Int, height: Int): Boolean = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any {

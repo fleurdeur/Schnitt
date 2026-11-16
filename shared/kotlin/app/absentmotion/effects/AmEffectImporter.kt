@@ -557,8 +557,13 @@ object AmEffectImporter {
         s = s.replace("acTime", "amTime").replace("acDuration", "amDuration").replace("acResolution", "acPreviewSize")
         s = s.replace("gl_FragCoord", "float4($uv, 0.0, 1.0)")
         s = sampleTextures(s, uv, targets, textures)
-        s = s.replace("getTexSize(inputImg.size)", "screen.zw")
-        s = s.replace("inputImg.size", "screen.zw")
+        // inputImg is the layer's own content, so its pixel size is the layer
+        // size, not the whole composition. Using screen.zw here made every
+        // Alight shader that converts pixels to UV (blurs, outlines, edge
+        // detection, noise, ...) operate at the wrong radius whenever the
+        // layer was smaller than the project.
+        s = s.replace("getTexSize(inputImg.size)", "acLayerSize")
+        s = s.replace("inputImg.size", "acLayerSize")
         s = s.replace("getTexSize(comp.size)", "screen.zw")
         s = s.replace("comp.size", "screen.zw")
         for (id in textures) {

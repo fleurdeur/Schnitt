@@ -62,6 +62,11 @@ class AmEffectLibraryTest {
         val blur = byName.getValue("Directional Blur")
         assertEquals(listOf("strength", "angle"), blur.params.map { it.id })
         assertTrue(blur.sksl!!.contains("uniform float strength;"))
+        // Alight's inputImg.size is the layer texture size. Mapping it to the
+        // project size made blur/edge/outline radii wrong on small layers.
+        val directional = AmEffectImporter.parse(File(folder, "dblur.xml").readText(), words)!!
+        assertTrue(directional.sksl?.contains("acLayerSize") == true)
+        assertFalse(directional.sksl?.contains("getTexSize(inputImg.size)") == true)
         val ripple = byName.getValue("Circular Ripple")
         assertTrue(ripple.params.any { it.id == "centerPoint" })
         assertTrue(ripple.sksl!!.contains("uniform float2 centerPoint;"))

@@ -3177,6 +3177,9 @@
    "weighted": {
     "to": "weighted"
    }
+  },
+  "set": {
+   "mode": 1
   }
  },
  "com.alightcreative.effects.lumakey2": {
@@ -3203,6 +3206,9 @@
    "weighted": {
     "to": "weighted"
    }
+  },
+  "set": {
+   "mode": 0
   }
  },
  "com.alightcreative.effects.lumakey": {
@@ -3221,6 +3227,9 @@
    "invert": {
     "to": "invert"
    }
+  },
+  "set": {
+   "mode": 0
   }
  },
  "com.alightcreative.effects.halftonedots": {
@@ -10070,6 +10079,34 @@
    },
    "alpha": {
     "to": "tint",
+    "min": 0,
+    "max": 1
+   }
+  }
+ },
+ "com.alightcreative.effects.internal-shadow": {
+  "to": "innershadow",
+  "params": {
+   "sigma": {
+    "to": "blur",
+    "min": 0,
+    "max": 10
+   },
+   "sdx": {
+    "to": "x",
+    "min": -50,
+    "max": 50
+   },
+   "sdy": {
+    "to": "y",
+    "min": -50,
+    "max": 50
+   },
+   "color": {
+    "to": "color"
+   },
+   "alpha": {
+    "to": "alpha",
     "min": 0,
     "max": 1
    }

@@ -76,10 +76,10 @@ class VerifyTest {
     }
 
     @Test fun slowDevicesGetMoreTimeForBigVideos() {
-        assertEquals(800L + 1080L * 1920 / 5_000, decodeBudgetMs(1080, 1920))
+        assertEquals(1_500L + 1080L * 1920 / 3_000, decodeBudgetMs(1080, 1920))
         assertTrue(decodeBudgetMs(3840, 2160) > decodeBudgetMs(1080, 1920))
-        assertTrue(decodeBudgetMs(256, 256) < 900L)
-        assertEquals(5_000L, decodeBudgetMs(8192, 8192))
+        assertEquals(1_500L + 256L * 256 / 3_000, decodeBudgetMs(256, 256))
+        assertEquals(8_000L, decodeBudgetMs(8192, 8192))
     }
 
     @Test fun audioOnlyNeedsNoVideo() {

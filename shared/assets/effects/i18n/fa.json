@@ -3342,6 +3342,13 @@
         },
         "weighted": {
           "label": "Weighted"
+        },
+        "mode": {
+          "label": "Range",
+          "options": [
+            "Luma Key 2",
+            "Luma Key 3"
+          ]
         }
       }
     },
@@ -7008,6 +7015,27 @@
         },
         "strength": {
           "label": "شدت"
+        }
+      }
+    },
+    "innershadow": {
+      "name": "Inner Shadow",
+      "description": "Draws a shadow inside the layer edges.",
+      "params": {
+        "blur": {
+          "label": "Size"
+        },
+        "x": {
+          "label": "Offset X"
+        },
+        "y": {
+          "label": "Offset Y"
+        },
+        "color": {
+          "label": "Color"
+        },
+        "alpha": {
+          "label": "Opacity"
         }
       }
     }

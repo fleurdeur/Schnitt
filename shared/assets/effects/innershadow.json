@@ -1,0 +1,52 @@
+{
+ "id": "innershadow",
+ "name": "Inner Shadow",
+ "category": "stylize",
+ "description": "Draws a shadow inside the layer's edges. The original Alight sigma, offset, colour and opacity controls are kept, so imported keyframes stay on the same properties.",
+ "params": [
+  {
+   "id": "blur",
+   "label": "Size",
+   "type": "float",
+   "default": 1,
+   "min": 0,
+   "max": 10,
+   "step": 0.005
+  },
+  {
+   "id": "x",
+   "label": "Offset X",
+   "type": "float",
+   "default": 5,
+   "min": -50,
+   "max": 50,
+   "step": 0.1
+  },
+  {
+   "id": "y",
+   "label": "Offset Y",
+   "type": "float",
+   "default": 5,
+   "min": -50,
+   "max": 50,
+   "step": 0.1
+  },
+  {
+   "id": "color",
+   "label": "Color",
+   "type": "color",
+   "default": "#ffffffaa"
+  },
+  {
+   "id": "alpha",
+   "label": "Opacity",
+   "type": "float",
+   "default": 1,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
+  }
+ ],
+ "sksl": "uniform shader image;\nuniform shader blurred;\nuniform float2 size;\nuniform float time;\nuniform float blur;\nuniform float x;\nuniform float y;\nlayout(color) uniform half4 color;\nuniform float alpha;\nhalf4 main(float2 coord) {\n    half4 src = image.eval(coord);\n    if (src.a <= 0.001) return src;\n    float inner = float(blurred.eval(coord - float2(x, y)).a);\n    float edge = clamp(float(src.a) - inner, 0.0, 1.0);\n    float a = edge * clamp(alpha, 0.0, 1.0) * float(color.a);\n    half4 shadow = half4(half3(color.rgb) * half(a), half(a));\n    return half4(min(src.rgb + shadow.rgb, half3(src.a)), src.a);\n}\n",
+ "since": "5.5.2"
+}

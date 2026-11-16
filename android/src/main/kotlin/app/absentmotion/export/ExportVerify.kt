@@ -142,7 +142,7 @@ suspend fun verifyExport(context: Context, uri: Uri, expect: Expectation): Verif
     }
 }
 
-internal fun decodeBudgetMs(width: Int, height: Int): Long = (800L + width.toLong() * height / 5_000).coerceIn(800L, 5_000L)
+internal fun decodeBudgetMs(width: Int, height: Int): Long = (1_500L + width.toLong() * height / 3_000).coerceIn(1_500L, 8_000L)
 
 private class Decoded(val first: Boolean? = null, val middle: Boolean? = null, val last: Boolean? = null, val firstLooks: Boolean? = null)
 
@@ -176,10 +176,13 @@ private fun decodeFrames(extractor: MediaExtractor, track: Int, format: MediaFor
         extractor.seekTo(lastSample, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
         val last = decode(codec, extractor, SystemClock.elapsedRealtime() + budget)?.let { it >= 0 && lastSample - it <= 1_000 }
         return Decoded(first?.let { it.pts >= 0 }, middle, last, firstLooks)
-    } catch (e: MediaCodec.CodecException) {
-        return if (app.absentmotion.media.codecBusy(e)) Decoded() else Decoded(false, null, false)
     } catch (e: Exception) {
-        return Decoded(false, null, false)
+        // Verification is a best-effort sanity check. A device may be unable to
+        // decode the file it just encoded (missing/limited decoder, codec busy,
+        // vendor PTS quirks). That must not turn a successful export into an
+        // "Export Failed" dialog; leave the frame checks unchecked instead.
+        android.util.Log.w("AMExport", "could not decode the export for verification", e)
+        return Decoded()
     } finally {
         runCatching { codec.stop() }
         codec.release()

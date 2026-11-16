@@ -184,4 +184,39 @@ class AlightEditImportTest {
         assertTrue(result.dropped.toString(), result.dropped.isEmpty())
     }
 
+    @Test fun innerShadowAndModernLumaKeyKeepTheirKeyframes() {
+        val xml = """
+            <scene title="x" width="1080" height="1920" fps="60" totalTime="2000" bgcolor="#00000000">
+              <shape id="1" startTime="0" endTime="2000">
+                <effect id="com.alightcreative.effects.internal-shadow">
+                  <property name="sigma" type="float"><kf t="0.1" v="0.500000"/><kf t="0.8" v="4.000000" e="cubicBezier 0.0 0.58 1.0 1.0"/></property>
+                  <property name="sdx" type="float" value="7.000000"/>
+                  <property name="sdy" type="float" value="-3.000000"/>
+                  <property name="color" type="color" value="#ff112233"/>
+                  <property name="alpha" type="float" value="0.750000"/>
+                </effect>
+                <effect id="com.alightcreative.effects.lumakey3">
+                  <property name="lowThreshold" type="float"><kf t="0.2" v="0.200000"/><kf t="0.9" v="0.600000" e="cubicBezier 0.0 0.58 1.0 1.0"/></property>
+                  <property name="highThreshold" type="float" value="0.900000"/>
+                  <property name="feather" type="float" value="0.150000"/>
+                  <property name="weighted" type="bool" value="true"/>
+                  <property name="invert" type="bool" value="false"/>
+                </effect>
+              </shape>
+            </scene>"""
+        val e = effects(migration.migrate(Scene.parse(xml)).scene).associateBy { it["id"]!! }
+        val shadow = e.getValue("absent.innershadow")
+        assertEquals(listOf("0.500000", "4.000000"), shadow.keys("blur").map { it["v"] })
+        assertEquals("cubicBezier 0.0 0.58 1.0 1.0", shadow.keys("blur")[1]["e"])
+        assertEquals(7f, shadow.value("x")!!.toFloat(), 1e-6f)
+        assertEquals(-3f, shadow.value("y")!!.toFloat(), 1e-6f)
+        assertEquals("#ff112233", shadow.value("color"))
+        assertEquals(0.75f, shadow.value("alpha")!!.toFloat(), 1e-6f)
+        val luma = e.getValue("absent.lumakey")
+        assertEquals(listOf("0.200000", "0.600000"), luma.keys("threshold").map { it["v"] })
+        assertEquals("cubicBezier 0.0 0.58 1.0 1.0", luma.keys("threshold")[1]["e"])
+        assertEquals("1.000000", luma.value("mode"))
+        assertEquals(0.9f, luma.value("highThreshold")!!.toFloat(), 1e-6f)
+    }
+
 }
