@@ -7,17 +7,17 @@
   "assets": [
     {
       "name": "Schnitt-5.7.0-nightly-arm64-v8a.apk",
-      "size": 92093987,
+      "size": 92094347,
       "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.7.0-nightly.20261116/Schnitt-5.7.0-nightly-arm64-v8a.apk"
     },
     {
       "name": "Schnitt-5.7.0-nightly-armv7.apk",
-      "size": 89937897,
+      "size": 89938257,
       "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.7.0-nightly.20261116/Schnitt-5.7.0-nightly-armv7.apk"
     },
     {
       "name": "Schnitt-5.7.0-nightly-universal.apk",
-      "size": 144294900,
+      "size": 144295260,
       "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.7.0-nightly.20261116/Schnitt-5.7.0-nightly-universal.apk"
     }
   ]
