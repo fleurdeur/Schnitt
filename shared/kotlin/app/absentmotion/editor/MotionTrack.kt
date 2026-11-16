@@ -320,8 +320,12 @@ class TrackMode(layerId: Long) : DrawingMode(layerId, created = false) {
     var message by mutableStateOf("")
     var live by mutableStateOf<List<Pt>?>(null)
     var lostFrame by mutableStateOf<Int?>(null)
+    var camera by mutableStateOf(false)
+    var cameraId by mutableStateOf<Long?>(null)
+    var stabilize by mutableStateOf(false)
     internal var job: Job? = null
     internal val motion = HashMap<Int, Sim>()
+    internal val cameraPoses = HashMap<Int, CameraPose>()
     internal var apply: TrackApply? = null
     internal var pending: List<TrackRun> = emptyList()
 

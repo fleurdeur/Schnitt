@@ -135,9 +135,13 @@ internal fun TrackPanel(state: EditorState, mode: TrackMode) {
     DisposableEffect(mode) { onDispose { mode.job?.cancel() } }
     val idle = !mode.running
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Choices(stringResource(R.string.track_track), listOf(stringResource(R.string.track_position) to 1, stringResource(R.string.track_position_rotation_scale) to 2), mode.points.size, idle) { state.setTrackPointCount(mode, it) }
+        if (mode.camera) {
+            Choices("3D camera", listOf("4 points" to 4, "6 points" to 6, "8 points" to 8), mode.points.size, idle) { state.setTrackPointCount(mode, it) }
+        } else {
+            Choices(stringResource(R.string.track_track), listOf(stringResource(R.string.track_position) to 1, stringResource(R.string.track_position_rotation_scale) to 2), mode.points.size, idle) { state.setTrackPointCount(mode, it) }
+        }
         Choices(stringResource(R.string.track_direction), TrackRange.entries.map { stringResource(RangeLabels.getValue(it)) to it }, mode.range, idle && mode.lostFrame == null) { mode.range = it }
-        TargetChoice(state, mode, idle && mode.lostFrame == null)
+        if (!mode.camera) TargetChoice(state, mode, idle && mode.lostFrame == null)
         Row(Modifier.fillMaxWidth().height(64.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f).fillMaxHeight(), Alignment.CenterStart) {
                 if (mode.running) {

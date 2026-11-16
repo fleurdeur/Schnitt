@@ -16,8 +16,20 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-internal fun trackStartPoints(width: Int, height: Int, count: Int): List<Pt> =
-    if (count < 2) listOf(Pt(width / 2f, height / 2f)) else listOf(Pt(width * 0.35f, height / 2f), Pt(width * 0.65f, height / 2f))
+internal fun trackStartPoints(width: Int, height: Int, count: Int): List<Pt> = when {
+    count <= 1 -> listOf(Pt(width / 2f, height / 2f))
+    count == 2 -> listOf(Pt(width * 0.35f, height / 2f), Pt(width * 0.65f, height / 2f))
+    else -> {
+        // A 4/6/8 point grid gives the homography solver enough spread.  Keep
+        // the points away from the border so the patch tracker has context.
+        val cols = if (count >= 6) 3 else 2
+        val rows = (count + cols - 1) / cols
+        (0 until count).map { i ->
+            val c = i % cols; val r = i / cols
+            Pt(width * (0.2f + 0.6f * (c + 0.5f) / cols), height * (0.2f + 0.6f * (r + 0.5f) / rows))
+        }
+    }
+}
 
 val Layer.canTrack: Boolean get() = mediaFill?.video == true
 
@@ -33,11 +45,46 @@ fun EditorState.startTracking() {
 
 fun EditorState.setTrackPointCount(mode: TrackMode, count: Int) {
     if (mode.running || mode.points.size == count) return
+    if (mode.camera && count < 4) return
     val media = scene.layer(mode.layerId)?.mediaFill?.uri?.let(scene::media) ?: return
     mode.points.clear()
     mode.points += trackStartPoints(media.width, media.height, count)
     mode.pending = emptyList()
     mode.lostFrame = null
+}
+
+/** Starts a 4-point planar camera solve.  The button lives in the 3D panel. */
+fun EditorState.startCameraTracking() {
+    val video = selected?.takeIf { it.canTrack } ?: return
+    val media = scene.media(video.mediaFill!!.uri)?.takeIf { it.width > 0 && it.height > 0 } ?: return
+    if (!video.activeAt(timeMs)) frame = scene.firstShownFrame(video.startTime)
+    if (scene.layers.none { it.kind == "camera" }) addCamera()
+    val cam = scene.layers.firstOrNull { it.kind == "camera" } ?: return
+    selectedId = video.id
+    playing = false
+    panel = EditorPanel.Tools
+    drawing = TrackMode(video.id).apply {
+        points += trackStartPoints(media.width, media.height, 4)
+        camera = true
+        cameraId = cam.id
+        stabilize = false
+    }
+}
+
+/** Two-point inverse track that locks the selected clip against camera shake. */
+fun EditorState.startStabilize() {
+    val video = selected?.takeIf { it.canTrack } ?: return
+    val media = scene.media(video.mediaFill!!.uri)?.takeIf { it.width > 0 && it.height > 0 } ?: return
+    if (!video.activeAt(timeMs)) frame = scene.firstShownFrame(video.startTime)
+    selectedId = video.id
+    playing = false
+    panel = EditorPanel.Tools
+    drawing = TrackMode(video.id).apply {
+        points += trackStartPoints(media.width, media.height, 2)
+        camera = false
+        stabilize = true
+        target = video.id
+    }
 }
 
 fun EditorState.runTracking(context: Context, mode: TrackMode, scope: CoroutineScope, resume: Boolean) {
@@ -65,7 +112,7 @@ fun EditorState.runTracking(context: Context, mode: TrackMode, scope: CoroutineS
             mode.message = AppText.get(R.string.track_motion_no_area)
             return
         }
-        val chosen = mode.target?.let(document::layer)
+        val chosen = mode.target?.let(document::layer) ?: mode.cameraId?.let(document::layer)
         mode.motion.clear()
         mode.motion[f0] = Sim()
         mode.apply = TrackApply(
@@ -109,9 +156,20 @@ fun EditorState.runTracking(context: Context, mode: TrackMode, scope: CoroutineS
                         }
                         val motion = document.motionOf(video, outcome.steps, width, height, run.base)
                         last = outcome.steps.lastOrNull() ?: last
+                        val poses = if (mode.camera) {
+                            val camera = mode.cameraId?.let(document::layer)
+                            if (camera == null) emptyMap() else document.cameraTrack(
+                                camera, outcome.steps, width, height,
+                                toScene = { f, p -> document.videoToScene(video, f, width, height)?.map(p) },
+                                base = cameraBase(camera), baseZoom = document.cameraZoom,
+                            )
+                        } else emptyMap()
                         withContext(Dispatchers.Main) {
                             mode.motion.putAll(motion)
-                            if (motion.size > 1) writeTrack(mode, video, apply)
+                            if (poses.isNotEmpty()) {
+                                mode.cameraPoses.putAll(poses)
+                                edit("camera-track") { it.withCameraTrack(mode.cameraId!!, poses) }
+                            } else if (motion.size > 1) writeTrack(mode, video, apply)
                         }
                         partial = null
                         val at = outcome.lostAt ?: continue
@@ -136,7 +194,9 @@ fun EditorState.runTracking(context: Context, mode: TrackMode, scope: CoroutineS
                     mode.points += step.points
                     frame = step.frame
                 }
-                mode.message = AppText.get(R.string.track_motion_done, mode.motion.size.toString(), scene.layer(apply.targetId)?.label?.ifEmpty { null } ?: AppText.get(R.string.track_motion_target_layer))
+                val count = if (mode.camera) mode.cameraPoses.size else mode.motion.size
+                val label = if (mode.camera) AppText.get(R.string.model_layer_camera) else scene.layer(apply.targetId)?.label?.ifEmpty { null } ?: AppText.get(R.string.track_motion_target_layer)
+                mode.message = AppText.get(R.string.track_motion_done, count.toString(), label)
             }
         } catch (_: CancellationException) {
             partial?.takeIf { scope.isActive }?.invoke()?.takeIf { it.size > 1 }?.let { mode.motion.putAll(it); writeTrack(mode, video, apply) }
@@ -162,8 +222,15 @@ private fun EditorState.writeTrack(mode: TrackMode, video: Layer, apply: TrackAp
             val count = next.layers.count { it.kind == "nullobj" && it.label.startsWith("$name ") } + 1
             next = next.add(trackNull(apply.targetId, video, Pt(apply.origin.x, apply.origin.y), "$name $count"))
         }
-        next.withTrack(apply, mode.motion)
+        if (mode.stabilize) next.withTrack(apply, mode.motion.mapValues { it.value.inverse() })
+        else next.withTrack(apply, mode.motion)
     }
+}
+
+private fun Sim.inverse(): Sim {
+    val d = a * a + b * b
+    if (d < 1e-9) return Sim()
+    return Sim(a / d, -b / d, (-a * tx - b * ty) / d, (b * tx - a * ty) / d)
 }
 
 private const val LIVE_NS = 80_000_000L

@@ -31,6 +31,7 @@ class AppSettings(private val context: Context) {
     private var rotate3dState by mutableStateOf(prefs.getBoolean("rotate3d", false))
     private var rotateFreeState by mutableStateOf(prefs.getBoolean("rotateFree", false))
     private var openGlState by mutableStateOf(prefs.getBoolean("graphicsOpenGl", false))
+    private var adaptivePreviewState by mutableStateOf(prefs.getBoolean("adaptivePreview", true))
 
     private var themeState by mutableStateOf(Themes.firstChoice(prefs.getString("theme", null), prefs.getInt("onboarding", 0), prefs.getBoolean("lookChosen", false)))
     private var systemDarkState by mutableStateOf(app.absentmotion.platform.systemDark(context))
@@ -85,6 +86,14 @@ class AppSettings(private val context: Context) {
     var openGl: Boolean
         get() = openGlState
         set(value) { openGlState = value; prefs.edit().putBoolean("graphicsOpenGl", value).apply() }
+
+    /** Drops preview detail while playing, then returns to the chosen quality when paused. */
+    var adaptivePreview: Boolean
+        get() = adaptivePreviewState
+        set(value) { adaptivePreviewState = value; prefs.edit().putBoolean("adaptivePreview", value).apply() }
+
+    fun previewDivisor(playing: Boolean): Int =
+        if (adaptivePreview && playing) maxOf(previewQuality.divisor, PreviewQuality.Half.divisor) else previewQuality.divisor
 
     var vibration: Boolean
         get() = vibrationState

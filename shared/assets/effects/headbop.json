@@ -1,0 +1,55 @@
+{
+ "id": "headbop",
+ "name": "Headbop",
+ "category": "stylize",
+ "since": "5.6.0",
+ "description": "Bounces and sways the layer to a beat with a squash-and-stretch accent.",
+ "params": [
+  {
+   "id": "speed",
+   "label": "Speed",
+   "type": "float",
+   "default": 1,
+   "min": 0.05,
+   "max": 8,
+   "step": 0.01
+  },
+  {
+   "id": "amount",
+   "label": "Bounce",
+   "type": "float",
+   "default": 0.08,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "tilt",
+   "label": "Tilt",
+   "type": "float",
+   "default": 4,
+   "min": -45,
+   "max": 45,
+   "step": 0.1
+  },
+  {
+   "id": "squash",
+   "label": "Squash",
+   "type": "float",
+   "default": 0.06,
+   "min": 0,
+   "max": 0.8,
+   "step": 0.01
+  },
+  {
+   "id": "sway",
+   "label": "Sway",
+   "type": "float",
+   "default": 0.03,
+   "min": 0,
+   "max": 0.5,
+   "step": 0.01
+  }
+ ],
+ "sksl": "uniform shader image;\nuniform float2 size;\nuniform float time;\nuniform float speed;\nuniform float amount;\nuniform float tilt;\nuniform float squash;\nuniform float sway;\nhalf4 main(float2 coord) {\n    float t = time * max(speed, 0.001) * 6.2831853;\n    float bob = sin(t) * amount;\n    float side = cos(t * 0.5) * sway;\n    float angle = radians(sin(t) * tilt);\n    float2 p = coord / max(size, float2(1.0)) - 0.5;\n    float s = 1.0 + sin(t * 2.0) * squash;\n    p.x /= max(s, 0.1);\n    p.y *= s;\n    float ca = cos(angle), sa = sin(angle);\n    p = float2(p.x * ca - p.y * sa, p.x * sa + p.y * ca) + 0.5;\n    p += float2(side, bob);\n    return image.eval(clamp(p, 0.0, 1.0) * size);\n}"
+}

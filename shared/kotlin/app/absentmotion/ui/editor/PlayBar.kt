@@ -137,6 +137,12 @@ private fun HoldPlayPanel(
                     )
                 }
             }
+            val adaptive = state.settings.adaptivePreview
+            Box(
+                Modifier.height(28.dp).clip(RoundedCornerShape(14.dp)).background(if (adaptive) Am.Accent else Am.Well)
+                    .clickable { state.settings.adaptivePreview = !adaptive }.padding(horizontal = 8.dp),
+                Alignment.Center,
+            ) { Text("Adaptive", color = if (adaptive) Am.OnAccent else Am.OnDark, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
             val loop = state.settings.loopingPlay
             Box(
                 Modifier.height(28.dp).clip(RoundedCornerShape(14.dp)).background(if (loop) Am.Accent else Am.Well)

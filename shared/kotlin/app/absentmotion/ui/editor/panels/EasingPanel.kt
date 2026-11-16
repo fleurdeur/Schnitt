@@ -119,6 +119,7 @@ internal fun EasingPanel(state: EditorState, modifier: Modifier = Modifier) {
         Presets(state, easing, family, Modifier.weight(169f).fillMaxHeight())
         Families(state, family, Modifier.weight(168f).fillMaxHeight())
     }
+    ExpressionDialog(state)
 }
 
 @Composable
@@ -144,6 +145,9 @@ private fun LeftColumn(state: EditorState, easing: Easing, basic: Boolean, overs
             PanelIcon(PanelIcons.More, Am.OnDark, size = 26.dp, description = stringResource(R.string.effects_more))
             Presence(menu) { OverflowMenu(state, basic, overshoot, toggleOvershoot) { menu = false } }
         }
+        Cell(enabled = state.keyTarget != null, onClick = {
+            state.keyTarget?.let { state.openExpression(it.ref, it.ref.name, it.default) }
+        }) { Text("fx", color = if (state.keyTarget != null) Am.Accent else Am.OnDarkDim, fontSize = 15.sp) }
     }
 }
 

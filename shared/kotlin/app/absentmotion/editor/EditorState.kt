@@ -21,6 +21,7 @@ import app.absentmotion.model.KeyScope
 import app.absentmotion.model.Layer
 import app.absentmotion.model.PropRef
 import app.absentmotion.model.Scene
+import app.absentmotion.model.formatFloats
 import app.absentmotion.model.nestedHostTime
 import app.absentmotion.model.nestedTime
 import app.absentmotion.model.withValueLinksFollowing
@@ -30,7 +31,7 @@ enum class EditorPanel(@StringRes val title: Int) {
     Tools(0), Speed(R.string.edit_panel_time_remapping), MoveTransform(R.string.edit_panel_transform), ColorFill(R.string.edit_panel_fill_color),
     EditShape(R.string.edit_panel_shape_options), EditText(R.string.edit_panel_edit_text),
     BorderShadow(R.string.edit_panel_frame_shadow), Blending(R.string.edit_panel_opacity_blend), Effects(R.string.edit_panel_effects), Camera(R.string.edit_panel_camera_options), Model(R.string.edit_panel_model_options), Crop(R.string.layer_tool_crop),
-    Edge(R.string.cutout_edge), Light(R.string.light_options), Frame(R.string.layer_tool_frame),
+    Edge(R.string.cutout_edge), Light(R.string.light_options), Frame(R.string.layer_tool_frame), ThreeD(R.string.three_d_layer),
 }
 
 data class KeyTarget(val ref: PropRef, val default: String, val type: String = "float")
@@ -326,6 +327,33 @@ class EditorState(
     var easingOpen by mutableStateOf(false)
 
     var easingHint by mutableStateOf(false)
+
+    var expressionOpen by mutableStateOf(false)
+    var expressionRef by mutableStateOf<PropRef?>(null)
+        private set
+    var expressionLabel by mutableStateOf("")
+        private set
+    var expressionText by mutableStateOf("")
+
+    fun openExpression(ref: PropRef, label: String, current: FloatArray) =
+        openExpression(ref, label, current.joinToString(",") { it.toString() })
+
+    fun openExpression(ref: PropRef, label: String, current: String) {
+        val layer = selected ?: return
+        expressionRef = ref
+        expressionLabel = label
+        expressionText = layer.expressionText(ref) ?: current
+        expressionOpen = true
+    }
+
+    fun applyExpression() {
+        val ref = expressionRef ?: return
+        val id = selectedId ?: return
+        val text = expressionText.trim().ifEmpty { "0" }
+        edit("expression") { it.bakeExpression(id, ref, text, expressionLabel) }
+        endGesture()
+        expressionOpen = false
+    }
 
     var overshoot by mutableStateOf(false)
 
