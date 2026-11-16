@@ -400,7 +400,7 @@ JNIEXPORT jbyteArray JNICALL JNI_FN(nativeShapeIcon)(JNIEnv* env, jclass, jlong 
 
 JNIEXPORT jboolean JNICALL JNI_FN(nativeSetModel)(JNIEnv* env, jclass, jbyteArray uri, jfloatArray positions, jfloatArray normals,
                                                  jfloatArray uvs, jintArray colors, jintArray triangles, jintArray slots, jboolean twoSided,
-                                                 jintArray partOfVertex, jfloatArray partCenters) {
+                                                 jintArray partOfVertex, jfloatArray partCenters, jintArray partParents) {
     std::string key((size_t)env->GetArrayLength(uri), '\0');
     env->GetByteArrayRegion(uri, 0, (jsize)key.size(), reinterpret_cast<jbyte*>(key.data()));
     if (!positions) {
@@ -427,13 +427,15 @@ JNIEXPORT jboolean JNICALL JNI_FN(nativeSetModel)(JNIEnv* env, jclass, jbyteArra
     model->slots = ints(slots);
     model->partOfVertex = partOfVertex ? ints(partOfVertex) : std::vector<int>{};
     model->partCenters = partCenters ? floats(partCenters) : std::vector<float>{};
+    model->partParents = partParents ? ints(partParents) : std::vector<int>{};
     model->twoSided = twoSided;
     const size_t count = model->positions.size() / 3;
     const bool ok = model->positions.size() == count * 3 && model->normals.size() == count * 3 && model->uvs.size() == count * 2 &&
                     model->colors.size() == count && model->triangles.size() % 3 == 0 && model->slots.size() == model->triangles.size() / 3 &&
                     std::all_of(model->triangles.begin(), model->triangles.end(), [&](int i) { return i >= 0 && (size_t)i < count; }) &&
                     (model->partOfVertex.empty() || model->partOfVertex.size() == count) && model->partCenters.size() % 3 == 0 &&
-                    std::all_of(model->partOfVertex.begin(), model->partOfVertex.end(), [&](int i) { return i >= 0 && (size_t)(i * 3 + 2) < model->partCenters.size(); });
+                    std::all_of(model->partOfVertex.begin(), model->partOfVertex.end(), [&](int i) { return i >= 0 && (size_t)(i * 3 + 2) < model->partCenters.size(); }) &&
+                    std::all_of(model->partParents.begin(), model->partParents.end(), [&](int i) { return i >= -1 && (size_t)(i * 3 + 2) < model->partCenters.size(); });
     if (ok) am::SetModel(key, std::move(model));
     return ok;
 }

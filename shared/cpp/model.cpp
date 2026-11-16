@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <map>
 
 #include "include/core/SkCanvas.h"
@@ -107,8 +108,20 @@ void DrawModel(SkCanvas* canvas, const Layer& l, double timeMs, float alpha, con
     const float ambient = l.value("ambient", 0, t, 0.35f), intensity = l.value("intensity", 0, t, 1);
 
     const int count = (int)(m.positions.size() / 3);
-    std::vector<SkM44> parts(m.partCenters.size() / 3);
-    for (size_t k = 0; k < parts.size(); k++) parts[k] = PartMatrix(l, m, (int)k, t);
+    const int partCount = (int)(m.partCenters.size() / 3);
+    std::vector<SkM44> parts(partCount);
+    std::vector<int> partState(partCount, 0);
+    std::function<SkM44(int)> partWorld = [&](int part) -> SkM44 {
+        if (part < 0 || part >= partCount) return SkM44();
+        if (partState[part] == 2) return parts[part];
+        if (partState[part] == 1) return SkM44(); // malformed parent cycle
+        partState[part] = 1;
+        const int parent = m.partParents.size() == (size_t)partCount ? m.partParents[part] : -1;
+        parts[part] = partWorld(parent) * PartMatrix(l, m, part, t);
+        partState[part] = 2;
+        return parts[part];
+    };
+    for (int k = 0; k < partCount; k++) partWorld(k);
     auto partOf = [&](int v) { return m.partOfVertex.size() == (size_t)count ? std::clamp(m.partOfVertex[v], 0, (int)parts.size() - 1) : -1; };
     std::vector<SkV4> clip(count);
     for (int v = 0; v < count; v++) {

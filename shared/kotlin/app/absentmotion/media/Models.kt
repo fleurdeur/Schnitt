@@ -26,6 +26,7 @@ class Mesh(
     val partOfVertex: IntArray = IntArray(0),
     val partNames: List<String> = emptyList(),
     val partCenters: FloatArray = FloatArray(0),
+    val partParents: IntArray = IntArray(0),
 ) {
     val vertexCount: Int get() = positions.size / 3
     val triangleCount: Int get() = triangles.size / 3
@@ -114,7 +115,7 @@ private class MeshBuilder {
         slots.add(slot); triangleParts.add(part.coerceAtLeast(0))
     }
 
-    fun build(textures: List<ByteArray>, twoSided: Boolean, partNames: List<String> = emptyList()): Mesh {
+    fun build(textures: List<ByteArray>, twoSided: Boolean, partNames: List<String> = emptyList(), parents: List<Int> = emptyList()): Mesh {
         if (missing.size > 0) flatten()
         val remap = IntArray(count) { -1 }
         var used = 0
@@ -138,7 +139,7 @@ private class MeshBuilder {
         radius = sqrt(radius).takeIf { it > 0f } ?: 1f
         for (i in p.indices) p[i] = (p[i] - centre[i % 3]) / radius
         val tri = triangles.array()
-        val partCount = maxOf(partNames.size, (0 until triangleParts.size).maxOfOrNull { triangleParts.data[it] + 1 } ?: 1).coerceAtLeast(1)
+        val partCount = maxOf(partNames.size, parents.size, (0 until triangleParts.size).maxOfOrNull { triangleParts.data[it] + 1 } ?: 1).coerceAtLeast(1)
         val partOfVertex = IntArray(used)
         val centres = FloatArray(partCount * 3)
         val counts = IntArray(partCount)
@@ -153,7 +154,8 @@ private class MeshBuilder {
         }
         for (part in 0 until partCount) if (counts[part] > 0) for (i in 0..2) centres[part * 3 + i] /= counts[part]
         return Mesh(p, pick(normals, 3), pick(uvs, 2), IntArray(used) { colors.data[keep[it]] }, tri, slots.array(), textures, twoSided,
-            partOfVertex, partNames.takeIf { it.isNotEmpty() } ?: List(partCount) { "Part ${it + 1}" }, centres)
+            partOfVertex, partNames.takeIf { it.isNotEmpty() } ?: List(partCount) { "Part ${it + 1}" }, centres,
+            IntArray(partCount) { parents.getOrElse(it) { -1 }.coerceIn(-1, partCount - 1) })
     }
 
     private fun flatten() {
@@ -376,6 +378,8 @@ object GltfReader {
         val textures = ArrayList<ByteArray>()
         val imageSlots = HashMap<Int, Int>()
         val partNames = ArrayList<String>()
+        val partParents = ArrayList<Int>()
+        val nodePart = IntArray(nodes.size) { -1 }
         var twoSided = false
         val builder = MeshBuilder()
 
@@ -544,7 +548,8 @@ object GltfReader {
         val visited = BooleanArray(nodes.size)
         val holders = Ints()
         val holderParts = Ints()
-        fun visit(index: Int, parent: FloatArray, depth: Int) {
+        val holderParents = Ints()
+        fun visit(index: Int, parent: FloatArray, depth: Int, parentNode: Int) {
             val node = nodes.getOrNull(index) ?: return
             if (depth > 64 || visited[index]) return
             visited[index] = true
@@ -552,10 +557,12 @@ object GltfReader {
             worlds[index] = world
             if (node.has("mesh")) {
                 val name = node.optString("name").ifBlank { "Part ${partNames.size + 1}" }
+                partParents.add(if (parentNode >= 0) nodePart[parentNode] else -1)
+                nodePart[index] = partNames.size
                 partNames.add(name)
-                holders.add(index); holderParts.add(partNames.size - 1)
+                holders.add(index); holderParts.add(partNames.size - 1); holderParents.add(partParents.last())
             }
-            node.optJSONArray("children")?.let { c -> for (i in 0 until c.length()) visit(c.optInt(i, -1), world, depth + 1) }
+            node.optJSONArray("children")?.let { c -> for (i in 0 until c.length()) visit(c.optInt(i, -1), world, depth + 1, index) }
         }
 
         val identity = FloatArray(16) { if (it % 5 == 0) 1f else 0f }
@@ -568,13 +575,13 @@ object GltfReader {
             val children = nodes.flatMap { n -> n.optJSONArray("children")?.let { c -> List(c.length()) { c.optInt(it, -1) } }.orEmpty() }.toSet()
             val roots = scenes.getOrNull(json.optInt("scene", 0))?.optJSONArray("nodes")?.let { r -> List(r.length()) { r.optInt(it, -1) } }
                 ?: nodes.indices.filter { it !in children }
-            roots.forEach { visit(it, identity, 0) }
+            roots.forEach { visit(it, identity, 0, -1) }
             for (k in 0 until holders.size) {
                 val node = nodes[holders.data[k]]
                 addMesh(node.getInt("mesh"), worlds[holders.data[k]]!!, if (skin) node.optInt("skin", -1) else -1, holderParts.data[k])
             }
         }
-        return builder.build(textures, twoSided, partNames)
+        return builder.build(textures, twoSided, partNames, partParents)
     }
 
     private fun JSONArray?.objects(): List<JSONObject> = if (this == null) emptyList() else List(length()) { optJSONObject(it) ?: JSONObject() }
@@ -721,5 +728,6 @@ private fun clustered(mesh: Mesh, cells: Int): Mesh {
     }
     for (part in 0 until partCount) if (partCounts[part] > 0) for (i in 0..2) partCentres[part * 3 + i] /= partCounts[part]
     return Mesh(positions, normals, uvs, colors, triangles, slots.array(), mesh.textures, mesh.twoSided,
-        partOfVertex, mesh.partNames.takeIf { it.isNotEmpty() } ?: List(partCount) { "Part ${it + 1}" }, partCentres)
+        partOfVertex, mesh.partNames.takeIf { it.isNotEmpty() } ?: List(partCount) { "Part ${it + 1}" }, partCentres,
+        IntArray(partCount) { mesh.partParents.getOrElse(it) { -1 }.coerceIn(-1, partCount - 1) })
 }

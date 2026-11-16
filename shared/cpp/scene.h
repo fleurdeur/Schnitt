@@ -337,7 +337,7 @@ void DrawMedia(SkCanvas* canvas, const Layer& layer, const SkPath& path, float o
 struct Model {
     std::vector<float> positions, normals, uvs;
     std::vector<uint32_t> colors;
-    std::vector<int> triangles, slots, partOfVertex;
+    std::vector<int> triangles, slots, partOfVertex, partParents;
     std::vector<float> partCenters;
     bool twoSided = false;
 };

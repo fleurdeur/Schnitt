@@ -99,7 +99,7 @@ class NativeEngine(backend: Backend) : AutoCloseable {
 
     fun setModel(uri: String, mesh: app.absentmotion.media.Mesh?): Boolean =
         nativeSetModel(uri.toByteArray(), mesh?.positions, mesh?.normals, mesh?.uvs, mesh?.colors, mesh?.triangles, mesh?.slots, mesh?.twoSided == true,
-            mesh?.partOfVertex, mesh?.partCenters)
+            mesh?.partOfVertex, mesh?.partCenters, mesh?.partParents)
 
     override fun close() {
         nativeDestroy(handle)
@@ -184,6 +184,6 @@ class NativeEngine(backend: Backend) : AutoCloseable {
         @JvmStatic private external fun nativeShapeIcon(engine: Long, xml: ByteArray, size: Int, color: Int): ByteArray?
         @JvmStatic private external fun nativeSetModel(uri: ByteArray, positions: FloatArray?, normals: FloatArray?, uvs: FloatArray?,
                                                       colors: IntArray?, triangles: IntArray?, slots: IntArray?, twoSided: Boolean,
-                                                      partOfVertex: IntArray?, partCenters: FloatArray?): Boolean
+                                                      partOfVertex: IntArray?, partCenters: FloatArray?, partParents: IntArray?): Boolean
     }
 }

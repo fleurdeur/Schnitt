@@ -39,6 +39,7 @@ The glTF reader now stores node parts alongside the mesh:
 - `Mesh.partOfVertex` — one part index per vertex.
 - `Mesh.partNames` — node names in scene order.
 - `Mesh.partCenters` — normalized part pivot points.
+- `Mesh.partParents` — parent part index for rigid hierarchy animation.
 
 `MeshBuilder` and the decimator preserve part assignment. `NativeEngine`
 forwards the arrays to `nativeSetModel`, and `shared/cpp/model.cpp` applies a
@@ -53,8 +54,9 @@ part0s
 ```
 
 They can be keyframed from the model panel or through MCP `layer.set` and
-`keyframe.add`. Part animation is rigid; it does not deform vertices with a
-runtime bone hierarchy.
+`keyframe.add`. A part inherits its parent part matrix, so a parent rotation
+carries its children. Part animation is rigid; it does not deform vertices with
+a skinned bone solver.
 
 ## Engine boundaries
 
