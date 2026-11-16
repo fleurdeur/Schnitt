@@ -1,23 +1,13 @@
 {
-  "tag": "v5.5.2",
-  "name": "Schnitt 5.5.2",
-  "published": "2026-11-15T14:15:10Z",
-  "notes": "# Schnitt 5.5.2\n\n## Imported Alight effects use working implementations\n- Tiles, Luma Key and Wave Warp now switch to the built-in effects instead of an untranslated Alight shader.\n- Imported keyframes and property values are kept and converted to the matching controls.\n- Curated mappings now win over a bundled Alight shader, so imported links and XML no longer render as placeholders or noise.\n- Luma Key has Low, High, Feather, Weighted and Invert controls.\n- Wave Warp has the complete Alight controls: Phase, Direction, Spacing, Magnitude, Warp Angle, Damping, Damping Spacing, Origin and Screen Space.\n\n## Editor and media\n- Existing preview-copy, HDR, export fallback and device compatibility behaviour is unchanged.\n",
+  "tag": "v5.5.3",
+  "name": "Schnitt 5.5.3",
+  "published": "2026-11-16T11:40:06Z",
+  "notes": "# Schnitt 5.5.3\n\n## Export works on more phones\n- Encoders are no longer rejected because their advertised size list disagrees with the project size. The encoder is now asked to configure the stream, with progressively simpler formats and automatic size fallbacks.\n- Software encoders are used when a hardware encoder refuses the stream.\n- Export verification no longer turns a successful file into \"Export Failed\" when the device decoder is busy or cannot decode its own output.\n- Large exports get a longer verification decode budget.\n\n## Imported Alight effects\n- Alight shaders now use the layer texture size for pixel maths. Blur, edge, outline, noise and similar effects keep the correct radius when a layer is smaller than the project.\n- Tiles maps directly through the layer matrix, so repeats stay aligned on rotated, scaled and nested layers.\n- Inner Shadow is available as a built-in effect and imported Alight Inner Shadow keeps its blur, X, Y, colour and opacity keyframes.\n- Luma Key has a Range mode for the newer Alight threshold formula, with the older formula still selectable.\n- Imported property names, values and keyframes are preserved.\n",
   "assets": [
     {
-      "name": "Schnitt-5.5.2-arm64-v8a-release.apk",
-      "size": 93256422,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.2/Schnitt-5.5.2-arm64-v8a-release.apk"
-    },
-    {
-      "name": "Schnitt-5.5.2-armv7-release.apk",
-      "size": 91100332,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.2/Schnitt-5.5.2-armv7-release.apk"
-    },
-    {
-      "name": "Schnitt-5.5.2-universal-release.apk",
-      "size": 145457335,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.2/Schnitt-5.5.2-universal-release.apk"
+      "name": "Schnitt-5.5.3-arm64-v8a-release.apk",
+      "size": 93265703,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.5.3/Schnitt-5.5.3-arm64-v8a-release.apk"
     }
   ]
 }
