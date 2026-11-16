@@ -267,8 +267,9 @@ private suspend fun importModel(context: Context, state: EditorState, picked: Li
             }
             val uri = File(folder, names[main]).toURI().toString()
             val (bytes, open) = modelFiles(resolver, uri)
-            val count = parseModel(names[main], bytes, open).triangleCount
-            withContext(Dispatchers.Main) { state.addModel(uri, names[main]); added = true }
+            val mesh = parseModel(names[main], bytes, open)
+            val count = mesh.triangleCount
+            withContext(Dispatchers.Main) { state.addModel(uri, names[main], mesh.partNames); added = true }
             val budget = ModelDetail.budget.value
             (if (count > budget) context.getString(R.string.model_simplified, "$count", "$budget") else null) to count
         } catch (e: kotlinx.coroutines.CancellationException) {

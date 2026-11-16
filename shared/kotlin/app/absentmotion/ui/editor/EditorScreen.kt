@@ -68,6 +68,10 @@ internal val LocalEditorScope = staticCompositionLocalOf<CoroutineScope> { error
 
 @Composable
 fun EditorScreen(state: EditorState, onExit: () -> Unit) {
+    DisposableEffect(state) {
+        app.absentmotion.ai.McpBridge.attach(state)
+        onDispose { app.absentmotion.ai.McpBridge.detach(state) }
+    }
     val scope = rememberCoroutineScope()
     CompositionLocalProvider(LocalEditorScope provides scope, LocalDeskEditor provides app.absentmotion.platform.PlatformFeatures.desktop) {
         Box(Modifier.fillMaxSize().pointerInput(Unit) {

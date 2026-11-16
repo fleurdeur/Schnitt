@@ -220,6 +220,7 @@ internal fun ProjectsSettings(settings: AppSettings, onDemoMode: (Boolean) -> Un
     AiModelRows()
     DownloaderRow()
     AiGpuRow()
+    McpRow(settings)
 }
 
 @Composable
@@ -448,6 +449,27 @@ private fun CutoutRows() {
         dismissButton = { TextButton({ ask = false }) { Text(stringResource(R.string.cancel), color = Am.Navy) } },
         containerColor = Am.Card,
     )
+}
+
+@Composable
+private fun McpRow(settings: AppSettings) {
+    val context = LocalContext.current
+    var on by remember { mutableStateOf(settings.mcpEnabled) }
+    var token by remember { mutableStateOf(settings.mcpToken) }
+    SwitchRow("AI agent (MCP)", on, enabled = true) {
+        on = it
+        settings.mcpEnabled = it
+        if (it && settings.mcpToken.isBlank()) settings.mcpToken = java.util.UUID.randomUUID().toString().replace("-", "").take(24)
+        token = settings.mcpToken
+        app.absentmotion.ai.McpServer.sync(context.applicationContext, settings)
+    }
+    if (on) {
+        Text("Endpoint", Modifier.padding(start = 12.dp, top = 6.dp), color = Am.HomeInk, fontSize = 11.sp)
+        Text(app.absentmotion.ai.McpServer.address(), Modifier.padding(start = 12.dp, top = 2.dp), color = Am.HomeInk, fontSize = 11.sp)
+        Text("Bearer token", Modifier.padding(start = 12.dp, top = 6.dp), color = Am.HomeInk, fontSize = 11.sp)
+        Text(token, Modifier.padding(start = 12.dp, top = 2.dp, end = 12.dp, bottom = 8.dp), color = Am.HomeInk, fontSize = 10.sp)
+        Text("The editor answers MCP tools over your local network. Keep this token private.", Modifier.padding(horizontal = 12.dp), color = Am.HomeInk.copy(alpha = 0.6f), fontSize = 10.sp, lineHeight = 13.sp)
+    }
 }
 
 @Composable

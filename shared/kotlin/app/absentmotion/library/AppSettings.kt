@@ -32,6 +32,9 @@ class AppSettings(private val context: Context) {
     private var rotateFreeState by mutableStateOf(prefs.getBoolean("rotateFree", false))
     private var openGlState by mutableStateOf(prefs.getBoolean("graphicsOpenGl", false))
     private var adaptivePreviewState by mutableStateOf(prefs.getBoolean("adaptivePreview", true))
+    private var mcpEnabledState by mutableStateOf(prefs.getBoolean("mcpEnabled", false))
+    private var mcpPortState by mutableIntStateOf(prefs.getInt("mcpPort", 8765))
+    private var mcpTokenState by mutableStateOf(prefs.getString("mcpToken", "").orEmpty())
 
     private var themeState by mutableStateOf(Themes.firstChoice(prefs.getString("theme", null), prefs.getInt("onboarding", 0), prefs.getBoolean("lookChosen", false)))
     private var systemDarkState by mutableStateOf(app.absentmotion.platform.systemDark(context))
@@ -91,6 +94,18 @@ class AppSettings(private val context: Context) {
     var adaptivePreview: Boolean
         get() = adaptivePreviewState
         set(value) { adaptivePreviewState = value; prefs.edit().putBoolean("adaptivePreview", value).apply() }
+
+    var mcpEnabled: Boolean
+        get() = mcpEnabledState
+        set(value) { mcpEnabledState = value; prefs.edit().putBoolean("mcpEnabled", value).apply() }
+
+    var mcpPort: Int
+        get() = mcpPortState
+        set(value) { mcpPortState = value.coerceIn(1024, 65535); prefs.edit().putInt("mcpPort", mcpPortState).apply() }
+
+    var mcpToken: String
+        get() = mcpTokenState
+        set(value) { mcpTokenState = value.trim(); prefs.edit().putString("mcpToken", mcpTokenState).apply() }
 
     fun previewDivisor(playing: Boolean): Int =
         if (adaptivePreview && playing) maxOf(previewQuality.divisor, PreviewQuality.Half.divisor) else previewQuality.divisor

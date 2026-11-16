@@ -90,12 +90,14 @@ fun EditorState.addNull() = addAndSelect(
     ),
 )
 
-fun EditorState.addModel(uri: String, name: String) {
+fun EditorState.addModel(uri: String, name: String, parts: List<String> = emptyList()) {
     fun value(name: String, v: Float) = XmlNode("property", mapOf("name" to name, "type" to "float", "value" to formatFloats(floatArrayOf(v))))
+    val clean = parts.map { it.replace('|', ' ').trim() }.filter { it.isNotEmpty() }
     addAndSelect(
-        XmlNode("model", newLayerAttrs(name.substringBeforeLast('.').ifBlank { numbered(AppText.get(R.string.model_layer_model)) }) + ("src" to uri) + ("pose" to app.absentmotion.media.MODEL_SKIN_POSE), listOf(
+        XmlNode("model", newLayerAttrs(name.substringBeforeLast('.').ifBlank { numbered(AppText.get(R.string.model_layer_model)) }) + ("src" to uri) + ("pose" to app.absentmotion.media.MODEL_SKIN_POSE), listOfNotNull(
             XmlNode("transform", children = listOf(XmlNode("location", mapOf("value" to formatFloats(floatArrayOf(scene.width / 2f, scene.height / 2f, 0f)))))),
             value("size", min(scene.width, scene.height) * 0.3f), value("lightAngle", 135f), value("ambient", 0.35f), value("intensity", 1f), value("spin", 0f),
+            XmlNode("parts", mapOf("names" to clean.joinToString("|"))).takeIf { clean.size > 1 },
         )),
     )
 }

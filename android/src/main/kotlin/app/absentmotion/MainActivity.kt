@@ -183,6 +183,7 @@ class MainActivity : ComponentActivity() {
         followScreenSize(resources.configuration)
         store = ProjectStore(this)
         settings = AppSettings(this)
+        runCatching { app.absentmotion.ai.McpServer.sync(applicationContext, settings) }
         templates = TemplateStore(this)
         recovery = Recovery(File(filesDir, "recovery"))
         CrashLogs.install(this)

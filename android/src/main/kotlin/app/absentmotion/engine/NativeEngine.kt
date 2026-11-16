@@ -98,7 +98,8 @@ class NativeEngine(backend: Backend) : AutoCloseable {
     fun shapeIcon(xml: String, size: Int, color: Int): ByteArray? = nativeShapeIcon(handle, xml.toByteArray(), size, color)
 
     fun setModel(uri: String, mesh: app.absentmotion.media.Mesh?): Boolean =
-        nativeSetModel(uri.toByteArray(), mesh?.positions, mesh?.normals, mesh?.uvs, mesh?.colors, mesh?.triangles, mesh?.slots, mesh?.twoSided == true)
+        nativeSetModel(uri.toByteArray(), mesh?.positions, mesh?.normals, mesh?.uvs, mesh?.colors, mesh?.triangles, mesh?.slots, mesh?.twoSided == true,
+            mesh?.partOfVertex, mesh?.partCenters)
 
     override fun close() {
         nativeDestroy(handle)
@@ -182,6 +183,7 @@ class NativeEngine(backend: Backend) : AutoCloseable {
         @JvmStatic private external fun nativePreviewStill(engine: Long, timeMs: Double, width: Int, height: Int, accurateBlur: Boolean): ByteArray?
         @JvmStatic private external fun nativeShapeIcon(engine: Long, xml: ByteArray, size: Int, color: Int): ByteArray?
         @JvmStatic private external fun nativeSetModel(uri: ByteArray, positions: FloatArray?, normals: FloatArray?, uvs: FloatArray?,
-                                                      colors: IntArray?, triangles: IntArray?, slots: IntArray?, twoSided: Boolean): Boolean
+                                                      colors: IntArray?, triangles: IntArray?, slots: IntArray?, twoSided: Boolean,
+                                                      partOfVertex: IntArray?, partCenters: FloatArray?): Boolean
     }
 }

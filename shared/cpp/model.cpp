@@ -41,6 +41,22 @@ SkM44 Spin(const Layer& l, double timeMs) {
     return SkM44::Rotate({0, 1, 0}, -l.value("spin", 0, l.localTime(timeMs), 0) * seconds * kRadians);
 }
 
+SkM44 PartMatrix(const Layer& l, const Model& m, int part, float t) {
+    if (part < 0 || (size_t)(part * 3 + 2) >= m.partCenters.size()) return SkM44();
+    const std::string prefix = "part" + std::to_string(part);
+    const float rx = l.value(prefix + "rx", 0, t, 0) * kRadians;
+    const float ry = l.value(prefix + "ry", 0, t, 0) * kRadians;
+    const float rz = l.value(prefix + "rz", 0, t, 0) * kRadians;
+    const float scale = std::max(0.05f, l.value(prefix + "s", 0, t, 1));
+    const float x = l.value(prefix + "x", 0, t, 0);
+    const float y = l.value(prefix + "y", 0, t, 0);
+    const float z = l.value(prefix + "z", 0, t, 0);
+    const SkV3 centre{m.partCenters[part * 3], m.partCenters[part * 3 + 1], m.partCenters[part * 3 + 2]};
+    return SkM44::Translate(centre.x + x, centre.y + y, centre.z + z) * SkM44::Rotate({0, 0, 1}, rz) *
+           SkM44::Rotate({0, 1, 0}, ry) * SkM44::Rotate({1, 0, 0}, rx) * SkM44::Scale(scale, scale, scale) *
+           SkM44::Translate(-centre.x, -centre.y, -centre.z);
+}
+
 SkM44 Body(const Layer& l, const Placement& p, double timeMs) {
     const float size = l.value("size", 0, l.localTime(timeMs), 200);
     const float sx = p.scale.fX, sy = p.scale.fY;
@@ -91,8 +107,15 @@ void DrawModel(SkCanvas* canvas, const Layer& l, double timeMs, float alpha, con
     const float ambient = l.value("ambient", 0, t, 0.35f), intensity = l.value("intensity", 0, t, 1);
 
     const int count = (int)(m.positions.size() / 3);
+    std::vector<SkM44> parts(m.partCenters.size() / 3);
+    for (size_t k = 0; k < parts.size(); k++) parts[k] = PartMatrix(l, m, (int)k, t);
+    auto partOf = [&](int v) { return m.partOfVertex.size() == (size_t)count ? std::clamp(m.partOfVertex[v], 0, (int)parts.size() - 1) : -1; };
     std::vector<SkV4> clip(count);
-    for (int v = 0; v < count; v++) clip[v] = full.map(m.positions[v * 3], m.positions[v * 3 + 1], m.positions[v * 3 + 2], 1);
+    for (int v = 0; v < count; v++) {
+        const int part = partOf(v);
+        const SkM44 at = part >= 0 ? full * parts[part] : full;
+        clip[v] = at.map(m.positions[v * 3], m.positions[v * 3 + 1], m.positions[v * 3 + 2], 1);
+    }
     auto screen = [&](int v) { return SkPoint{clip[v].x / clip[v].w, clip[v].y / clip[v].w}; };
 
     std::vector<Face> faces;
@@ -135,15 +158,18 @@ void DrawModel(SkCanvas* canvas, const Layer& l, double timeMs, float alpha, con
                 const int v = m.triangles[f->index * 3 + i];
                 positions[out] = screen(v);
                 if (uvs) uvs[out] = {m.uvs[v * 2] * image->width(), m.uvs[v * 2 + 1] * image->height()};
-                const SkV4 n = turn.map(m.normals[v * 3], m.normals[v * 3 + 1], m.normals[v * 3 + 2], 0);
+                const int part = partOf(v);
+                const SkM44 normalTurn = part >= 0 ? turn * parts[part] : turn;
+                const SkV4 n = normalTurn.map(m.normals[v * 3], m.normals[v * 3 + 1], m.normals[v * 3 + 2], 0);
                 const float length = SkV3{n.x, n.y, n.z}.length();
                 const float facing = length > 0 ? SkV3{n.x, n.y, n.z}.dot(light) / length * (f->back ? -1.0f : 1.0f) : 0.0f;
                 const float k = std::clamp(ambient + intensity * std::max(facing, 0.0f), 0.0f, 4.0f);
                 const uint32_t c = m.colors[v];
                 SkV3 illumination{k, k, k};
                 if (lights.count) {
-                    const SkV4 wn = worldTurn.map(m.normals[v * 3], m.normals[v * 3 + 1], m.normals[v * 3 + 2], 0);
-                    const SkV4 wp = worldPlace.map(m.positions[v * 3], m.positions[v * 3 + 1], m.positions[v * 3 + 2], 1);
+                    const SkM44 normalWorld = part >= 0 ? worldTurn * parts[part] : worldTurn;
+                    const SkV4 wn = normalWorld.map(m.normals[v * 3], m.normals[v * 3 + 1], m.normals[v * 3 + 2], 0);
+                    const SkV4 wp = (part >= 0 ? worldPlace * parts[part] : worldPlace).map(m.positions[v * 3], m.positions[v * 3 + 1], m.positions[v * 3 + 2], 1);
                     const float side = f->back ? -1.0f : 1.0f;
                     illumination = Illuminate(lights, {wn.x * side, wn.y * side, wn.z * side}, {wp.x + p.location.x(), wp.y + p.location.y(), wp.z + p.z});
                 }
