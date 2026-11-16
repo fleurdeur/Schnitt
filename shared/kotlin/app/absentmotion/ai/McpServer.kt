@@ -55,7 +55,7 @@ object McpServer {
         stop()
         port = settings.mcpPort.coerceIn(1024, 65535)
         token = settings.mcpToken
-        start(port, token, context.applicationContext)
+        start(port, token)
     }
 
     fun address(): String {
@@ -77,7 +77,13 @@ object McpServer {
         return bytes.joinToString("") { "%02x".format(it) }
     }
 
-    private fun start(port: Int, token: String, context: Context) {
+    internal fun startLocal(port: Int, token: String) {
+        this.port = port
+        this.token = token
+        start(port, token)
+    }
+
+    private fun start(port: Int, token: String) {
         val socket = runCatching { ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(port)) } }.getOrNull() ?: return
         server = socket
         worker = thread(isDaemon = true, name = "Schnitt MCP") {
