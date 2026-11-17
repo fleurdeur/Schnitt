@@ -1,23 +1,13 @@
 {
-  "tag": "v5.6.0",
-  "name": "Schnitt 5.6.0",
-  "published": "2026-11-16T13:02:07Z",
-  "notes": "## 3D camera tracking and stabilization\n\n- New 3D panel for shapes, text, drawings, models and cameras.\n- 4-point planar camera solve writes Location, Rotation and Tilt keyframes.\n- Stabilize locks a clip against camera shake with a 2-point inverse track.\n- Depth sorting switch and X/Y/Z, 3D rotation and scale controls with keyframe buttons.\n\n## Expressions in keyframes\n\n- Safe expression language for transform properties: time, t, frame, value, sin, cos, wiggle, noise, clamp, smoothstep, random and more.\n- Expressions bake to ordinary keyframes, so preview, export and imported XML stay compatible.\n- Source text is stored on the property and can be edited again.\n\n## Adaptive preview and effects\n\n- Adaptive preview reduces detail while playing and restores the chosen quality when paused.\n- New Headbop effect with bounce, sway, tilt and squash properties.\n- Deep Glow remains available, alongside the fixed Alight import effects.\n\n## Import and export\n\n- Keeps the 5.5.3 encoder fallbacks, software encoder support and best-effort verification.\n- Keeps imported Alight names, values and keyframes while using corrected layer-size uniforms.\n",
+  "tag": "v5.7.1",
+  "name": "Schnitt 5.7.1",
+  "published": "2026-11-17T08:23:06Z",
+  "notes": "# Schnitt 5.7.1\n\nThis is a stability, compatibility and performance release.\n\n## Directional Blur\n\n- Rebuilt on a 65-sample directional gather adapted from Keyflow's directional blur.\n- The smear is measured from the visible layer size, so it behaves the same on small and large layers.\n- Alight directional blur keeps its strength and angle when imported from XML or a link.\n- Old saved directional blurs stay compatible.\n\n## Effect imports and duplicates\n\n- Bundled Alight copies of effects that already have a native implementation are no longer listed twice.\n- This removes the broken duplicate Directional Blur, Motion Blur, Rays, Cube, Grid, Page Curl, Raster Transform and Raster Extrude tiles.\n- Imported Alight Motion Blur now resolves to Schnitt's own keyframe-aware Motion Blur.\n- Curated Rays, Cube, Grid and Page Curl rules keep their settings and keyframes instead of falling back to a flat placeholder.\n- Raster effects that cannot carry their full settings through a link are no longer offered as duplicate tiles.\n\n## Depth maps\n\n- Depth maps now match the model's native 518 px working size instead of producing a larger matte than the model can fill.\n- Long clips use a lower depth sampling rate while keeping the original timestamps, duration and alignment.\n- Depth inference runs with backend-aware parallelism, so NNAPI and XNNPACK devices no longer fight over too many jobs.\n\n## Adaptive rendering\n\n- While playing, preview quality now reacts to real render times, not only to the selected quality.\n- Slow frames drop resolution in steps; fast frames recover it automatically.\n- Paused previews return to the chosen quality.\n\n## Large projects\n\n- Layer and media lookups reuse the most recent immutable scene instead of rebuilding the list for every access.\n- Timeline row lookup uses an id map, so selection and follow stay fast with many layers.\n- Imported custom effect files are cached until they change.\n- Heavy scenes automatically lower the background preview and pre-render resolution in steps, while light scenes keep full detail.\n- Background preview and frame caching keep their existing memory-safe behaviour.\n\n## Fixes\n\n- Media URI decoding handles encoded dot segments and Windows file paths safely.\n- Interrupted update downloads no longer leave an open part file on Windows.\n- The full unit suite passes.\n",
   "assets": [
     {
-      "name": "Schnitt-5.6.0-arm64-v8a-release.apk",
-      "size": 93269424,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.6.0/Schnitt-5.6.0-arm64-v8a-release.apk"
-    },
-    {
-      "name": "Schnitt-5.6.0-armv7-release.apk",
-      "size": 91113334,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.6.0/Schnitt-5.6.0-armv7-release.apk"
-    },
-    {
-      "name": "Schnitt-5.6.0-universal-release.apk",
-      "size": 145470341,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.6.0/Schnitt-5.6.0-universal-release.apk"
+      "name": "Schnitt-5.7.1-arm64-v8a.apk",
+      "size": 92145906,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.7.1/Schnitt-5.7.1-arm64-v8a.apk"
     }
   ]
 }
