@@ -1385,7 +1385,7 @@ float Reach(const std::vector<Layer>& siblings, const Layer& l, double timeMs, d
 
 bool Changing(const LayerEffect& e) {
     if (e.hidden) return false;
-    if (e.id == "absent.shutterblur" || e.id == "absent.motionblur" || e.id == "absent.echo" || e.id == "absent.videofeedback") return false;
+    if (e.id == "absent.shutterblur" || e.id.rfind("absent.motionblur", 0) == 0 || e.id == "absent.echo" || e.id == "absent.videofeedback") return false;
     return MotionEffect(e.id) || RepeatEffect(e.id) || TextEffect(e.id) || DrawingEffect(e.id) || e.id == kParticles;
 }
 

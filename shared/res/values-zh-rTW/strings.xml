@@ -319,7 +319,7 @@
     <string name="update_metered">此連線按流量計費，例如行動數據。下載可能會消耗你的數據流量。</string>
     <string name="theme_select">選擇主題</string>
     <string name="theme_system">系統預設</string>
-    <string name="theme_light">淺色</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">深色</string>
     <string name="theme_daylight">日光</string>
     <string name="theme_custom">自訂</string>

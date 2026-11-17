@@ -198,6 +198,7 @@ internal fun PointOverlay(state: EditorState, mode: PointMode, modifier: Modifie
 
 @Composable
 internal fun PointPanel(state: EditorState, mode: PointMode) {
+    var controllersOpen by remember(mode) { mutableStateOf(false) }
     val contours = state.pointContours(mode)
     val contour = contours.getOrNull(mode.contour)
     val knot = contour?.knots?.getOrNull(mode.point)
@@ -212,6 +213,7 @@ internal fun PointPanel(state: EditorState, mode: PointMode) {
             Box(Modifier.weight(1f).fillMaxWidth().alpha(if (curvable) 1f else DimAlpha).clickable(enabled = curvable) { state.toggleCurve(mode) }, Alignment.Center) {
                 Icon(if (knot?.sharp != false) DrawingIcons.VertexCurved else DrawingIcons.VertexSharp, stringResource(if (knot?.sharp != false) R.string.a11y_curved_point else R.string.a11y_sharp_point), Modifier.size(28.dp), tint = Am.OnDark)
             }
+            PanelButton(ChromeIcons.NullObject, "Animate path points", Modifier.weight(1f)) { controllersOpen = true }
             val adding = mode.handle == Handle.Add
             val usable = if (adding) contour != null && (contour.endsAt(mode.point) || contour.knots.size > 1) else knot != null
             Box(Modifier.weight(1f).fillMaxWidth().alpha(if (usable) 1f else DimAlpha).clickable(enabled = usable) {
@@ -225,6 +227,7 @@ internal fun PointPanel(state: EditorState, mode: PointMode) {
         Box(Modifier.width(1.dp).fillMaxHeight().background(Divider))
         PointList(state, mode, contour, Modifier.width(59.dp).fillMaxHeight())
     }
+    PathControllersDialog(state, mode, controllersOpen) { controllersOpen = false }
 }
 
 @Composable

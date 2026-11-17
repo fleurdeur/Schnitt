@@ -319,7 +319,7 @@
     <string name="update_metered">Это лимитное подключение, например мобильный интернет. Загрузка может израсходовать ваш трафик.</string>
     <string name="theme_select">Выберите тему</string>
     <string name="theme_system">Как в системе</string>
-    <string name="theme_light">Светлая</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">Тёмная</string>
     <string name="theme_daylight">Дневной свет</string>
     <string name="theme_custom">Пользовательская</string>

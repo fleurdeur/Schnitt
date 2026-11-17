@@ -319,7 +319,7 @@
     <string name="update_metered">Це з\'єднання з лімітом трафіку, наприклад мобільний інтернет. Завантаження може витратити ваш трафік.</string>
     <string name="theme_select">Виберіть тему</string>
     <string name="theme_system">Як у системі</string>
-    <string name="theme_light">Світла</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">Темна</string>
     <string name="theme_daylight">Денна</string>
     <string name="theme_custom">Власна</string>

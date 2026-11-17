@@ -319,7 +319,7 @@
     <string name="update_metered">Esta conexión tiene límite de datos, por ejemplo datos móviles. La descarga puede consumir tu tarifa de datos.</string>
     <string name="theme_select">Selecciona tu tema</string>
     <string name="theme_system">Predeterminado del sistema</string>
-    <string name="theme_light">Claro</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">Oscuro</string>
     <string name="theme_daylight">Luz de día</string>
     <string name="theme_custom">Personalizado</string>

@@ -319,7 +319,7 @@
     <string name="update_metered">این اتصال حجمی است، مثلاً اینترنت همراه. دانلود ممکن است از بستهٔ اینترنت شما کم کند.</string>
     <string name="theme_select">پوسته خود را انتخاب کنید</string>
     <string name="theme_system">پیش‌فرض سیستم</string>
-    <string name="theme_light">روشن</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">تیره</string>
     <string name="theme_daylight">روشنایی روز</string>
     <string name="theme_custom">سفارشی</string>

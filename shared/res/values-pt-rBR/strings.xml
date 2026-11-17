@@ -319,7 +319,7 @@
     <string name="update_metered">Esta conexão é limitada, por exemplo dados móveis. O download pode consumir seu plano de dados.</string>
     <string name="theme_select">Selecione seu tema</string>
     <string name="theme_system">Padrão do sistema</string>
-    <string name="theme_light">Claro</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">Escuro</string>
     <string name="theme_daylight">Daylight</string>
     <string name="theme_custom">Personalizado</string>

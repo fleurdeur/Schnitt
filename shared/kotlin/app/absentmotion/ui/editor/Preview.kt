@@ -172,7 +172,7 @@ fun Preview(state: EditorState, modifier: Modifier = Modifier, reserveEnd: Dp = 
     }
     val shownId = state.selectedId?.takeIf { handles != HIDDEN && !editingText } ?: 0
     var blurSettled by remember { mutableStateOf(false) }
-    val blurred = remember(state.scene) { state.scene.node.hasEffect(setOf("absent.motionblur", "absent.shutterblur")) }
+    val blurred = remember(state.scene) { state.scene.node.hasEffect(setOf("absent.motionblur", "absent.motionblur1", "absent.motionblur2", "absent.motionblur3", "absent.motionblur4", "absent.shutterblur")) }
     LaunchedEffect(state.scene, blurred) {
         snapshotFlow { state.playing to if (state.playing) -1 else state.timeMs }
             .distinctUntilChanged()

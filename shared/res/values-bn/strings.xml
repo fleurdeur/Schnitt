@@ -319,7 +319,7 @@
     <string name="update_metered">এই সংযোগটি মিটারযুক্ত, যেমন মোবাইল ডেটা। ডাউনলোডে আপনার ডেটা প্যাক খরচ হতে পারে।</string>
     <string name="theme_select">আপনার থিম বেছে নিন</string>
     <string name="theme_system">সিস্টেম ডিফল্ট</string>
-    <string name="theme_light">লাইট</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">ডার্ক</string>
     <string name="theme_daylight">ডেলাইট</string>
     <string name="theme_custom">কাস্টম</string>

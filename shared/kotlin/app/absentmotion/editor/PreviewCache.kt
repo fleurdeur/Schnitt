@@ -43,7 +43,7 @@ import kotlinx.coroutines.delay
 
 private const val MIB = 1L shl 20
 private const val MAX_BUDGET = 256 * MIB
-private const val MAX_DISK_BUDGET = 1024 * MIB
+private const val MAX_DISK_BUDGET = 256 * MIB
 private const val DISK_RESERVE = 1024 * MIB
 private const val CACHE_PREFIX = "preview-cache-"
 private const val MAX_SIDE = 1920

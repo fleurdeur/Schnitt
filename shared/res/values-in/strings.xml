@@ -319,7 +319,7 @@
     <string name="update_metered">Koneksi ini berkuota, misalnya data seluler. Unduhan dapat menghabiskan kuota data Anda.</string>
     <string name="theme_select">Pilih tema Anda</string>
     <string name="theme_system">Default sistem</string>
-    <string name="theme_light">Terang</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">Gelap</string>
     <string name="theme_daylight">Siang</string>
     <string name="theme_custom">Kustom</string>

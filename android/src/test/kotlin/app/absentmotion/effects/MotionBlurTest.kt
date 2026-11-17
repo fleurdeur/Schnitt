@@ -80,6 +80,15 @@ class MotionBlurTest {
         assertTrue(result.dropped.isEmpty())
     }
 
+    @Test fun everyLegacyMotionBlurIdResolvesToTheWorkingEffect() {
+        for (id in listOf("motionblur1", "motionblur2", "motionblur3", "motionblur4", "com.alightcreative.effects.motionblur1")) {
+            val xml = """<effect id="$id"><property name="tune" type="float" value="2" /><property name="usePos" type="bool" value="true" /></effect>"""
+            val blur = effectsOf(migration.migrate(scene(shape(1, XmlNode.parse(xml)))).scene).single()
+            assertEquals(id, "absent.motionblur", blur["id"])
+            assertEquals("2.000000", blur.children.single { it["name"] == "tune" }["value"])
+        }
+    }
+
     @Test fun motionBlursMadeAfterTheChangeAreLeftAlone() {
         val fresh = catalog.find("absent.motionblur")!!.instance()
         val result = migration.migrate(scene(shape(1, fresh)))

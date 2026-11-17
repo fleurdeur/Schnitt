@@ -319,7 +319,7 @@
     <string name="update_metered">การเชื่อมต่อนี้คิดตามปริมาณข้อมูล เช่น อินเทอร์เน็ตมือถือ การดาวน์โหลดอาจใช้ข้อมูลในแพ็กเกจของคุณ</string>
     <string name="theme_select">เลือกธีมของคุณ</string>
     <string name="theme_system">ค่าเริ่มต้นของระบบ</string>
-    <string name="theme_light">สว่าง</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">มืด</string>
     <string name="theme_daylight">กลางวัน</string>
     <string name="theme_custom">กำหนดเอง</string>

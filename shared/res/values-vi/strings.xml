@@ -319,7 +319,7 @@
     <string name="update_metered">Kết nối này bị giới hạn dung lượng, ví dụ dữ liệu di động. Việc tải xuống có thể dùng hết gói dữ liệu của bạn.</string>
     <string name="theme_select">Chọn giao diện của bạn</string>
     <string name="theme_system">Mặc định của hệ thống</string>
-    <string name="theme_light">Sáng</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">Tối</string>
     <string name="theme_daylight">Ban ngày</string>
     <string name="theme_custom">Tùy chỉnh</string>

@@ -319,7 +319,7 @@
     <string name="update_metered">To połączenie jest taryfowe, jak na przykład dane komórkowe. Pobieranie może wykorzystać pakiet danych.</string>
     <string name="theme_select">Wybierz motyw</string>
     <string name="theme_system">Domyślny systemowy</string>
-    <string name="theme_light">Jasny</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">Ciemny</string>
     <string name="theme_daylight">Światło dzienne</string>
     <string name="theme_custom">Niestandardowy</string>

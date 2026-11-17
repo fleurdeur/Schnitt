@@ -319,7 +319,7 @@
     <string name="update_metered">当前使用按流量计费的网络，例如移动数据。下载可能消耗套餐流量。</string>
     <string name="theme_select">选择主题</string>
     <string name="theme_system">跟随系统</string>
-    <string name="theme_light">浅色</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">深色</string>
     <string name="theme_daylight">日光</string>
     <string name="theme_custom">自定义</string>

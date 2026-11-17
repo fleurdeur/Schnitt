@@ -319,7 +319,7 @@
     <string name="update_metered">Diese Verbindung ist getaktet, zum Beispiel bei mobilen Daten. Der Download kann dein Datenvolumen verbrauchen.</string>
     <string name="theme_select">Design auswählen</string>
     <string name="theme_system">Systemstandard</string>
-    <string name="theme_light">Hell</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">Dunkel</string>
     <string name="theme_daylight">Tageslicht</string>
     <string name="theme_custom">Benutzerdefiniert</string>

@@ -705,9 +705,14 @@ bool EchoOf(const Layer& l, double timeMs, Echo* echo) {
 
 bool ShutterBlurOf(const Layer& l, double timeMs, ShutterBlur* blur) {
     for (const LayerEffect& e : l.effects) {
-        if (e.hidden || (e.id != "absent.shutterblur" && e.id != "absent.motionblur")) continue;
+        const bool motion = e.id == "absent.motionblur" || e.id.rfind("absent.motionblur", 0) == 0;
+        if (e.hidden || (e.id != "absent.shutterblur" && !motion)) continue;
         const float t = l.localTime(timeMs);
-        blur->fast = gFastShutter;
+        // The fast preview smear is intentionally skipped for the keyframed
+        // Motion Blur effect: it samples two poses and can flash a dark frame
+        // when the layer is also scaled or masked. The accurate path is stable
+        // and still cheap at the default eight samples.
+        blur->fast = gFastShutter && !motion;
         if (e.id == "absent.shutterblur") {
             blur->angle = std::clamp(Param(e, "shutter", t, 180), 0.0f, 360.0f);
             blur->samples = std::clamp((int)std::lround(Param(e, "samples", t, 8)), 2, 32);

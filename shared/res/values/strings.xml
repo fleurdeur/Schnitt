@@ -327,7 +327,7 @@
     <string name="update_metered">This connection is metered, for example mobile data. The download may use up your data plan.</string>
     <string name="theme_select">Select your theme</string>
     <string name="theme_system">System default</string>
-    <string name="theme_light">Light</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_daylight">Daylight</string>
     <string name="theme_custom">Custom</string>

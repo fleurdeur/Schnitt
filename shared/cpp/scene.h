@@ -184,6 +184,7 @@ struct Layer {
     Sight sight;
 
     float value(const char* name, int i, float t, float fallback) const;
+    float value(const std::string& name, int i, float t, float fallback) const { return value(name.c_str(), i, t, fallback); }
 
     const Property* prop(const char* name) const;
     const LayerEffect* effect(const char* id) const;

@@ -319,7 +319,7 @@
     <string name="update_metered">هذا الاتصال محدود الاستخدام، مثل بيانات الجوال. قد يستهلك التنزيل من باقة بياناتك.</string>
     <string name="theme_select">اختر المظهر</string>
     <string name="theme_system">الوضع الافتراضي للنظام</string>
-    <string name="theme_light">فاتح</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">داكن</string>
     <string name="theme_daylight">نهاري</string>
     <string name="theme_custom">مخصص</string>

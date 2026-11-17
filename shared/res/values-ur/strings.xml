@@ -319,7 +319,7 @@
     <string name="update_metered">یہ کنکشن میٹرڈ ہے، مثلاً موبائل ڈیٹا۔ ڈاؤن لوڈ آپ کا ڈیٹا پلان استعمال کر سکتا ہے۔</string>
     <string name="theme_select">اپنی تھیم منتخب کریں</string>
     <string name="theme_system">سسٹم ڈیفالٹ</string>
-    <string name="theme_light">لائٹ</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">ڈارک</string>
     <string name="theme_daylight">ڈے لائٹ</string>
     <string name="theme_custom">کسٹم</string>

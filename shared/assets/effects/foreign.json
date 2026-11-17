@@ -2392,7 +2392,26 @@
    },
    "useAngle": {
     "to": "rotation"
+   },
+   "amount": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "strength": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "usePosition": {
+    "to": "position"
+   },
+   "useRotation": {
+    "to": "rotation"
    }
+  },
+  "set": {
+   "tune": "1"
   }
  },
  "com.alightcreative.effects.noise3": {
@@ -5120,7 +5139,26 @@
    },
    "useAngle": {
     "to": "rotation"
+   },
+   "amount": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "strength": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "usePosition": {
+    "to": "position"
+   },
+   "useRotation": {
+    "to": "rotation"
    }
+  },
+  "set": {
+   "tune": "1"
   }
  },
  "com.alightcreative.effects.motionblur2": {
@@ -5139,7 +5177,26 @@
    },
    "useAngle": {
     "to": "rotation"
+   },
+   "amount": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "strength": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "usePosition": {
+    "to": "position"
+   },
+   "useRotation": {
+    "to": "rotation"
    }
+  },
+  "set": {
+   "tune": "1"
   }
  },
  "com.alightcreative.effects.motionblur": {
@@ -5158,7 +5215,26 @@
    },
    "useAngle": {
     "to": "rotation"
+   },
+   "amount": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "strength": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "usePosition": {
+    "to": "position"
+   },
+   "useRotation": {
+    "to": "rotation"
    }
+  },
+  "set": {
+   "tune": "1"
   }
  },
  "com.alightcreative.effects.noise2": {
@@ -10137,6 +10213,234 @@
     "min": 0,
     "max": 1
    }
+  }
+ },
+ "com.alightcreative.effects.motionblur1": {
+  "to": "motionblur",
+  "params": {
+   "tune": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "usePos": {
+    "to": "position"
+   },
+   "useScale": {
+    "to": "scale"
+   },
+   "useAngle": {
+    "to": "rotation"
+   },
+   "amount": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "strength": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "usePosition": {
+    "to": "position"
+   },
+   "useRotation": {
+    "to": "rotation"
+   }
+  },
+  "set": {
+   "tune": "1"
+  }
+ },
+ "motionblur": {
+  "to": "motionblur",
+  "params": {
+   "tune": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "usePos": {
+    "to": "position"
+   },
+   "useScale": {
+    "to": "scale"
+   },
+   "useAngle": {
+    "to": "rotation"
+   },
+   "amount": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "strength": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "usePosition": {
+    "to": "position"
+   },
+   "useRotation": {
+    "to": "rotation"
+   }
+  },
+  "set": {
+   "tune": "1"
+  }
+ },
+ "motionblur1": {
+  "to": "motionblur",
+  "params": {
+   "tune": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "usePos": {
+    "to": "position"
+   },
+   "useScale": {
+    "to": "scale"
+   },
+   "useAngle": {
+    "to": "rotation"
+   },
+   "amount": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "strength": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "usePosition": {
+    "to": "position"
+   },
+   "useRotation": {
+    "to": "rotation"
+   }
+  },
+  "set": {
+   "tune": "1"
+  }
+ },
+ "motionblur2": {
+  "to": "motionblur",
+  "params": {
+   "tune": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "usePos": {
+    "to": "position"
+   },
+   "useScale": {
+    "to": "scale"
+   },
+   "useAngle": {
+    "to": "rotation"
+   },
+   "amount": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "strength": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "usePosition": {
+    "to": "position"
+   },
+   "useRotation": {
+    "to": "rotation"
+   }
+  },
+  "set": {
+   "tune": "1"
+  }
+ },
+ "motionblur3": {
+  "to": "motionblur",
+  "params": {
+   "tune": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "usePos": {
+    "to": "position"
+   },
+   "useScale": {
+    "to": "scale"
+   },
+   "useAngle": {
+    "to": "rotation"
+   },
+   "amount": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "strength": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "usePosition": {
+    "to": "position"
+   },
+   "useRotation": {
+    "to": "rotation"
+   }
+  },
+  "set": {
+   "tune": "1"
+  }
+ },
+ "motionblur4": {
+  "to": "motionblur",
+  "params": {
+   "tune": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "usePos": {
+    "to": "position"
+   },
+   "useScale": {
+    "to": "scale"
+   },
+   "useAngle": {
+    "to": "rotation"
+   },
+   "amount": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "strength": {
+    "to": "tune",
+    "min": 0,
+    "max": 4
+   },
+   "usePosition": {
+    "to": "position"
+   },
+   "useRotation": {
+    "to": "rotation"
+   }
+  },
+  "set": {
+   "tune": "1"
   }
  }
 }

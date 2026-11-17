@@ -44,6 +44,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import app.absentmotion.editor.MultiSelect
 import app.absentmotion.editor.openCrop
+import app.absentmotion.editor.PointMode
+import app.absentmotion.model.contours
 import app.absentmotion.editor.keepCopy
 import app.absentmotion.model.replaceMedia
 import app.absentmotion.model.outlineShape
@@ -220,6 +222,11 @@ internal fun LayerMenu(state: EditorState, onDismiss: () -> Unit) {
             if (group) MenuRow(stringResource(R.string.layer_tool_ungroup), divider = true) { onDismiss(); state.askUngroup() }
             MenuRow(stringResource(R.string.menu_convert_to_outline), enabled = state.selected?.let { it.kind == "text" || (it.kind == "shape" && (it.shape.isNotEmpty() || it.outlineShape != null)) } == true) {
                 scope.launch { state.convertToOutline(); onDismiss() }
+            }
+            val riggable = state.selected?.takeIf { it.kind in setOf("shape", "drawing") && it.contours?.any { c -> c.knots.isNotEmpty() } == true }
+            if (riggable != null && !MultiSelect.active) MenuRow("Animate Path Points") {
+                onDismiss()
+                state.drawing = PointMode(riggable.id, created = false, vector = true)
             }
         }
         if (video != null) {
@@ -448,7 +455,7 @@ internal fun ProjectSettingsPopup(state: EditorState, onDismiss: () -> Unit) {
     val area = with(density) { DpSize(window.width.toDp(), (window.height - top - bottom).toDp()) }
     val position = remember(top) { FixedPosition(IntOffset(0, top)) }
     Popup(position, onDismiss, PopupProperties(focusable = true)) {
-        Box(Modifier.size(area).presenceScrim(Color.Black.copy(alpha = 0.3f)).pointerInput(Unit) { detectTapGestures { onDismiss() } }) {
+        Box(Modifier.size(area).presenceScrim(Am.Scrim.copy(alpha = 0.55f)).pointerInput(Unit) { detectTapGestures { onDismiss() } }) {
             SettingsPanel(state, onDismiss, Modifier.align(Alignment.BottomCenter).presence(slide = 1f, fade = false))
         }
     }

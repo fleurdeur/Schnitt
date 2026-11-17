@@ -319,7 +319,7 @@
     <string name="update_metered">Questa connessione è a consumo, come quella dati mobile. Il download potrebbe consumare i dati del tuo piano.</string>
     <string name="theme_select">Scegli il tema</string>
     <string name="theme_system">Predefinito di sistema</string>
-    <string name="theme_light">Chiaro</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">Scuro</string>
     <string name="theme_daylight">Luce diurna</string>
     <string name="theme_custom">Personalizzato</string>

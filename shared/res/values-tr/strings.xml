@@ -319,7 +319,7 @@
     <string name="update_metered">Bu bağlantı sınırlı, örneğin mobil veri. İndirme, veri paketinizi tüketebilir.</string>
     <string name="theme_select">Temanızı seçin</string>
     <string name="theme_system">Sistem varsayılanı</string>
-    <string name="theme_light">Açık</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">Koyu</string>
     <string name="theme_daylight">Gün ışığı</string>
     <string name="theme_custom">Özel</string>

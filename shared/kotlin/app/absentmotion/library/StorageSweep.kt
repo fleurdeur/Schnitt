@@ -62,6 +62,12 @@ internal fun sweepStorage(files: File, shared: List<File>, now: Long = System.cu
 suspend fun sweepStorageDaily(context: Context) = withContext(Dispatchers.IO) {
     val stamp = File(context.noBackupFilesDir, "storage-sweep")
     val now = System.currentTimeMillis()
+    // Preview frames are a cache, not project data. Keep only today's run so
+    // the app does not carry a gigabyte of old tiles between sessions.
+    runCatching {
+        context.cacheDir.listFiles { f -> f.isFile && f.name.startsWith("preview-cache-") && now - f.lastModified() > 6L * 60 * 60 * 1000 }
+            ?.forEach { it.delete() }
+    }
     if (now - stamp.lastModified() in 0 until StaleTempMs) return@withContext
     runCatching { stamp.writeText("") }
     val external = context.getExternalFilesDir(null)

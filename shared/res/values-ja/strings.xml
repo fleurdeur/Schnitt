@@ -319,7 +319,7 @@
     <string name="update_metered">この接続はモバイルデータなどの従量制です。ダウンロードによりデータ通信量が消費される場合があります。</string>
     <string name="theme_select">テーマを選択</string>
     <string name="theme_system">システムのデフォルト</string>
-    <string name="theme_light">ライト</string>
+    <string name="theme_light">Daylight</string>
     <string name="theme_dark">ダーク</string>
     <string name="theme_daylight">デイライト</string>
     <string name="theme_custom">カスタム</string>

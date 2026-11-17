@@ -392,6 +392,7 @@ internal fun MultiTopBar(state: EditorState, modifier: Modifier) {
     val ids = MultiSelect.ids
     val scope = rememberCoroutineScope()
     var alignment by remember { mutableStateOf(false) }
+    var flexOpen by remember { mutableStateOf(false) }
     val tint = Am.OnAccent
     Row(modifier.background(Am.Accent), verticalAlignment = Alignment.CenterVertically) {
         SelectionButton(SelectionIcons.Cancel, stringResource(R.string.structure_cancel_selection), Modifier.width(40.dp).fillMaxHeight(), tint) { MultiSelect.clear() }
@@ -412,6 +413,7 @@ internal fun MultiTopBar(state: EditorState, modifier: Modifier) {
                 LayerParentIcon(back = Am.Accent, ink = tint, dot = tint)
                 Presence(parentMenu) { MultiParentMenu(state) { parentMenu = false } }
             }
+            SelectionButton(SelectionIcons.DistributeHorizontal, "Flex layout", cell, tint, ids.size > 1) { flexOpen = true }
             SelectionButton(ChromeIcons.Trash, stringResource(R.string.structure_delete_selected), cell, tint, ids.isNotEmpty()) { state.deleteChosen() }
             SelectionButton(SelectionIcons.Next, stringResource(R.string.structure_alignment_options), cell, tint) { alignment = true }
         } else {
@@ -424,6 +426,7 @@ internal fun MultiTopBar(state: EditorState, modifier: Modifier) {
             SelectionButton(SelectionIcons.DistributeHorizontal, stringResource(R.string.structure_distribute_horizontal), cell, tint, ids.size > 2) { scope.launch { state.distributeSelection(true) } }
         }
     }
+    FlexDialog(state, ids, flexOpen) { flexOpen = false }
 }
 
 internal fun styleToast(context: Context, n: Int) {
