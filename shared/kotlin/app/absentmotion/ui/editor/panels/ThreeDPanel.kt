@@ -41,20 +41,24 @@ import app.absentmotion.model.cameraFov
 import app.absentmotion.model.formatFloats
 import app.absentmotion.ui.theme.Am
 
-private data class Axis(val label: String, val ref: PropRef, val component: Int, val default: Float, val min: Float, val max: Float, val unit: String = "")
+private data class Axis(
+    val label: String, val ref: PropRef, val component: Int, val default: Float,
+    val min: Float, val max: Float, val unit: String = "",
+    val sliderMin: Float = min, val sliderMax: Float = max,
+)
 
 private val Position = listOf(
-    Axis("X", PropRef.Location, 0, 0f, -100000f, 100000f, " px"),
-    Axis("Y", PropRef.Location, 1, 0f, -100000f, 100000f, " px"),
-    Axis("Z", PropRef.Location, 2, 0f, -100000f, 100000f, " px"),
+    Axis("X", PropRef.Location, 0, 0f, -100000f, 100000f, " px", -2000f, 2000f),
+    Axis("Y", PropRef.Location, 1, 0f, -100000f, 100000f, " px", -2000f, 2000f),
+    Axis("Z", PropRef.Location, 2, 0f, -100000f, 100000f, " px", -5000f, 5000f),
 )
 private val Tilt = listOf(
     Axis("Rotate X", PropRef.Tilt, 0, 0f, -89f, 89f, "°"),
     Axis("Rotate Y", PropRef.Tilt, 1, 0f, -89f, 89f, "°"),
 )
 private val Scale = listOf(
-    Axis("Scale X", PropRef.Scale, 0, 1f, 0.01f, 100f),
-    Axis("Scale Y", PropRef.Scale, 1, 1f, 0.01f, 100f),
+    Axis("Scale X", PropRef.Scale, 0, 1f, 0.01f, 100f, sliderMax = 5f),
+    Axis("Scale Y", PropRef.Scale, 1, 1f, 0.01f, 100f, sliderMax = 5f),
 )
 
 /** Layer-level 3D controls and the entry point for camera solving/stabilizing. */
@@ -98,9 +102,17 @@ internal fun ThreeDPanel(state: EditorState, layer: Layer, modifier: Modifier = 
                     onClick = {
                         active = 100
                         state.askNumber("Field of view", fov, "°", 1f, 179f) { v ->
-                            state.editSelected { it.withValue(PropRef(PropRef.Kind.Child, "fov"), formatFloats(floatArrayOf(v))) }
+                            state.editSelected("3d-fov") { it.withValue(PropRef(PropRef.Kind.Child, "fov"), formatFloats(floatArrayOf(v))) }
                         }
                     },
+                )
+                ThinSlider(
+                    fov, { v ->
+                        active = 100
+                        state.editSelected("3d-fov") { it.withValue(PropRef(PropRef.Kind.Child, "fov"), formatFloats(floatArrayOf(v))) }
+                    },
+                    Modifier.weight(1f).padding(start = 6.dp), valueRange = 1f..179f,
+                    onValueChangeFinished = state::endGesture,
                 )
             }
         }
@@ -136,8 +148,16 @@ private fun activeRow(active: Int, camera: Boolean): Axis? = when {
     else -> null
 }
 
+private fun sliderRange(axis: Axis, value: Float): ClosedFloatingPointRange<Float> {
+    val low = axis.sliderMin
+    val high = axis.sliderMax
+    if (value in low..high) return low..high
+    val half = ((high - low) / 2f).coerceAtLeast(0.5f)
+    return (value - half)..(value + half)
+}
+
 private fun write(state: EditorState, axis: Axis, value: Float) {
-    state.editSelected { layer ->
+    state.editSelected("3d-${axis.ref}-${axis.component}") { layer ->
         val current = layer.vector(axis.ref).copyOf(maxOf(axis.component + 1, 2))
         current[axis.component] = value.coerceIn(axis.min, axis.max)
         layer.withValue(axis.ref, formatFloats(current))
@@ -163,8 +183,14 @@ private fun Section(title: String, rows: List<Axis>, state: EditorState, layer: 
                     state.askNumber(axis.label, value, axis.unit, axis.min, axis.max) { typed -> write(state, axis, typed) }
                 },
             )
+            val range = sliderRange(axis, value)
+            ThinSlider(
+                value, { v -> select(index); write(state, axis, v) },
+                Modifier.weight(1f).padding(horizontal = 6.dp), valueRange = range,
+                onValueChangeFinished = state::endGesture,
+            )
             Box(
-                Modifier.padding(start = 6.dp).size(28.dp).clip(RoundedCornerShape(5.dp)).background(Am.Well)
+                Modifier.size(28.dp).clip(RoundedCornerShape(5.dp)).background(Am.Well)
                     .clickable { select(index); state.openExpression(axis.ref, axis.label, layer.vector(axis.ref)) },
                 Alignment.Center,
             ) { Text("fx", color = Am.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold) }

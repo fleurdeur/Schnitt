@@ -135,6 +135,48 @@ class ThreeDMigrationTest {
         assertEquals(listOf(2.7f, 45f, 0.8f, 4f, 0f), listOf("phase", "twist", "fog", "repeat", "speed").map { t.floats(it)[0] })
     }
 
+
+    @Test fun rasterExtrudeKeepsAllOfAlightsLightAndFadeControls() {
+        val made = result("""<effect id="com.alightcreative.effects.extrude">
+            <property name="shadingType" type="int" value="2" />
+            <property name="lightIntensity" type="float" value="0.75" />
+            <property name="shine" type="float" value="0.4" />
+            <property name="spec" type="float" value="60" />
+            <property name="ambient" type="float" value="0.2" />
+            <property name="lightColor" type="color" value="#ff3366cc" />
+            <property name="lightDir" type="vec2" value="20,-40" />
+            <property name="lightDepth" type="float" value="250" />
+            <property name="interiorBlend" type="float" value="0.35" />
+            <property name="fadeColor" type="color" value="#ff112233" />
+            <property name="fadeBlend" type="float" value="0.6" />
+            <property name="widthRatio" type="float" value="1.5" />
+            <property name="heightRatio" type="float" value="0.8" />
+            <property name="strength" type="float" value="0.3" />
+        </effect>""")
+        assertTrue(made.dropped.toString(), made.dropped.isEmpty())
+        val e = made.scene.node.children.single { it.name == "shape" }.children.single { it.name == "effect" }
+        assertEquals(listOf(2f, 0.75f, 0.4f, 60f, 0.2f, 250f, 0.35f, 0.6f, 1.5f, 0.8f, 0.3f),
+            listOf("shadingType", "shading", "shine", "spec", "ambient", "lightDepth", "interiorBlend", "fadeBlend", "widthRatio", "heightRatio", "strength")
+                .map { e.floats(it)[0] })
+        assertEquals(listOf(20f, -40f), e.floats("lightDir"))
+        assertEquals("#ff3366cc", e.children.single { it["name"] == "lightColor" }["value"])
+        assertEquals("#ff112233", e.children.single { it["name"] == "fadeColor" }["value"])
+    }
+
+    @Test fun rasterExtrudeKeyframesFollowTheirAlightProperties() {
+        val made = result("""<effect id="com.alightcreative.effects.extrude">
+            <property name="ambient" type="float"><kf t="0" v="0.1" /><kf t="1" v="0.9" e="cubicBezier 0.42 0 0.58 1" /></property>
+            <property name="fadeBlend" type="float"><kf t="0" v="0" /><kf t="1" v="0.7" /></property>
+        </effect>""")
+        assertTrue(made.dropped.toString(), made.dropped.isEmpty())
+        val e = made.scene.node.children.single { it.name == "shape" }.children.single { it.name == "effect" }
+        val ambient = e.children.single { it["name"] == "ambient" }
+        val fade = e.children.single { it["name"] == "fadeBlend" }
+        assertEquals(listOf(0.1f, 0.9f), ambient.children.filter { it.name == "kf" }.map { it["v"]!!.toFloat() })
+        assertEquals(listOf(0f, 0.7f), fade.children.filter { it.name == "kf" }.map { it["v"]!!.toFloat() })
+        assertEquals("cubicBezier 0.42 0 0.58 1", ambient.children.single { it.name == "kf" && it["t"] == "1" }["e"])
+    }
+
     @Test fun migratedEffectsStayMigrated() {
         val first = result(alight("octahedron", "size" to "3")).scene
         assertFalse(migration.migrate(first).changed)

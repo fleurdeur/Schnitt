@@ -4675,6 +4675,50 @@
     },
     "shine": {
      "label": "Lucentezza"
+    },
+    "shadingType": {
+     "label": "Shading Type",
+     "options": [
+      "Flat",
+      "Point Light",
+      "Directional Light",
+      "Depth",
+      "Normal",
+      "Normal with Depth"
+     ]
+    },
+    "ambient": {
+     "label": "Ambient"
+    },
+    "spec": {
+     "label": "Specularity"
+    },
+    "lightColor": {
+     "label": "Light Color"
+    },
+    "lightDir": {
+     "label": "Light Direction"
+    },
+    "lightDepth": {
+     "label": "Elevation"
+    },
+    "interiorBlend": {
+     "label": "Interior Blend"
+    },
+    "fadeColor": {
+     "label": "Fade Color"
+    },
+    "fadeBlend": {
+     "label": "Fade"
+    },
+    "widthRatio": {
+     "label": "Width"
+    },
+    "heightRatio": {
+     "label": "Height"
+    },
+    "strength": {
+     "label": "Edge Strength"
     }
    },
    "shortcuts": {

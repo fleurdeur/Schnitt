@@ -1,6 +1,15 @@
 package app.absentmotion.model
 
-val Layer.effects: List<XmlNode> get() = node.children.filter { it.name == "effect" }
+private val effectCache = java.util.concurrent.atomic.AtomicReference<Pair<XmlNode, List<XmlNode>>?>(null)
+
+val Layer.effects: List<XmlNode>
+    get() {
+        val cached = effectCache.get()
+        if (cached != null && cached.first === node) return cached.second
+        val made = node.children.filter { it.name == "effect" }
+        effectCache.set(node to made)
+        return made
+    }
 
 fun Layer.withEffect(index: Int, change: (XmlNode) -> XmlNode): Layer {
     var current = -1

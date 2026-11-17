@@ -9,11 +9,27 @@ import kotlin.random.Random
 value class Scene(val node: XmlNode) {
     val title: String get() = node["title"] ?: ""
     val fromAlight: Boolean get() = node["amver"] != null || node["am"]?.startsWith("com.alightcreative") == true
-    val width: Int get() = node["width"]?.toIntOrNull() ?: 1080
-    val height: Int get() = node["height"]?.toIntOrNull() ?: 1080
-    val fps: Int get() = node["fps"]?.toIntOrNull()?.takeIf { it > 0 } ?: 30
-    val bgColor: Int get() = parseColor(node["bgcolor"]) ?: 0
-    val totalTime: Int get() = node["totalTime"]?.toIntOrNull() ?: 0
+    private data class Metrics(val width: Int, val height: Int, val fps: Int, val bgColor: Int, val totalTime: Int)
+
+    private fun metrics(): Metrics {
+        val cached = metricsCache.get()
+        if (cached != null && cached.first === node) return cached.second
+        val made = Metrics(
+            node["width"]?.toIntOrNull() ?: 1080,
+            node["height"]?.toIntOrNull() ?: 1080,
+            node["fps"]?.toIntOrNull()?.takeIf { it > 0 } ?: 30,
+            parseColor(node["bgcolor"]) ?: 0,
+            node["totalTime"]?.toIntOrNull() ?: 0,
+        )
+        metricsCache.set(node to made)
+        return made
+    }
+
+    val width: Int get() = metrics().width
+    val height: Int get() = metrics().height
+    val fps: Int get() = metrics().fps
+    val bgColor: Int get() = metrics().bgColor
+    val totalTime: Int get() = metrics().totalTime
     val depthOrder: Boolean get() = node["depthOrder"] == "true"
     val pieceOrder: Boolean get() = node["depthSort"] == "piece"
 
@@ -44,7 +60,15 @@ value class Scene(val node: XmlNode) {
             return made
         }
 
-    fun media(uri: String): MediaDeclaration? = media.firstOrNull { it.uri == uri }
+    fun media(uri: String): MediaDeclaration? {
+        val list = media
+        val cached = mediaMapCache.get()
+        if (cached != null && cached.first === list) return cached.second[uri]
+        val made = LinkedHashMap<String, MediaDeclaration>(list.size * 2)
+        list.forEach { made.putIfAbsent(it.uri, it) }
+        mediaMapCache.set(list to made)
+        return made[uri]
+    }
     fun isMissing(uri: String): Boolean = media(uri)?.node?.get("missing") == "true"
 
     val bookmarks: List<Int> get() = node.children.filter { it.name == "bookmark" }.mapNotNull { it["t"]?.toIntOrNull() }.sorted()
@@ -71,7 +95,15 @@ value class Scene(val node: XmlNode) {
         return Scene(node.copy(children = node.children.toMutableList().also { it.add(index, media.node) }))
     }
 
-    fun layer(id: Long): Layer? = layers.firstOrNull { it.id == id }
+    fun layer(id: Long): Layer? {
+        val list = layers
+        val cached = layerMapCache.get()
+        if (cached != null && cached.first === list) return cached.second[id]
+        val made = HashMap<Long, Layer>(list.size * 2)
+        list.forEach { made.putIfAbsent(it.id, it) }
+        layerMapCache.set(list to made)
+        return made[id]
+    }
 
     fun layerAt(id: Long, timeMs: Int): Layer? = layer(id)?.at(timeMs, fps)
 
@@ -83,7 +115,7 @@ value class Scene(val node: XmlNode) {
     fun firstShownFrame(start: Int): Int = frameAt(start).let { if (frameTime(it) < start) it + 1 else it }
     fun lastShownFrame(end: Int): Int = frameAt(end).let { if (frameTime(it) > end) it - 1 else it }
     fun showsAnyFrame(start: Int, end: Int): Boolean = firstShownFrame(start) <= lastShownFrame(end)
-    val lastFrame: Int get() = frameAt(totalTime)
+    val lastFrame: Int get() = frameAt(metrics().totalTime)
 
     fun drawnFrames(start: Int, end: Int): Int = (frameAt(end) - frameAt(start - 1)).coerceAtLeast(0)
 
@@ -111,14 +143,14 @@ value class Scene(val node: XmlNode) {
 
     fun update(id: Long, timeMs: Int? = null, change: (Layer) -> Layer): Scene = withChildren(
         node.children.map {
-            if (it.name !in LAYER_TAGS || Layer(it).id != id) it
+            if (it.name !in LAYER_TAGS || (it["id"]?.toLongOrNull() ?: 0L) != id) it
             else change(if (timeMs == null) Layer(it) else Layer(it).at(timeMs, fps)).node
         },
     )
 
     fun updateAll(ids: Set<Long>, timeMs: Int? = null, change: (Layer) -> Layer): Scene = withChildren(
         node.children.map {
-            if (it.name !in LAYER_TAGS || Layer(it).id !in ids) it
+            if (it.name !in LAYER_TAGS || (it["id"]?.toLongOrNull() ?: 0L) !in ids) it
             else change(if (timeMs == null) Layer(it) else Layer(it).at(timeMs, fps)).node
         },
     )
@@ -198,6 +230,9 @@ value class Scene(val node: XmlNode) {
         // times per frame. Keep the most recent one without retaining edits.
         private val layerCache = java.util.concurrent.atomic.AtomicReference<Pair<XmlNode, List<Layer>>?>(null)
         private val mediaCache = java.util.concurrent.atomic.AtomicReference<Pair<XmlNode, List<MediaDeclaration>>?>(null)
+        private val layerMapCache = java.util.concurrent.atomic.AtomicReference<Pair<List<Layer>, Map<Long, Layer>>?>(null)
+        private val mediaMapCache = java.util.concurrent.atomic.AtomicReference<Pair<List<MediaDeclaration>, Map<String, MediaDeclaration>>?>(null)
+        private val metricsCache = java.util.concurrent.atomic.AtomicReference<Pair<XmlNode, Metrics>?>(null)
 
         val LAYER_TAGS = setOf("shape", "text", "drawing", "embedScene", "camera", "audio", "nullobj", "model", "light")
 

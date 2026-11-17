@@ -104,9 +104,119 @@
    "min": 0,
    "max": 1,
    "step": 0.01
+  },
+  {
+   "id": "shadingType",
+   "label": "Shading Type",
+   "type": "choice",
+   "default": 1,
+   "options": [
+    "Flat",
+    "Point Light",
+    "Directional Light",
+    "Depth",
+    "Normal",
+    "Normal with Depth"
+   ]
+  },
+  {
+   "id": "ambient",
+   "label": "Ambient",
+   "type": "float",
+   "default": 0.1,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "spec",
+   "label": "Specularity",
+   "type": "float",
+   "default": 30,
+   "min": 1,
+   "max": 150,
+   "step": 0.5
+  },
+  {
+   "id": "lightColor",
+   "label": "Light Color",
+   "type": "color",
+   "default": "#ffffffff"
+  },
+  {
+   "id": "lightDir",
+   "label": "Light Direction",
+   "type": "point",
+   "default": [
+    0,
+    0
+   ],
+   "min": -500,
+   "max": 500,
+   "step": 1
+  },
+  {
+   "id": "lightDepth",
+   "label": "Elevation",
+   "type": "float",
+   "default": 100,
+   "min": -100,
+   "max": 800,
+   "step": 0.5
+  },
+  {
+   "id": "interiorBlend",
+   "label": "Interior Blend",
+   "type": "float",
+   "default": 1,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "fadeColor",
+   "label": "Fade Color",
+   "type": "color",
+   "default": "#ffaa3366"
+  },
+  {
+   "id": "fadeBlend",
+   "label": "Fade",
+   "type": "float",
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "widthRatio",
+   "label": "Width",
+   "type": "float",
+   "default": 1,
+   "min": 0.01,
+   "max": 10,
+   "step": 0.001
+  },
+  {
+   "id": "heightRatio",
+   "label": "Height",
+   "type": "float",
+   "default": 1,
+   "min": 0.01,
+   "max": 10,
+   "step": 0.001
+  },
+  {
+   "id": "strength",
+   "label": "Edge Strength",
+   "type": "float",
+   "default": 0.1,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
   }
  ],
- "sksl": "uniform shader image;\nuniform float2 size;\nuniform float time;\nuniform float3x3 orient;\nuniform float rotX;\nuniform float rotY;\nuniform float rotZ;\nuniform float depth;\nlayout(color) uniform half4 interior;\nuniform float2 position;\nuniform float scale;\nuniform float perspective;\nuniform float shading;\nuniform float light;\nuniform float shine;\n\nconst float PI = 3.14159265;\n\nfloat3x3 turn() {\n    float3 a = radians(float3(rotX, rotY, rotZ));\n    float cx = cos(a.x), sx = sin(a.x), cy = cos(a.y), sy = sin(a.y), cz = cos(a.z), sz = sin(a.z);\n    return float3x3(cz, -sz, 0.0, sz, cz, 0.0, 0.0, 0.0, 1.0) * float3x3(cy, 0.0, sy, 0.0, 1.0, 0.0, -sy, 0.0, cy) *\n        float3x3(1.0, 0.0, 0.0, 0.0, cx, -sx, 0.0, sx, cx);\n}\n\nfloat4 pic(float2 uv) {\n    return float4(image.eval(clamp(uv * size, float2(0.5), max(size - 0.5, float2(0.5)))));\n}\n\nfloat2 cover(float2 uv, float2 face) {\n    float r = (face.x / max(face.y, 0.0001)) / (size.x / max(size.y, 0.0001));\n    return (uv - 0.5) * (r > 1.0 ? float2(1.0, 1.0 / r) : float2(r, 1.0)) + 0.5;\n}\n\nfloat4 shade(float4 c, float3 n, float3 v) {\n    float a = radians(light);\n    float3 l = normalize(float3(cos(a), -sin(a), -1.2));\n    float k = 1.0 - shading + shading * (0.3 + 0.85 * max(dot(n, l), 0.0));\n    float s = shine * pow(max(dot(n, normalize(l + v)), 0.0), 40.0);\n    return float4(min(c.rgb * k + s * c.a, float3(c.a)), c.a);\n}\nfloat4 inside() { return float4(interior.rgb * interior.a, interior.a); }\n\nfloat alpha(float2 q, float2 h) { return pic(q / h * 0.5 + 0.5).a; }\n\nhalf4 main(float2 coord) {\n    float side = min(size.x, size.y);\n    float unit = max(side * 0.5 * scale, 0.5);\n    float3 h = float3(size / side, depth);\n    float rb = length(h);\n    float dist = max(2.0 + 40.0 * pow(1.0 - clamp(perspective, 0.0, 1.0), 3.0), rb + 0.5);\n    float3 rw = normalize(float3((coord - size * 0.5 - position) / unit, dist));\n    float3 ow = float3(0.0, 0.0, -dist);\n    float b = dot(ow, rw);\n    float disc = b * b - dot(ow, ow) + rb * rb;\n    if (disc <= 0.0) return half4(0.0);\n    float3x3 m = orient * turn();\n    float3 ro = ow * m;\n    float3 rd = rw * m;\n    float3 inv = 1.0 / max(abs(rd), float3(0.000001)) * sign(rd + 0.0000001);\n    float3 t1 = (-h - ro) * inv;\n    float3 t2 = (h - ro) * inv;\n    float3 lo = min(t1, t2);\n    float3 hi = max(t1, t2);\n    float t0 = max(max(lo.x, lo.y), max(lo.z, 0.0));\n    float tEnd = min(hi.x, min(hi.y, hi.z));\n    if (t0 >= tEnd) return half4(0.0);\n    float dt = (tEnd - t0) / 64.0;\n    float t = t0;\n    float peak = 0.0;\n    float tp = t0;\n    bool hit = false;\n    for (int i = 0; i <= 64; i++) {\n        t = t0 + dt * float(i);\n        float a = alpha((ro + rd * t).xy, h.xy);\n        if (a > peak) { peak = a; tp = t; }\n        if (a > 0.5) { hit = true; break; }\n    }\n    if (!hit && peak < 0.02) return half4(0.0);\n    if (hit) {\n        float lo2 = max(t - dt, t0);\n        float hi2 = t;\n        for (int i = 0; i < 6; i++) {\n            float mid = 0.5 * (lo2 + hi2);\n            if (alpha((ro + rd * mid).xy, h.xy) > 0.5) hi2 = mid; else lo2 = mid;\n        }\n        t = hi2;\n    } else {\n        t = tp;\n    }\n    float3 p = ro + rd * t;\n    float e = 1.5 / unit;\n    float4 c;\n    float3 n;\n    if (abs(p.z) > h.z - max(dt * abs(rd.z) * 1.5, 0.0005)) {\n        float4 s = pic(p.xy / h.xy * 0.5 + 0.5);\n        c = float4(s.rgb / max(s.a, 0.0001), 1.0);\n        n = float3(0.0, 0.0, sign(p.z));\n    } else {\n        float2 g = float2(alpha(p.xy + float2(e, 0.0), h.xy) - alpha(p.xy - float2(e, 0.0), h.xy),\n                          alpha(p.xy + float2(0.0, e), h.xy) - alpha(p.xy - float2(0.0, e), h.xy));\n        n = length(g) > 0.0001 ? float3(-normalize(g), 0.0) : float3(0.0, 0.0, -1.0);\n        c = inside();\n    }\n    c = shade(c, normalize(m * n), -rw);\n    return half4(hit ? c : c * min(peak * 2.0, 1.0));\n}\n",
+ "sksl": "uniform shader image;\nuniform float2 size;\nuniform float time;\nuniform float3x3 orient;\nuniform float rotX;\nuniform float rotY;\nuniform float rotZ;\nuniform float depth;\nlayout(color) uniform half4 interior;\nuniform float2 position;\nuniform float scale;\nuniform float perspective;\nuniform float shading;\nuniform float light;\nuniform float shine;\nuniform float shadingType;\nuniform float ambient;\nuniform float spec;\nlayout(color) uniform half4 lightColor;\nuniform float2 lightDir;\nuniform float lightDepth;\nuniform float interiorBlend;\nlayout(color) uniform half4 fadeColor;\nuniform float fadeBlend;\nuniform float widthRatio;\nuniform float heightRatio;\nuniform float strength;\n\nconst float PI = 3.14159265;\n\nfloat3x3 turn() {\n    float3 a = radians(float3(rotX, rotY, rotZ));\n    float cx = cos(a.x), sx = sin(a.x), cy = cos(a.y), sy = sin(a.y), cz = cos(a.z), sz = sin(a.z);\n    return float3x3(cz, -sz, 0.0, sz, cz, 0.0, 0.0, 0.0, 1.0) * float3x3(cy, 0.0, sy, 0.0, 1.0, 0.0, -sy, 0.0, cy) *\n        float3x3(1.0, 0.0, 0.0, 0.0, cx, -sx, 0.0, sx, cx);\n}\n\nfloat4 pic(float2 uv) {\n    return float4(image.eval(clamp(uv * size, float2(0.5), max(size - 0.5, float2(0.5)))));\n}\n\nfloat4 inside() { return float4(interior.rgb * interior.a, interior.a); }\n\nfloat2 cover(float2 uv, float2 face) {\n    float r = (face.x / max(face.y, 0.0001)) / (size.x / max(size.y, 0.0001));\n    return (uv - 0.5) * (r > 1.0 ? float2(1.0, 1.0 / r) : float2(r, 1.0)) + 0.5;\n}\n\nfloat alpha(float2 q, float2 h) { return pic(q / h * 0.5 + 0.5).a; }\n\nfloat3 lightAt(float3 p) {\n    if (abs(lightDir.x) + abs(lightDir.y) > 0.0001) {\n        float3 lp = float3(lightDir.x * 0.5, -lightDir.y * 0.5, -lightDepth * 2.0);\n        return shadingType > 0.5 && shadingType < 1.5 ? normalize(lp - p) : normalize(lp);\n    }\n    // Keep old projects that only used the Light Angle control working.\n    float a = radians(light);\n    return normalize(float3(cos(a), -sin(a), -1.2));\n}\n\nfloat4 shade(float4 c, float3 n, float3 p, float dz) {\n    if (shadingType < 0.5) return float4(min(c.rgb, float3(c.a)), c.a);\n    if (shadingType > 2.5 && shadingType < 3.5) return float4(float3(dz), c.a);\n    if (shadingType > 3.5 && shadingType < 4.5) return float4(n * 0.5 + 0.5, c.a);\n    if (shadingType > 4.5) return float4((n * 0.5 + 0.5) * dz, c.a);\n    float3 l = lightAt(p);\n    float lambert = max(dot(n, l), 0.0);\n    float3 surface = c.rgb * ambient + c.rgb * lightColor.rgb * lambert * (1.0 - ambient);\n    surface *= shading;\n    float s = shine * pow(lambert, max(spec, 1.0));\n    surface = mix(surface * (1.0 - shine * 0.1), float3(1.0), s);\n    return float4(min(surface, float3(c.a)), c.a);\n}\n\nhalf4 main(float2 coord) {\n    float side = min(size.x, size.y);\n    float unit = max(side * 0.5 * scale, 0.5);\n    float3 h = float3(max(widthRatio, 0.01) * size.x / side, max(heightRatio, 0.01) * size.y / side, depth);\n    float rb = length(h);\n    float dist = max(2.0 + 40.0 * pow(1.0 - clamp(perspective, 0.0, 1.0), 3.0), rb + 0.5);\n    float3 rw = normalize(float3((coord - size * 0.5 - position) / unit, dist));\n    float3 ow = float3(0.0, 0.0, -dist);\n    float b = dot(ow, rw);\n    float disc = b * b - dot(ow, ow) + rb * rb;\n    if (disc <= 0.0) return half4(0.0);\n    float3x3 m = orient * turn();\n    float3 ro = ow * m;\n    float3 rd = rw * m;\n    float3 inv = 1.0 / max(abs(rd), float3(0.000001)) * sign(rd + 0.0000001);\n    float3 t1 = (-h - ro) * inv;\n    float3 t2 = (h - ro) * inv;\n    float3 lo = min(t1, t2);\n    float3 hi = max(t1, t2);\n    float t0 = max(max(lo.x, lo.y), max(lo.z, 0.0));\n    float tEnd = min(hi.x, min(hi.y, hi.z));\n    if (t0 >= tEnd) return half4(0.0);\n    float dt = (tEnd - t0) / 64.0;\n    float t = t0;\n    float peak = 0.0;\n    float tp = t0;\n    bool hit = false;\n    float hitLevel = 0.52 - 0.2 * clamp(strength, 0.0, 1.0);\n    for (int i = 0; i <= 64; i++) {\n        t = t0 + dt * float(i);\n        float a = alpha((ro + rd * t).xy, h.xy);\n        if (a > peak) { peak = a; tp = t; }\n        if (a > hitLevel) { hit = true; break; }\n    }\n    if (!hit && peak < 0.02) return half4(0.0);\n    if (hit) {\n        float lo2 = max(t - dt, t0);\n        float hi2 = t;\n        for (int i = 0; i < 6; i++) {\n            float mid = 0.5 * (lo2 + hi2);\n            if (alpha((ro + rd * mid).xy, h.xy) > hitLevel) hi2 = mid; else lo2 = mid;\n        }\n        t = hi2;\n    } else {\n        t = tp;\n    }\n    float3 p = ro + rd * t;\n    float e = 1.5 / unit;\n    float4 c;\n    float3 n;\n    float dz = clamp((p.z + h.z) / max(2.0 * h.z, 0.0001), 0.0, 1.0);\n    if (abs(p.z) > h.z - max(dt * abs(rd.z) * 1.5, 0.0005)) {\n        float4 s = pic(p.xy / h.xy * 0.5 + 0.5);\n        c = float4(s.rgb / max(s.a, 0.0001), 1.0);\n        n = float3(0.0, 0.0, sign(p.z));\n    } else {\n        float2 g = float2(alpha(p.xy + float2(e, 0.0), h.xy) - alpha(p.xy - float2(e, 0.0), h.xy),\n                          alpha(p.xy + float2(0.0, e), h.xy) - alpha(p.xy - float2(0.0, e), h.xy));\n        n = length(g) > 0.0001 ? float3(-normalize(g), 0.0) : float3(0.0, 0.0, -1.0);\n        float4 textured = pic(p.xy / h.xy * 0.5 + 0.5);\n        c = mix(textured, inside(), clamp(interiorBlend, 0.0, 1.0));\n        if (fadeBlend > 0.0) c.rgb = mix(c.rgb, fadeColor.rgb * c.a, clamp(fadeBlend, 0.0, 1.0) * dz);\n    }\n    c = shade(c, normalize(m * n), p, dz);\n    return half4(hit ? c : c * min(peak * 2.0, 1.0));\n}\n",
  "shortcuts": [
   {
    "key": "text3d",

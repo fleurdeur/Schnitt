@@ -8456,7 +8456,7 @@
     "max": 10
    },
    "shadingType": {
-    "neutral": 1
+    "to": "shadingType"
    },
    "lightIntensity": {
     "to": "shading",
@@ -8470,19 +8470,26 @@
     "max": 1
    },
    "spec": {
-    "neutral": 30
+    "to": "spec",
+    "min": 1,
+    "max": 150
    },
    "ambient": {
-    "neutral": 0.1
+    "to": "ambient",
+    "min": 0,
+    "max": 1
    },
    "lightColor": {
-    "neutral": "#ffffffff"
+    "to": "lightColor"
    },
    "lightDir": {
-    "neutral": "75,-75"
+    "to": "lightDir",
+    "take": 2
    },
    "lightDepth": {
-    "neutral": 100
+    "to": "lightDepth",
+    "min": -100,
+    "max": 800
    },
    "depth": {
     "to": "depth",
@@ -8494,22 +8501,32 @@
     "to": "interior"
    },
    "widthRatio": {
-    "neutral": 1
+    "to": "widthRatio",
+    "min": 0.01,
+    "max": 10
    },
    "heightRatio": {
-    "neutral": 1
+    "to": "heightRatio",
+    "min": 0.01,
+    "max": 10
    },
    "strength": {
-    "neutral": 0.1
+    "to": "strength",
+    "min": 0,
+    "max": 1
    },
    "interiorBlend": {
-    "neutral": 0
+    "to": "interiorBlend",
+    "min": 0,
+    "max": 1
    },
    "fadeColor": {
-    "neutral": "#ffaa3366"
+    "to": "fadeColor"
    },
    "fadeBlend": {
-    "neutral": 0
+    "to": "fadeBlend",
+    "min": 0,
+    "max": 1
    },
    "MAX_ITER": {
     "neutral": 200
@@ -8526,7 +8543,19 @@
    "shine": 0.8,
    "light": 45,
    "depth": 0.03,
-   "interior": "#ff3366aa"
+   "interior": "#ff3366aa",
+   "shadingType": 1,
+   "spec": 30,
+   "ambient": 0.1,
+   "lightColor": "#ffffffff",
+   "lightDir": "75,-75",
+   "lightDepth": 100,
+   "interiorBlend": 0,
+   "fadeColor": "#ffaa3366",
+   "fadeBlend": 0,
+   "widthRatio": 1,
+   "heightRatio": 1,
+   "strength": 0.1
   },
   "orientation": {
    "quat": "orient",
