@@ -13,6 +13,11 @@
       "name": "Schnitt-5.8.0-armeabi-v7a.apk",
       "size": 90062179,
       "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.8.0/Schnitt-5.8.0-armeabi-v7a.apk"
+    },
+    {
+      "name": "Schnitt-5.8.0-universal.apk",
+      "size": 144424886,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.8.0/Schnitt-5.8.0-universal.apk"
     }
   ]
 }
