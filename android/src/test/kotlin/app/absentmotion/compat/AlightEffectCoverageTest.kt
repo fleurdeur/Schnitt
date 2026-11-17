@@ -103,6 +103,14 @@ class AlightEffectCoverageTest {
         assertEquals(249.75f, older.floats("depth")[0], 1e-4f)
     }
 
+
+    @Test fun directionalBlurKeepsAlightsStrengthAndAngleInLayerUnits() {
+        val blur = migrate("""<effect id="com.alightcreative.effects.dblur"><property name="strength" type="float" value="0.15" /><property name="angle" type="float" value="90" /></effect>""")
+        assertEquals("absent.directionalblur", blur["id"])
+        assertEquals(0.15f, blur.floats("blurLength")[0], 1e-6f)
+        assertEquals(90f, blur.floats("angle")[0], 1e-6f)
+    }
+
     @Test fun commonAlightEffectsAllRun() {
         val common = listOf("zoomblur3", "spinblur2", "dblur", "swirl4", "pinchbulge2", "wavewarp2", "turbulentdisplace3", "pixelate2", "mosaic", "posterize",
             "vignette", "wipe2", "radialwipe", "kaleidoscope", "chromakey", "lumakey3", "halftonedots", "rays", "radialrays", "star", "stripes", "grid2",

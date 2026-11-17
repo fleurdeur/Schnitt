@@ -174,10 +174,8 @@ class Importer(
                     }
                 }
             }
-            if (scenes.isEmpty()) {
-                if (genericPackage) throw ImportFailed(txt(R.string.library_err_missing_manifest))
-                throw ImportFailed(txt(R.string.library_err_no_project))
-            }
+            if (genericPackage) throw ImportFailed(txt(R.string.library_err_missing_manifest))
+            if (scenes.isEmpty()) throw ImportFailed(txt(R.string.library_err_no_project))
             repeat(scenes.size) { ids += store.newId(ids) }
             ids.forEach { File(store.mediaDir(it), ImportMarker).apply { parentFile?.mkdirs(); createNewFile() } }
             val copies = HashMap<String, MutableList<File>>()

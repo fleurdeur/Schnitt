@@ -36,7 +36,9 @@ suspend fun EditorState.addDepthMap(context: Context, layer: Layer, progress: (F
     val media = scene.media(fill.uri) ?: return 0
     val seconds = layer.matteSeconds(media)
     check(seconds <= 300.0) { AppText.get(R.string.ai_clip_too_long, "5") }
-    val (width, height) = matteSize(media.width, media.height, 720)
+    // Depth Anything always infers at 518 px. A larger matte only spends time
+    // scaling and encoding data the model never produced.
+    val (width, height) = matteSize(media.width, media.height, 518)
     val file = aiFile(context, "mp4")
     val needed = matteBytes(seconds, width, height) * 2 + 50_000_000L
     check(file.parentFile!!.usableSpace >= needed) { AppText.get(R.string.ai_not_enough_storage, (needed / 1_000_000).toString()) }
@@ -46,12 +48,12 @@ suspend fun EditorState.addDepthMap(context: Context, layer: Layer, progress: (F
         val encoded = withContext(Dispatchers.IO) {
             var actual = width to height
             FrameReader(context, fill.uri).use { reader ->
-                val stamps = matteStamps(reader.timestamps, layer.processFromMs, fill.outTime)
+                val stamps = depthStamps(reader.timestamps, layer.processFromMs, fill.outTime, seconds)
                 check(stamps.isNotEmpty()) { AppText.get(R.string.ai_no_video_frames) }
                 MatteEncoder.open(file, width, height, fps).use { encoder ->
                     actual = encoder.width to encoder.height
                     var done = 0
-                    val workers = min(8, max(2, Runtime.getRuntime().availableProcessors() / 2))
+                    val workers = DepthAnything.workerCount(context)
                     for (batch in stamps.chunked(workers)) {
                         val frames = ArrayList<Pair<Long, Bitmap>>(batch.size)
                         try {
@@ -96,4 +98,28 @@ suspend fun EditorState.addDepthMap(context: Context, layer: Layer, progress: (F
     } finally {
         if (!success) file.delete()
     }
+}
+
+/**
+ * Depth changes slowly compared with picture detail. Sampling at a lower rate
+ * keeps long clips fast while the depth video keeps the original timestamps and
+ * duration, so it still lines up with the source.
+ */
+private fun depthStamps(stamps: LongArray, inMs: Int, outMs: Int, seconds: Double): List<Long> {
+    val all = matteStamps(stamps, inMs, outMs)
+    if (all.size < 2) return all
+    val targetFps = when {
+        seconds <= 20.0 -> 24
+        seconds <= 60.0 -> 18
+        seconds <= 180.0 -> 15
+        else -> 12
+    }
+    val gap = 1_000_000L / targetFps
+    val out = ArrayList<Long>(min(all.size, (seconds * targetFps).roundToInt() + 1))
+    var previous = Long.MIN_VALUE / 2
+    for (stamp in all) {
+        if (stamp - previous >= gap) { out += stamp; previous = stamp }
+    }
+    if (out.lastOrNull() != all.last()) out += all.last()
+    return out
 }

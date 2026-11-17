@@ -26,9 +26,23 @@ value class Scene(val node: XmlNode) {
     val retimeIn: Int get() = node["retimeIn"]?.toIntOrNull() ?: 0
     val retimeOut: Int get() = node["retimeOut"]?.toIntOrNull() ?: 0
 
-    val layers: List<Layer> get() = node.children.filter { it.name in LAYER_TAGS }.map { Layer(it) }
+    val layers: List<Layer>
+        get() {
+            val cached = layerCache.get()
+            if (cached != null && cached.first === node) return cached.second
+            val made = node.children.filter { it.name in LAYER_TAGS }.map { Layer(it) }
+            layerCache.set(node to made)
+            return made
+        }
 
-    val media: List<MediaDeclaration> get() = node.children.filter { it.name == "media" }.map(::MediaDeclaration)
+    val media: List<MediaDeclaration>
+        get() {
+            val cached = mediaCache.get()
+            if (cached != null && cached.first === node) return cached.second
+            val made = node.children.filter { it.name == "media" }.map(::MediaDeclaration)
+            mediaCache.set(node to made)
+            return made
+        }
 
     fun media(uri: String): MediaDeclaration? = media.firstOrNull { it.uri == uri }
     fun isMissing(uri: String): Boolean = media(uri)?.node?.get("missing") == "true"
@@ -57,7 +71,7 @@ value class Scene(val node: XmlNode) {
         return Scene(node.copy(children = node.children.toMutableList().also { it.add(index, media.node) }))
     }
 
-    fun layer(id: Long): Layer? = node.children.firstOrNull { it.name in LAYER_TAGS && (it["id"]?.toLongOrNull() ?: 0L) == id }?.let { Layer(it) }
+    fun layer(id: Long): Layer? = layers.firstOrNull { it.id == id }
 
     fun layerAt(id: Long, timeMs: Int): Layer? = layer(id)?.at(timeMs, fps)
 
@@ -180,6 +194,11 @@ value class Scene(val node: XmlNode) {
     fun toXml(): String = node.with("modifiedTime", "${System.currentTimeMillis()}").toXml()
 
     companion object {
+        // Scenes are immutable; the editor asks for the same layer list many
+        // times per frame. Keep the most recent one without retaining edits.
+        private val layerCache = java.util.concurrent.atomic.AtomicReference<Pair<XmlNode, List<Layer>>?>(null)
+        private val mediaCache = java.util.concurrent.atomic.AtomicReference<Pair<XmlNode, List<MediaDeclaration>>?>(null)
+
         val LAYER_TAGS = setOf("shape", "text", "drawing", "embedScene", "camera", "audio", "nullobj", "model", "light")
 
         fun parse(xml: String) = Scene(XmlNode.parse(xml).withoutAnyValueLinks())

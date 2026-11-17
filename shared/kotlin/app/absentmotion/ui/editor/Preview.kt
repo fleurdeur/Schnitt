@@ -140,7 +140,21 @@ fun Preview(state: EditorState, modifier: Modifier = Modifier, reserveEnd: Dp = 
     val viewZoom = if (fixedView) 1f else state.canvasZoom
     val viewPan = if (fixedView) Offset.Zero else state.canvasPan
     val (scale, dx, dy) = previewFrame(size.width.toFloat(), size.height.toFloat(), with(LocalDensity.current) { reserveEnd.toPx() }, scene.width.toFloat(), scene.height.toFloat(), viewZoom, viewPan)
-    val divisor = state.settings.previewDivisor(state.playing)
+    var adaptiveDivisor by remember { mutableIntStateOf(1) }
+    LaunchedEffect(state.playing, state.settings.adaptivePreview) {
+        if (!state.playing || !state.settings.adaptivePreview) { adaptiveDivisor = 1; return@LaunchedEffect }
+        while (true) {
+            delay(400)
+            val ms = state.engine.lastRenderMs
+            val next = when {
+                ms >= 34.0 -> min(4, adaptiveDivisor + 1)
+                ms in 1.0..18.0 && adaptiveDivisor > 1 -> adaptiveDivisor - 1
+                else -> adaptiveDivisor
+            }
+            if (next != adaptiveDivisor) adaptiveDivisor = next
+        }
+    }
+    val divisor = maxOf(state.settings.previewDivisor(state.playing), adaptiveDivisor)
     val quality = 1f / divisor
     val selection = if (MultiSelect.ids.isNotEmpty()) MultiSelect.ids.toList() else listOfNotNull(state.selectedId)
     val refPx = if (LocalWide.current) LocalDensity.current.density * PhoneWidth.value / 1080f else 0f
@@ -174,7 +188,7 @@ fun Preview(state: EditorState, modifier: Modifier = Modifier, reserveEnd: Dp = 
         accurateBlur = state.settings.fullMotionBlur || blurSettled,
     ) else null
     val cacheMatch by remember(state, mediaRevision) { derivedStateOf { cacheMatches(state, mediaRevision) } }
-    val cacheUsable = cacheMatch && app.absentmotion.editor.cacheFrameSize(scene.width, scene.height, scale, divisor).first <= (PreviewCache.player?.width ?: 0) * 1.25f
+    val cacheUsable = cacheMatch && app.absentmotion.editor.cacheFrameSize(scene, scale, divisor).first <= (PreviewCache.player?.width ?: 0) * 1.25f
     val usable = rememberUpdatedState(cacheUsable)
     val cachedPlaying = remember(state) { derivedStateOf { usable.value && state.playing && PreviewCache.covers(state.frame) } }
     val live = remember { LiveHandoff() }

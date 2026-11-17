@@ -39,6 +39,19 @@ class AmEffectLibraryTest {
         assertTrue(effects.all { File(art, it.thumbnail).isFile })
     }
 
+
+    @Test fun bundledCopiesOfNativeEffectsAreNotListedTwice() {
+        val words = strings()
+        val catalog = EffectCatalog.parse { File(TestData.project.resolve("shared/assets/effects"), it).inputStream() }
+        val effects = folder.listFiles { f -> f.extension == "xml" }.orEmpty().mapNotNull { AmEffectImporter.parse(it.readText(), words) }
+        for (name in listOf("Directional Blur", "Motion Blur", "Rays", "Cube", "Grid", "Page Curl")) {
+            val imported = effects.first { it.name == name }
+            assertTrue("$name should prefer the built-in effect", AmEffectImporter.duplicateOfNative(imported, catalog))
+        }
+        val unique = effects.first { def -> catalog.definitions.none { AmEffectImporter.effectName(it.name) == AmEffectImporter.effectName(def.name) } }
+        assertFalse(AmEffectImporter.duplicateOfNative(unique, catalog))
+    }
+
     @Test fun collidingParameterNamesStayDistinctFromImageSizeAndTime() {
         val words = strings()
         val pixelate = AmEffectImporter.parse(File(folder, "pixelate.xml").readText(), words)!!

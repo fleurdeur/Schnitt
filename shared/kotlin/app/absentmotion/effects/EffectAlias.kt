@@ -33,11 +33,6 @@ internal object EffectAlias {
         "pinchbulge2" to "bulge",
         "pinchbulgeinside" to "innerbulge",
         "tile" to "tiles",
-        "motionblur" to "directionalblur",
-        "mblur" to "directionalblur",
-        "motionblur2" to "directionalblur",
-        "motionblur3" to "directionalblur",
-        "motionblur4" to "directionalblur",
     )
 
     private fun slug(value: String) = value.lowercase().replace(Regex("[^a-z0-9]+"), "")

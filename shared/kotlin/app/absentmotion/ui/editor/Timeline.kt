@@ -753,6 +753,10 @@ private class TimelineView(val state: EditorState, density: Density, private val
     val liftMoved: Boolean get() = liftArmed || moveArmed
 
     private val layersState = derivedStateOf(referentialEqualityPolicy()) { state.scene.layers }
+    private val rowsState = derivedStateOf(referentialEqualityPolicy()) {
+        val all = state.scene.layers
+        all.withIndex().associate { (index, layer) -> layer.id to all.lastIndex - index }
+    }
 
     val layers: List<Layer> get() = layersState.value
     val fps: Int get() = state.scene.fps.coerceAtLeast(1)
@@ -1420,7 +1424,7 @@ private class TimelineView(val state: EditorState, density: Density, private val
         if (layers[index].id != id) state.edit("reorder") { it.reorder(id, index) }
     }
 
-    fun rowOf(id: Long): Int? = layers.indexOfFirst { it.id == id }.takeIf { it >= 0 }?.let { layers.lastIndex - it }
+    fun rowOf(id: Long): Int? = rowsState.value[id]
 
     private fun progress(ms: Long, total: Int) = Motion.EaseOut.transform((ms / total.toFloat()).coerceIn(0f, 1f))
 

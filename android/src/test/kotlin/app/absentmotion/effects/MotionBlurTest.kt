@@ -68,6 +68,18 @@ class MotionBlurTest {
         assertEquals(result.scene.node, again.scene.node)
     }
 
+
+    @Test fun alightMotionBlurImportsAsTheBuiltInMotionBlur() {
+        val xml = """<effect id="com.alightcreative.effects.motionblur4"><property name="tune" type="float" value="1.5" />
+            <property name="usePos" type="bool" value="true" /><property name="useScale" type="bool" value="false" /><property name="useAngle" type="bool" value="true" /></effect>"""
+        val result = migration.migrate(scene(shape(1, XmlNode.parse(xml))))
+        val blur = effectsOf(result.scene).single()
+        assertEquals("absent.motionblur", blur["id"])
+        assertEquals("1.500000", blur.children.single { it["name"] == "tune" }["value"])
+        assertEquals("false", blur.children.single { it["name"] == "scale" }["value"])
+        assertTrue(result.dropped.isEmpty())
+    }
+
     @Test fun motionBlursMadeAfterTheChangeAreLeftAlone() {
         val fresh = catalog.find("absent.motionblur")!!.instance()
         val result = migration.migrate(scene(shape(1, fresh)))

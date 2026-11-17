@@ -75,6 +75,9 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
     private var capturing = false
     @Volatile var lastStillMs = 0.0
         private set
+    /** Latest preview surface render time; drives adaptive preview quality. */
+    @Volatile var lastRenderMs = 0.0
+        private set
 
     fun updateBackground(color: Int) { background = color; requestRender() }
     @Volatile private var requestedView: PreviewView? = null
@@ -541,7 +544,8 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
                     watchedFrames = -1
                     gpuCheck?.survived()
                 }
-                if (RenderStats.recording) RenderStats.add((System.nanoTime() - started) / 1e6, v.timeMs)
+                lastRenderMs = (System.nanoTime() - started) / 1e6
+                if (RenderStats.recording) RenderStats.add(lastRenderMs, v.timeMs)
                 renders++
                 if (exact) renderedView.value = RenderedView(shownSerial, v.timeMs)
             }

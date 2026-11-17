@@ -3,6 +3,21 @@ package app.absentmotion.library
 import app.absentmotion.platform.Context
 import java.io.File
 import java.net.URI
+import java.nio.file.Files
+
+/** Accepts Android file:///... and the file://C:\... form produced on Windows. */
+internal fun fileFromUri(uri: String): File? {
+    if (!uri.startsWith("file:", ignoreCase = true)) return null
+    var raw = uri.substring(5)
+    if (raw.startsWith("//")) raw = raw.substring(2)
+    if (raw.contains('?') || raw.contains('#')) return null
+    raw = raw.replace('\\', '/')
+    raw = runCatching { java.net.URLDecoder.decode(raw.replace("+", "%2B"), "UTF-8") }.getOrDefault(raw)
+    return if (raw.startsWith("/") || Regex("^[A-Za-z]:/").containsMatchIn(raw)) File(raw) else null
+}
+
+private fun realOrCanonical(file: File): java.nio.file.Path =
+    if (Files.exists(file.toPath())) file.toPath().toRealPath() else file.canonicalFile.toPath()
 
 fun openableUri(uri: String): String {
     if (uri.substringBefore(':', "").lowercase() !in OPENABLE_SCHEMES) throw SecurityException("Not a local media address")
@@ -47,7 +62,7 @@ class MediaAccess private constructor(private val filesDir: File?, private val o
 
         private fun inside(dir: File, uri: String): Boolean = try {
             val base = dir.canonicalFile.toPath()
-            val path = File(URI(uri)).canonicalFile.toPath()
+            val path = fileFromUri(uri)?.let(::realOrCanonical) ?: return false
             path.startsWith(base) && path != base
         } catch (e: Exception) {
             false
@@ -55,7 +70,9 @@ class MediaAccess private constructor(private val filesDir: File?, private val o
 
         private fun inMediaFolder(filesDir: File, uri: String): Boolean = try {
             val base = filesDir.canonicalFile.toPath()
-            val path = File(URI(uri)).canonicalFile.toPath()
+            val file = fileFromUri(uri) ?: return false
+            if (Files.isSymbolicLink(file.toPath()) || Files.isSymbolicLink(file.parentFile?.toPath())) return false
+            val path = realOrCanonical(file)
             val inside = if (path.startsWith(base) && path != base) base.relativize(path) else null
             when (inside?.getName(0)?.toString()) {
                 "media" -> inside.nameCount > 1

@@ -23,6 +23,7 @@ import app.absentmotion.Tier
 import app.absentmotion.engine.EngineThread
 import app.absentmotion.export.Smoothing
 import app.absentmotion.model.Scene
+import app.absentmotion.model.effects
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import kotlin.math.abs
@@ -45,11 +46,11 @@ private const val MAX_BUDGET = 256 * MIB
 private const val MAX_DISK_BUDGET = 1024 * MIB
 private const val DISK_RESERVE = 1024 * MIB
 private const val CACHE_PREFIX = "preview-cache-"
-private const val MAX_SIDE = 1600
+private const val MAX_SIDE = 1920
 private const val ESTIMATE_PER_MILLE = 150L
 private const val QUALITY = 82
 private const val AHEAD = 4
-private const val POOL = AHEAD + 3
+private const val POOL = 5
 private const val TAG = "AMCache"
 
 fun previewCacheBudget(memoryClassMb: Int, lowRam: Boolean, compatible: Boolean): Long {
@@ -60,6 +61,33 @@ fun previewCacheBudget(memoryClassMb: Int, lowRam: Boolean, compatible: Boolean)
 fun rawStoreBudget(heapMax: Long): Long = minOf(4096 * MIB, heapMax * 2 / 5)
 
 fun storeBudget(budget: Long, width: Int, height: Int): Long = maxOf(budget / 4, budget - POOL * 4L * width * height)
+
+/** Extra preview reduction for scenes that are expensive to draw. */
+fun previewComplexityDivisor(scene: Scene): Int {
+    val layers = scene.layers
+    var cost = layers.size
+    for (layer in layers) {
+        cost += layer.effects.size * 3
+        cost += when (layer.kind) {
+            "model" -> 12
+            "camera" -> 4
+            "light" -> 2
+            else -> 0
+        }
+    }
+    return when {
+        cost > 400 -> 3
+        cost > 180 -> 2
+        cost > 60 -> 1
+        else -> 0
+    }
+}
+
+fun sceneCacheDivisor(scene: Scene, requested: Int): Int =
+    (requested.coerceAtLeast(1) + previewComplexityDivisor(scene)).coerceAtMost(4)
+
+fun cacheFrameSize(scene: Scene, fit: Float, divisor: Int): Pair<Int, Int> =
+    cacheFrameSize(scene.width, scene.height, fit, sceneCacheDivisor(scene, divisor))
 
 fun cacheFrameSize(sceneWidth: Int, sceneHeight: Int, fit: Float, divisor: Int): Pair<Int, Int> {
     val longest = maxOf(sceneWidth, sceneHeight, 1)
@@ -360,7 +388,7 @@ object PreviewCache {
         val next = keyOf(state)
         val at = state.frame
         val cell = checkerCell
-        val (width, height) = cacheFrameSize(next.scene.width, next.scene.height, fit, next.divisor)
+        val (width, height) = cacheFrameSize(next.scene, fit, next.divisor)
         val previous = key
         if (!automatic || previous == null || previous.copy(scene = next.scene) != next || player?.width != width || player?.height != height || preparedCell != cell) {
             if (!automatic && previous == next && phase == Phase.Ready) return
@@ -446,7 +474,7 @@ object PreviewCache {
         val app = context.applicationContext
         val scene = state.scene
         val divisor = state.settings.previewQuality.divisor
-        val (width, height) = cacheFrameSize(scene.width, scene.height, fit, divisor)
+        val (width, height) = cacheFrameSize(scene, fit, divisor)
         val manager = app.getSystemService(ActivityManager::class.java)
         val memory = storeBudget(previewCacheBudget(manager?.memoryClass ?: 128, manager?.isLowRamDevice == true, Tier.compatible), width, height)
         val folder = app.cacheDir

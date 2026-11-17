@@ -43,8 +43,9 @@ internal fun sweepStorage(files: File, shared: List<File>, now: Long = System.cu
             continue
         }
         for (uri in uris) {
-            names += runCatching { URLDecoder.decode(uri.substringAfterLast('/').replace("+", "%2B"), "UTF-8") }.getOrDefault(uri.substringAfterLast('/'))
-            if (uri.startsWith("file:", ignoreCase = true)) canonical.getOrPut(uri) { runCatching { File(URI(uri)).canonicalPath }.getOrNull() }?.let(paths::add)
+            val leaf = uri.substringAfterLast('/').substringAfterLast('\\')
+            names += runCatching { URLDecoder.decode(leaf.replace("+", "%2B"), "UTF-8") }.getOrDefault(leaf)
+            if (uri.startsWith("file:", ignoreCase = true)) canonical.getOrPut(uri) { fileFromUri(uri)?.canonicalPath }.let { it?.let(paths::add) }
         }
     }
     for (f in candidates) {

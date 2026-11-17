@@ -185,15 +185,16 @@ private fun receive(input: InputStream, files: UpdateFiles, append: Boolean, siz
     if (append) files.part.inputStream().use { DigestInputStream(it, digest).use(::drain) }
     else files.part.delete()
     var done = if (append) files.part.length() else 0L
-    val output = try { java.io.FileOutputStream(files.part, append) } catch (e: IOException) { throw UpdateProblem(UpdateFailure.Save, e) }
-    output.use { out ->
+    var out: java.io.FileOutputStream? = null
+    try {
         val buffer = ByteArray(64 * 1024)
         while (true) {
             active()
+            if (out == null) out = try { java.io.FileOutputStream(files.part, done > 0) } catch (e: IOException) { throw UpdateProblem(UpdateFailure.Save, e) }
             val count = input.read(buffer)
             if (count < 0) break
             if (done + count > size) {
-                out.close()
+                runCatching { out.close() }
                 files.part.delete()
                 throw UpdateProblem(UpdateFailure.Checksum)
             }
@@ -201,8 +202,14 @@ private fun receive(input: InputStream, files: UpdateFiles, append: Boolean, siz
             try { out.write(buffer, 0, count) } catch (e: IOException) { throw UpdateProblem(if (noSpace(e)) UpdateFailure.Storage(spaceNeeded(size, done)) else UpdateFailure.Save, e) }
             done += count
             progress(done)
+            // Close the part between chunks. Android may unlink it while we are
+            // downloading; on Windows an open handle would hide that removal.
+            out.close()
+            out = null
+            if (!files.part.isFile || files.part.length() != done) throw UpdateProblem(UpdateFailure.Removed)
         }
-        try { out.fd.sync() } catch (e: IOException) { throw UpdateProblem(if (noSpace(e)) UpdateFailure.Storage(spaceNeeded(size, done)) else UpdateFailure.Save, e) }
+    } finally {
+        runCatching { out?.close() }
     }
     if (done < size) throw UpdateProblem(UpdateFailure.Connection)
     if (hex(digest.digest()) != sha256) {

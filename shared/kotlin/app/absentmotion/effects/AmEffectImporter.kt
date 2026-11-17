@@ -30,24 +30,39 @@ object AmEffectImporter {
 
     @Volatile private var bundled: List<EffectDefinition>? = null
     @Volatile private var sharedStrings: Map<String, String>? = null
+    @Volatile private var customCache: Pair<Long, List<EffectDefinition>>? = null
 
     fun append(context: Context, catalog: EffectCatalog): EffectCatalog {
         val folder = File(context.filesDir, FOLDER)
         val words = globals(context)
-        val custom = if (folder.isDirectory) folder.listFiles { f -> f.extension == "xml" }.orEmpty().mapNotNull { f ->
+        val files = if (folder.isDirectory) folder.listFiles { f -> f.extension == "xml" }.orEmpty() else emptyArray()
+        val stamp = files.sumOf { it.lastModified() xor it.length() }
+        val custom = if (files.isEmpty()) emptyList() else customCache?.takeIf { it.first == stamp }?.second ?: files.mapNotNull { f ->
             runCatching { parse(f.readText(), words) }.getOrNull()
-        } else emptyList()
+        }.also { customCache = stamp to it }
         val builtIn = bundled ?: runCatching {
             context.assets.list("am-effects").orEmpty().filter { it.endsWith(".xml") }.mapNotNull { name ->
                 runCatching { context.assets.open("am-effects/$name").bufferedReader().use { parse(it.readText(), words) } }.getOrNull()
             }.map { it.withImages(context) }
         }.getOrDefault(emptyList()).also { bundled = it }
+        // The bundled Alight XMLs include copies of effects that now have a
+        // native implementation (Directional Blur, Motion Blur, Rays, Cube,
+        // Grid, Page Curl...). Keep the built-in one: the imported copy can be
+        // an old shader or a partial translation, and showing both is the
+        // duplicate that looks broken in the library.
         val known = catalog.definitions.flatMap { listOf(it.key, it.id) }.toMutableSet()
         val extra = (builtIn + custom).filter { def ->
-            known.add(def.key) && known.add(def.id)
+            !duplicateOfNative(def, catalog) && known.add(def.key) && known.add(def.id)
         }.distinctBy { it.key }.map { it.withImages(context) }
         return if (extra.isEmpty()) catalog else catalog.copy(definitions = catalog.definitions + extra)
     }
+
+    internal fun duplicateOfNative(def: EffectDefinition, catalog: EffectCatalog): Boolean =
+        catalog.definitions.any {
+            !it.key.startsWith("am-") && !it.external && effectName(it.name) == effectName(def.name)
+        }
+
+    internal fun effectName(value: String) = value.lowercase().replace(Regex("[^a-z0-9]+"), "")
 
     private fun EffectDefinition.withImages(context: Context): EffectDefinition {
         if (resourcePaths.isEmpty() || images.isNotEmpty()) return this

@@ -48,6 +48,16 @@ object DepthAnything {
         }
     }
 
+    /** Safe inference parallelism for the selected backend. */
+    fun workerCount(context: Context): Int {
+        open(context)
+        val cores = Runtime.getRuntime().availableProcessors()
+        return when (backend) {
+            Backend.Nnapi -> 2
+            else -> minOf(4, maxOf(2, cores / 2))
+        }
+    }
+
     suspend fun download(context: Context, progress: (Float) -> Unit): File = withContext(Dispatchers.IO) {
         val target = file(context).apply { parentFile?.mkdirs() }
         if (target.length() == MODEL_BYTES) return@withContext target
@@ -151,7 +161,7 @@ object DepthAnything {
     suspend fun depthGray(context: Context, bitmap: Bitmap, width: Int, height: Int): ByteArray = withContext(Dispatchers.Default) {
         val active = open(context)
         val environment = env ?: OrtEnvironment.getEnvironment()
-        val scaled = Bitmap.createScaledBitmap(bitmap, SIDE, SIDE, true)
+        val scaled = if (bitmap.width == SIDE && bitmap.height == SIDE) bitmap else Bitmap.createScaledBitmap(bitmap, SIDE, SIDE, true)
         try {
             val pixels = IntArray(SIDE * SIDE)
             scaled.getPixels(pixels, 0, SIDE, 0, 0, SIDE, SIDE)
