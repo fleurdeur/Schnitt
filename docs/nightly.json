@@ -1,24 +1,24 @@
 {
-  "tag": "v5.7.0-nightly.20261116",
-  "name": "Schnitt 5.7.0 nightly",
-  "published": "2026-11-16T13:33:00Z",
+  "tag": "v5.8.0-nightly.20261117",
+  "name": "Schnitt 5.8.0 nightly",
+  "published": "2026-11-17T10:06:35Z",
   "prerelease": true,
-  "notes": "Experimental nightly: local MCP agent, model part animation, R8 full mode and resource shrinking.",
+  "notes": "Experimental nightly: Raster Extrude controls, 3D sliders, depth/pre-render speedups, MCP agent, expressions and model parts.",
   "assets": [
     {
-      "name": "Schnitt-5.7.0-nightly-arm64-v8a.apk",
-      "size": 92094895,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.7.0-nightly.20261116/Schnitt-5.7.0-nightly-arm64-v8a.apk"
+      "name": "Schnitt-5.8.0-nightly-arm64-v8a.apk",
+      "size": 92159397,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.8.0-nightly.20261117/Schnitt-5.8.0-nightly-arm64-v8a.apk"
     },
     {
-      "name": "Schnitt-5.7.0-nightly-armv7.apk",
-      "size": 89938805,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.7.0-nightly.20261116/Schnitt-5.7.0-nightly-armv7.apk"
+      "name": "Schnitt-5.8.0-nightly-armeabi-v7a.apk",
+      "size": 90003307,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.8.0-nightly.20261117/Schnitt-5.8.0-nightly-armeabi-v7a.apk"
     },
     {
-      "name": "Schnitt-5.7.0-nightly-universal.apk",
-      "size": 144295812,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.7.0-nightly.20261116/Schnitt-5.7.0-nightly-universal.apk"
+      "name": "Schnitt-5.8.0-nightly-universal.apk",
+      "size": 144360314,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.8.0-nightly.20261117/Schnitt-5.8.0-nightly-universal.apk"
     }
   ]
 }
