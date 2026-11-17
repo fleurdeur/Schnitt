@@ -1,23 +1,13 @@
 {
-  "tag": "v5.7.1",
-  "name": "Schnitt 5.7.1",
-  "published": "2026-11-17T08:23:06Z",
-  "notes": "# Schnitt 5.7.1\n\nThis is a compatibility, controls and performance release.\n\n## Raster Extrude\n\n- Raster Extrude is Alight Motion's Raster Extrude effect. Imported XML and links now keep all of its settings instead of reporting them as lost.\n- Added the missing Shading Type, Ambient, Specularity, Light Color, Light Direction, Elevation, Interior Blend, Fade Color and Fade Blend controls.\n- Added Width, Height and Edge Strength controls so imported extrusions keep their shape and march quality.\n- Light, shine, shading, depth, interior color, position, scale and rotation continue to work and keep their keyframes.\n- Existing saved Raster Extrude effects keep their old look.\n\n## 3D layer controls\n\n- The 3D layer panel now has touch sliders for position, rotation, scale and camera field of view, not only number boxes.\n- Sliders group their changes into one undo step, so dragging is smooth and does not flood the history.\n\n## Directional Blur\n\n- Rebuilt on a 65-sample directional gather adapted from Keyflow's directional blur.\n- The smear is measured from the visible layer size, so it behaves the same on small and large layers.\n- Alight directional blur keeps its strength and angle when imported from XML or a link.\n- Old saved directional blurs stay compatible.\n\n## Effect imports and duplicates\n\n- Bundled Alight copies of effects that already have a native implementation are no longer listed twice.\n- Imported Alight Motion Blur now resolves to Schnitt's own keyframe-aware Motion Blur.\n- Curated Rays, Cube, Grid and Page Curl rules keep their settings and keyframes instead of falling back to a flat placeholder.\n\n## Depth maps\n\n- Depth maps now match the model's native 518 px working size instead of producing a larger matte than the model can fill.\n- Long clips use a lower depth sampling rate while keeping the original timestamps, duration and alignment.\n- Depth inference runs with backend-aware parallelism, so NNAPI and XNNPACK devices no longer fight over too many jobs.\n\n## Performance\n\n- Adaptive preview reacts to real render times, not only the selected quality.\n- Heavy scenes automatically lower the background preview and pre-render resolution in steps, while light scenes keep full detail.\n- Scene size, fps, total time, layer maps and media maps are cached, so large projects no longer re-parse the same scene data every frame.\n- Layer effect lists are reused until the layer changes.\n- Timeline row lookup uses an id map, and imported custom effect files are cached until they change.\n\n## Fixes\n\n- Media URI decoding handles encoded dot segments and Windows file paths safely.\n- Interrupted update downloads no longer leave an open part file on Windows.\n- Added migration tests for every Raster Extrude control and for animated Ambient and Fade values.\n- The full unit suite passes.\n",
+  "tag": "v5.8.0",
+  "name": "Schnitt 5.8.0",
+  "published": "2026-11-17T10:58:26Z",
+  "notes": "# Schnitt 5.8.0\n\n## Perfect Screen\n\nA new production keyer for green and blue screens. Sample the background with the colour picker or let Auto Sample Edges read the corners, then shape the matte with Threshold, Softness, Black Clip and White Clip. Edge Feather cleans hair and motion, while Spill Suppression and Despill Amount remove reflected screen colour. The whole matte runs on the GPU and updates while you scrub.\n\n## Animate Path Points\n\nShape, pen and freehand layers can now grow a rig of null controllers, one per point and optional BÃ©zier handles. Open Edit Points and tap the new controller button, or use the layer menu. Show or hide the nulls, parent them to the layer, change controller scale, and bake the animation back into ordinary shape keyframes when the rig is ready.\n\n## Flex Layout\n\nSelect several layers and open Flex from the selection bar. Flex measures their real bounds and packs them into wrapping rows with adjustable spacing, padding, wrap width, growth, vertical alignment and distribution. The result is written as normal transform values, so parenting, undo and export keep working.\n\n## Motion Blur\n\nLegacy motion blur effects now resolve to the working built-in effect, including the old motionblur1 to motionblur4 names. The preview no longer uses the fast two-pose smear for this effect, which could flash a dark frame on scaled or masked layers. Full motion blur still renders every sample on export.\n\n## Theme and storage\n\nThe project settings sheet now uses the active theme scrim, the expression editor opens as a proper themed dialog, and the old Light label is now Daylight everywhere. Preview frames are capped at 256 MB and old preview tiles are cleaned on launch, so app data stays much smaller.\n\n## Under the hood\n\nBounds are measured once per Flex run, path controllers read their transforms only when baked, and Perfect Screen keeps the matte in a single shader pass instead of allocating intermediate alpha buffers.\n",
   "assets": [
     {
-      "name": "Schnitt-5.7.1-arm64-v8a.apk",
-      "size": 92153414,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.7.1/Schnitt-5.7.1-arm64-v8a.apk"
-    },
-    {
-      "name": "Schnitt-5.7.1-armeabi-v7a.apk",
-      "size": 89997324,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.7.1/Schnitt-5.7.1-armeabi-v7a.apk"
-    },
-    {
-      "name": "Schnitt-5.7.1-universal.apk",
-      "size": 144354327,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.7.1/Schnitt-5.7.1-universal.apk"
+      "name": "Schnitt-5.8.0-arm64-v8a.apk",
+      "size": 92218105,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.8.0/Schnitt-5.8.0-arm64-v8a.apk"
     }
   ]
 }
