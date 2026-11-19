@@ -825,9 +825,23 @@ class MainActivity : ComponentActivity() {
         freeMemory(level)
     }
 
+    override fun onLowMemory() {
+        super.onLowMemory()
+        freeMemory(15)
+    }
+
     private fun freeMemory(level: Int) {
         app.absentmotion.editor.PreviewCache.trim(level)
-        if (level < TRIM_RUNNING_LOW) return
+        if (level < TRIM_RUNNING_LOW) {
+            // Thumbnails are quick to rebuild and are the largest disposable
+            // bitmaps outside the preview cache. Drop them as soon as the
+            // editor leaves the foreground.
+            if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
+                dropThumbnails()
+                dropVideoThumbnails()
+            }
+            return
+        }
         dropThumbnails()
         dropVideoThumbnails()
         dropShapeIcons()

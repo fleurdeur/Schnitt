@@ -25,8 +25,11 @@ class AudioPeaks(val data: ByteArray) {
 }
 
 object Waveforms {
+    private const val KEEP_PEAKS = 16
+    private const val KEEP_ASKED = 256
     private val ready = mutableStateMapOf<String, AudioPeaks>()
-    private val asked = HashMap<String, Long>()
+    private val order = ArrayDeque<String>()
+    private val asked = LinkedHashMap<String, Long>()
     private val worker = Executors.newSingleThreadExecutor { r -> Thread(r, "am-waveform").apply { isDaemon = true; priority = Thread.MIN_PRIORITY } }
 
     fun peaks(uri: String): AudioPeaks? = ready[uri]
@@ -41,8 +44,14 @@ object Waveforms {
         val app = context.applicationContext
         worker.execute {
             val peaks = load(app, uri)
-            ready[uri] = peaks
-            synchronized(asked) { asked[uri] = if (peaks.data.isNotEmpty()) 0L else System.currentTimeMillis() }
+            synchronized(asked) {
+                ready[uri] = peaks
+                order.remove(uri)
+                order.addLast(uri)
+                while (order.size > KEEP_PEAKS) ready.remove(order.removeFirst())
+                asked[uri] = if (peaks.data.isNotEmpty()) 0L else System.currentTimeMillis()
+                while (asked.size > KEEP_ASKED) asked.remove(asked.keys.first())
+            }
         }
     }
 
@@ -55,7 +64,10 @@ object Waveforms {
         val version = runCatching { app.absentmotion.media.fileVersion(context.contentResolver, android.net.Uri.parse(uri)) }.getOrNull().orEmpty()
         runCatching {
             DataInputStream(file.inputStream().buffered()).use { input ->
-                if (input.readUTF() == uri && input.readUTF() == version) return AudioPeaks(ByteArray(input.readInt()).also { input.readFully(it) })
+                if (input.readUTF() == uri && input.readUTF() == version) {
+                    file.setLastModified(System.currentTimeMillis())
+                    return AudioPeaks(ByteArray(input.readInt()).also { input.readFully(it) })
+                }
             }
         }
         val peaks = runCatching { decode(context, uri) }.onFailure { Log.w("AMAudio", "No waveform for $uri", it) }.getOrDefault(AudioPeaks(ByteArray(0)))

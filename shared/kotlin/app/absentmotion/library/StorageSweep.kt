@@ -1,6 +1,7 @@
 package app.absentmotion.library
 
 import app.absentmotion.model.XmlNode
+import app.absentmotion.media.VideoProxies
 import app.absentmotion.platform.Context
 import app.absentmotion.platform.Log
 import kotlinx.coroutines.Dispatchers
@@ -23,7 +24,8 @@ internal fun sweepStorage(files: File, shared: List<File>, now: Long = System.cu
         if (!File(dir, "scene.xml").exists() && old(dir) && dir.deleteRecursively()) removed++
     }
     val owners = File(files, "media").listFiles { f -> f.isDirectory && !File(f, ImportMarker).exists() }.orEmpty().toList() +
-        File(files, "templates").listFiles { f -> f.isDirectory }.orEmpty().map { File(it, "media") }.filter { it.isDirectory }
+        File(files, "templates").listFiles { f -> f.isDirectory }.orEmpty().map { File(it, "media") }.filter { it.isDirectory } +
+        listOf(File(files, "image-library")).filter { it.isDirectory }
     val candidates = (owners.flatMap { it.listFiles().orEmpty().toList() } + shared.flatMap { it.listFiles { f -> f.isFile }.orEmpty().toList() })
         .filter(::old).toMutableList()
     if (candidates.isEmpty()) return removed
@@ -59,6 +61,45 @@ internal fun sweepStorage(files: File, shared: List<File>, now: Long = System.cu
     return removed
 }
 
+/**
+ * Cache is regenerable, so it can be budgeted independently from projects.
+ * Waveforms are kept hot for recent edits; preview copies have their own
+ * 1 GB budget and partial downloads are always disposable.
+ */
+internal fun sweepCache(cache: File, now: Long = System.currentTimeMillis()): Int {
+    val maxAge = 14L * 24 * 60 * 60 * 1000
+    var removed = 0
+    for (file in cache.listFiles().orEmpty()) {
+        when {
+            file.name == "proxies" || file.name.startsWith("gpu-") || file.name == "image-library-http" -> continue
+            file.name == "waveforms" && file.isDirectory -> {
+                val files = file.listFiles { f -> f.isFile }.orEmpty().sortedByDescending { it.lastModified() }
+                var total = 0L
+                for (entry in files) {
+                    total += entry.length()
+                    if ((now - entry.lastModified() > 30L * 24 * 60 * 60 * 1000 || total > 32L * 1024 * 1024) && entry.delete()) removed++
+                }
+            }
+            file.isFile && (file.extension == "part" || now - file.lastModified() > maxAge) -> if (file.delete()) removed++
+            file.isDirectory && now - file.lastModified() > maxAge && file.deleteRecursively() -> removed++
+        }
+    }
+    return removed
+}
+
+
+/** Downloaded Google fonts are re-fetchable; keep the most recent 64 MB. */
+internal fun sweepFontCache(files: File, now: Long = System.currentTimeMillis()): Int {
+    val dir = File(files, "fonts/google")
+    if (!dir.isDirectory) return 0
+    var removed = 0
+    var total = 0L
+    for (file in dir.listFiles { f -> f.isFile }.orEmpty().sortedByDescending { it.lastModified() }) {
+        total += file.length()
+        if (total > 64L * 1024 * 1024 && file.delete()) removed++
+    }
+    return removed
+}
 suspend fun sweepStorageDaily(context: Context) = withContext(Dispatchers.IO) {
     val stamp = File(context.noBackupFilesDir, "storage-sweep")
     val now = System.currentTimeMillis()
@@ -70,6 +111,9 @@ suspend fun sweepStorageDaily(context: Context) = withContext(Dispatchers.IO) {
     }
     if (now - stamp.lastModified() in 0 until StaleTempMs) return@withContext
     runCatching { stamp.writeText("") }
+    runCatching { sweepCache(context.cacheDir, now) }
+    runCatching { VideoProxies.sweep(context, now) }
+    runCatching { sweepFontCache(context.filesDir, now) }
     val external = context.getExternalFilesDir(null)
     runCatching {
         File(context.filesDir, "extensions").listFiles { f -> f.name.startsWith(".tmp-") && now - f.lastModified() > StaleTempMs }

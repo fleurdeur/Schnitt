@@ -98,4 +98,21 @@ class StorageSweepTest {
         sweepStorage(files, emptyList(), now)
         assertEquals(ProjectVersions.NEWEST, store.versions.list(id).size)
     }
+
+    @Test fun disposableCacheFilesAndWaveformsAreBudgeted() {
+        val cache = tmp.newFolder("cache")
+        val old = made(cache, "old.bin").also { it.setLastModified(now - 40L * 24 * 60 * 60 * 1000) }
+        val fresh = made(cache, "fresh.bin")
+        val part = made(cache, "download.part")
+        val waveformDir = File(cache, "waveforms").apply { mkdirs() }
+        val oldWave = made(waveformDir, "a.bin", "1234").also { it.setLastModified(now - 40L * 24 * 60 * 60 * 1000) }
+        val keepWave = made(waveformDir, "b.bin", "1234")
+        val removed = sweepCache(cache, now)
+        assertEquals(3, removed)
+        assertFalse(old.exists())
+        assertFalse(part.exists())
+        assertFalse(oldWave.exists())
+        assertTrue(fresh.exists())
+        assertTrue(keepWave.exists())
+    }
 }

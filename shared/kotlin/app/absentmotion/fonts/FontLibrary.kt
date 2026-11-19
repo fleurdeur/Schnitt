@@ -29,6 +29,7 @@ class FontLibrary(context: Context) {
         const val ANDROID_EMOJI = "androidEmoji"
         private const val EMOJI = "NotoColorEmoji.ttf"
         private const val EMOJI_FLAGS = "NotoColorEmojiFlags.ttf"
+        private const val MAX_FACES = 24
     }
     private val context = context.applicationContext
     private val prefs = this.context.getSharedPreferences("fonts", Context.MODE_PRIVATE)
@@ -141,6 +142,15 @@ class FontLibrary(context: Context) {
     fun emojiFile(flags: Boolean = false): File? =
         if (androidEmoji()) bundledFile(if (flags) EMOJI_FLAGS else EMOJI, "emoji") else null
     private val faces = ConcurrentHashMap<String, Pair<String, Typeface>>()
+    private val faceOrder = ArrayDeque<String>()
+    private fun rememberFace(name: String, face: Pair<String, Typeface>) {
+        faces[name] = face
+        synchronized(faceOrder) {
+            faceOrder.remove(name)
+            faceOrder.addLast(name)
+            while (faceOrder.size > MAX_FACES) faces.remove(faceOrder.removeFirst())
+        }
+    }
     fun cachedTypeface(name: String): Typeface? = faces[name]?.second
     fun typeface(name: String): Typeface {
         val font = FontName.parse(name)
@@ -153,7 +163,7 @@ class FontLibrary(context: Context) {
         }.getOrNull() }
             ?: Typeface.create(systemFamily(name) ?: font.family, Typeface.NORMAL)
         return (if (font.source == "imported" || variable) face else if (android.os.Build.VERSION.SDK_INT >= 28) Typeface.create(face, font.weight, font.italic)
-            else Typeface.create(face, when { font.weight >= 600 && font.italic -> Typeface.BOLD_ITALIC; font.weight >= 600 -> Typeface.BOLD; font.italic -> Typeface.ITALIC; else -> Typeface.NORMAL })).also { faces[name] = stamp to it }
+            else Typeface.create(face, when { font.weight >= 600 && font.italic -> Typeface.BOLD_ITALIC; font.weight >= 600 -> Typeface.BOLD; font.italic -> Typeface.ITALIC; else -> Typeface.NORMAL })).also { rememberFace(name, stamp to it) }
     }
     suspend fun import(uri: Uri): FontName = withContext(Dispatchers.IO) {
         val filename = runCatching { context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {

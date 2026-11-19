@@ -88,7 +88,8 @@ internal object ProxyRules {
 
 object VideoProxies {
     const val SETTING = "previewCopies"
-    private const val BUDGET_BYTES = 2L shl 30
+    private const val BUDGET_BYTES = 1L shl 30
+    private const val STALE_MS = 30L * 24 * 60 * 60 * 1000
     private val scope = CoroutineScope(SupervisorJob() + Executors.newSingleThreadExecutor { Thread(it, "am-proxy").apply { priority = Thread.MIN_PRIORITY } }.asCoroutineDispatcher())
     private val queued = Collections.synchronizedSet(HashSet<String>())
     private val settled = Collections.synchronizedSet(HashSet<String>())
@@ -148,6 +149,20 @@ object VideoProxies {
             dir(context).listFiles()?.forEach { it.delete() }
             made.update { it + 1 }
         }
+    }
+
+    /** Removes abandoned partial work and preview copies that no recent project has touched. */
+    fun sweep(context: Context, now: Long = System.currentTimeMillis()) {
+        val folder = dir(context)
+        if (!folder.isDirectory) return
+        folder.listFiles()?.forEach { file ->
+            val stale = now - file.lastModified() > STALE_MS
+            if (file.extension == "part" || (stale && file.extension in setOf("failed", "mp4"))) {
+                if (file.delete()) owners.remove(file.nameWithoutExtension)?.let { uri -> evicted += uri; settled -= uri }
+            }
+        }
+        trim(folder)
+        made.update { it + 1 }
     }
 
     private fun prepare(context: Context, uri: String, cancelled: () -> Boolean) {

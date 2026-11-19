@@ -31,7 +31,9 @@ object WebImageLibrary {
     private const val UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36"
     private val gate = Mutex()
     private var lastRequest = 0L
-    private val memory = HashMap<String, Pair<Long, List<LibraryImage>>>()
+    private val memory = java.util.Collections.synchronizedMap(object : LinkedHashMap<String, Pair<Long, List<LibraryImage>>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<Long, List<LibraryImage>>>?) = size > 24
+    })
     @Volatile private var client: OkHttpClient? = null
 
     private fun client(context: Context): OkHttpClient = client ?: synchronized(this) {
