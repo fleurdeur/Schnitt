@@ -6,23 +6,8 @@
   "assets": [
     {
       "name": "app-arm64-v8a.apk",
-      "size": 93329217,
+      "size": 93329489,
       "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.5/app-arm64-v8a.apk"
-    },
-    {
-      "name": "app-armeabi-v7a.apk",
-      "size": 98939920,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.5/app-armeabi-v7a.apk"
-    },
-    {
-      "name": "app-universal.apk",
-      "size": 137610200,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.5/app-universal.apk"
-    },
-    {
-      "name": "aurea-plugin.zip",
-      "size": 63604932,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.5/aurea-plugin.zip"
     }
   ]
 }
