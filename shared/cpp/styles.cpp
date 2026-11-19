@@ -1542,12 +1542,16 @@ void DrawShuttered(SkCanvas* canvas, const std::vector<Layer>& siblings, const L
             canvas->restore();
             if (gBreak) (*gBreak)();
         }
+        // Keep the layer itself sharp and fully visible on top of the trail.
+        // It is drawn inside the same layer so the layer's blending mode is
+        // applied once, not once to the trail and again to the sharp pose.
+        DrawOne(canvas, siblings, l, timeMs, pictures, sample);
         canvas->restore();
+        return;
     }
-    // Keep the layer itself sharp and fully visible on top of the trail. A
-    // shutter sample alone is not motion blur; it is a stack of translucent
-    // pose copies, so the current pose must always be drawn.
-    DrawOne(canvas, siblings, l, timeMs, pictures, sample);
+    Override base = ov;
+    base.shuttered = true;
+    DrawOne(canvas, siblings, l, timeMs, pictures, base);
 }
 
 
