@@ -1,23 +1,13 @@
 {
-  "tag": "v5.9.1",
-  "name": "Schnitt 5.9.1",
-  "published": "2026-11-19T08:37:23Z",
-  "notes": "# Schnitt 5.9.1\n\nThis is a performance and storage release. Project files, effects and exported videos keep their existing formats.\n\n## Less memory while editing\n\nWaveforms now keep only the sixteen most recent audio tracks in memory. Font typefaces keep the twenty-four most recently used faces, and web image search results keep a small rolling window. Thumbnail bitmaps are released as soon as the editor goes to the background, and Android low-memory callbacks now clear the same caches immediately.\n\nThe effect catalog is parsed once per language instead of being rebuilt for every preview, preset sheet and project preview. Imported effects still appear immediately.\n\n## Less storage used by caches\n\nPreview copies of large videos now have a 1 GB budget instead of 2 GB. Abandoned preview copies, partial files and failed jobs older than thirty days are removed on the daily clean-up. Downloadable Google fonts keep the most recent 64 MB, old cache files are removed after fourteen days, and waveform data is capped at 32 MB. Unused web image search downloads are cleaned with the rest of the project media.\n\n## Native reader note\n\nThe Aurea tree in the aur folder contains a proprietary native After Effects reader inside libaurea.so. Its code and assets are not open source, so Schnitt does not embed that library; the existing independent importers remain in use.\n\n## Under the hood\n\nThe daily clean-up now budgets cache, previews, fonts, waveforms and web image downloads separately. Nothing in project folders, exported videos or imported fonts is touched.\n",
+  "tag": "v5.9.2",
+  "name": "Schnitt 5.9.2",
+  "published": "2026-11-19T11:20:52Z",
+  "notes": "# Schnitt 5.9.2\n\nImport fixes for projects and links made in Alight Motion, plus a real After Effects project reader.\n\n## Alight Motion import\n\n- Turbulent Displace and Turbulence keep their Stretch setting. Older single-value stretch is converted to the correct two-axis stretch at the current Scale, including keyframes and axis direction.\n- Imported Motion Blur now renders the layer instead of a black or glitched frame. Sample bounds are clipped to the visible canvas and the blur uses the normal layer surface.\n- Alight pivot points are folded into the imported position, so shapes, media, text and groups keep their original position, size and anchor when keyframes or scale are used.\n- More Alight GLSL shaders import correctly: multi-target passes, sampler bias and gradient arguments, projected texture reads and nested buffer sampling are translated instead of dropped.\n- General effect settings from imported XML are kept wherever a matching control exists.\n\n## After Effects projects\n\n- Binary After Effects projects now import compositions with their real layer order, source sizes, solid colours, media paths, in and out points, time stretch, parenting, visibility, position, anchor, scale, rotation and opacity.\n- Transform keyframes are read from the project, including negative keys used by trimmed layers, and become normal editable keyframes.\n- Audio-only items are no longer turned into visible layers.\n\n## Optional Aurea bridge\n\n- The ARM64 build also includes Aurea's native preset reader for ffx presets and jsx scripts. It is loaded only when that backend is requested and is never used for aep projects. The native project reader above remains the path for After Effects projects.\n\n## Under the hood\n\n- The project reader follows the published RIFX Egg! chunk layout and does not execute plug-ins or expressions. Effects, masks and text still need their own mappings and are reported by the normal import report.",
   "assets": [
     {
       "name": "app-arm64-v8a.apk",
-      "size": 92290240,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.1/app-arm64-v8a.apk"
-    },
-    {
-      "name": "app-armeabi-v7a.apk",
-      "size": 90134314,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.1/app-armeabi-v7a.apk"
-    },
-    {
-      "name": "app-universal.apk",
-      "size": 144497021,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.1/app-universal.apk"
+      "size": 155557614,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.2/app-arm64-v8a.apk"
     }
   ]
 }
