@@ -15,7 +15,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
-enum class PluginKind { Cep, Script, Native, Effect, Shader }
+enum class PluginKind { Cep, Script, Native, Effect, Shader, Aurea }
 
 /**
  * A plugin is a self-contained folder under filesDir/plugins.  Nothing is
@@ -95,6 +95,7 @@ class PluginStore(private val context: Context) {
             } else {
                 list().firstOrNull { it.name.equals(plugin.name, true) && it.id != plugin.id }?.let { remove(it.id) }
                 writeMeta(folder, plugin.copy(effects = plugin.effects.distinct()))
+                if (plugin.kind == PluginKind.Aurea) runCatching { app.absentmotion.compat.AureaBackend.ensure(context) }
                 progress(1f)
                 PluginImport(plugin)
             }
@@ -257,6 +258,7 @@ class PluginStore(private val context: Context) {
             PluginKind.Script -> "ExtendScript panel · $fileName · runs in the sandboxed panel host with layer and effect commands"
             PluginKind.Cep -> "CEP HTML panel · ${chosen.name} · exposes the plug-in's own controls"
             PluginKind.Effect -> "Imported effect package · $fileName · converted into its own Android effect"
+            PluginKind.Aurea -> "Optional ARM64 Aurea reader for After Effects FFX presets and ExtendScript"
         } + if (effects.isEmpty()) "" else " · ${effects.size} mapped effects"
         return Plugin(
             id = id, name = fileName.substringBeforeLast('.').ifBlank { "Plugin" }, version = "1.0", kind = kind,
@@ -270,6 +272,7 @@ class PluginStore(private val context: Context) {
         "script", "jsx", "jsxbin" -> PluginKind.Script
         "native", "aex" -> PluginKind.Native
         "shader", "glsl", "frag" -> PluginKind.Shader
+        "aurea", "native-reader", "ae-reader" -> PluginKind.Aurea
         else -> if (entry != null) PluginKind.Cep else PluginKind.Effect
     }
 

@@ -427,7 +427,7 @@ object PluginEffectImporter {
         if (plugins.isEmpty()) return catalog
         val have = catalog.definitions.mapTo(HashSet()) { it.id }
         val extra = plugins.mapNotNull { plugin ->
-            if (FfxPreset.file(plugin) != null) return@mapNotNull null
+            if (plugin.kind == PluginKind.Aurea || FfxPreset.file(plugin) != null) return@mapNotNull null
             runCatching { PluginShader.definition(plugin) }.getOrNull()?.takeIf { it.id !in have }
         }.distinctBy { it.id }
         if (extra.isEmpty()) return catalog

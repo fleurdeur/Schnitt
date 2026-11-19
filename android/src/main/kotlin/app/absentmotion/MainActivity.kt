@@ -184,6 +184,9 @@ class MainActivity : ComponentActivity() {
         store = ProjectStore(this)
         settings = AppSettings(this)
         runCatching { app.absentmotion.ai.McpServer.sync(applicationContext, settings) }
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { app.absentmotion.compat.AureaBackend.ensure(applicationContext) }
+        }
         templates = TemplateStore(this)
         recovery = Recovery(File(filesDir, "recovery"))
         CrashLogs.install(this)

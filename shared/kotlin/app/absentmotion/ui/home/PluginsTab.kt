@@ -112,6 +112,9 @@ internal fun PluginsTab(modifier: Modifier) {
                         if (plugin.kind == PluginKind.Native) Text(
                             "Converted into an Android effect with its own generated shader.", Modifier.padding(top = 6.dp), color = Am.HomeDim, fontSize = 12.sp, lineHeight = 17.sp,
                         )
+                        if (plugin.kind == PluginKind.Aurea) Text(
+                            "Optional ARM64 After Effects FFX and ExtendScript reader. Downloaded separately, never bundled in the app APK.", Modifier.padding(top = 6.dp), color = Am.HomeDim, fontSize = 12.sp, lineHeight = 17.sp,
+                        )
                         Text(
                             "Own generated shader · editable properties", Modifier.padding(top = 6.dp), color = Am.HomeAccent, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
                         )
@@ -135,4 +138,5 @@ private fun kindName(kind: PluginKind): String = when (kind) {
     PluginKind.Native -> "Native plugin"
     PluginKind.Effect -> "Effect plugin"
     PluginKind.Shader -> "Shader plugin"
+    PluginKind.Aurea -> "Aurea reader plugin"
 }

@@ -258,6 +258,7 @@ private fun kindLabel(kind: PluginKind): String = when (kind) {
     PluginKind.Native -> "Native"
     PluginKind.Effect -> "Effect"
     PluginKind.Shader -> "Shader"
+    PluginKind.Aurea -> "Aurea reader"
 }
 
 @Composable
@@ -313,6 +314,7 @@ private fun PluginDetail(state: EditorState, plugin: Plugin, catalog: EffectCata
             Column(Modifier.weight(1f)) {
                 Text(plugin.summary.ifBlank { kindLabel(plugin.kind) }, color = Am.OnDarkDim, fontSize = 13.sp, lineHeight = 18.sp)
                 if (plugin.kind == PluginKind.Native) Text("Native plug-in converted into an Android effect with its own generated shader.", Modifier.padding(top = 6.dp), color = Am.Accent, fontSize = 12.sp, lineHeight = 17.sp)
+                if (plugin.kind == PluginKind.Aurea) Text("Optional ARM64 reader for After Effects FFX presets and ExtendScript. It is loaded only from this installed plugin.", Modifier.padding(top = 6.dp), color = Am.Accent, fontSize = 12.sp, lineHeight = 17.sp)
             }
             Box(
                 Modifier.padding(start = 8.dp).height(32.dp).clip(RoundedCornerShape(16.dp)).background(if (plugin.enabled) Am.Accent else Am.Well)

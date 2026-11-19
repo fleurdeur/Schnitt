@@ -13,6 +13,7 @@ val appVersion = Properties().apply { rootProject.file("version.properties").inp
 val appAbi = providers.gradleProperty("amAbi").getOrElse("universal")
 require(appAbi in setOf("arm64-v8a", "x86_64", "armeabi-v7a", "universal")) { "amAbi must be arm64-v8a, x86_64 or universal, not $appAbi" }
 val appAbis = if (appAbi == "universal") listOf("arm64-v8a", "x86_64", "armeabi-v7a") else listOf(appAbi)
+val includeAurea = providers.gradleProperty("amAurea").map(String::toBoolean).getOrElse(false)
 
 android {
     namespace = "app.absentmotion"
@@ -35,6 +36,7 @@ android {
         versionCode = appVersion.getProperty("versionCode").toInt()
         versionName = appVersion.getProperty("versionName")
         buildConfigField("boolean", "COMPATIBLE", "false")
+        buildConfigField("boolean", "EXPERIMENTAL", "false")
     }
 
     val signingFile = rootProject.file("signing.properties")
@@ -55,8 +57,11 @@ android {
         release {
             signingConfig = signingConfigs.findByName("release")
             vcsInfo.include = false
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // Keep the proven 5.9.2 packaging path. Aggressive code and
+            // resource shrinking in 5.9.3 could strip classes/resources that
+            // are reached only by native callbacks, installers or reflection.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), file("proguard-rules.pro"))
         }
     }
@@ -109,6 +114,7 @@ android {
         named("main") {
             kotlin.directories += "../shared/kotlin"
             res.directories += "../shared/res"
+            if (includeAurea) jniLibs.srcDir(rootProject.file("third_party/aurea/jniLibs"))
         }
         named("compat") {
             kotlin.directories += "src/foss/kotlin"
