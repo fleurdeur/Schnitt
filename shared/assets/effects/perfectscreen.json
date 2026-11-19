@@ -3,7 +3,7 @@
  "name": "Perfect Screen",
  "category": "key",
  "since": "5.7.1",
- "description": "A production screen keyer: sample the background, build a clean alpha matte with black and white clipping, feather the edge and remove coloured spill without touching the subject.",
+ "description": "A virtual macro camera and LCD screen simulator in one effect: physical pixel structure, shallow depth of field, lens artifacts, automated camera moves, exposure and tinting.",
  "params": [
   {
    "id": "screenColor",
@@ -85,7 +85,734 @@
    "min": 0,
    "max": 1,
    "step": 0.01
+  },
+  {
+   "id": "keyMix",
+   "label": "Key Mix",
+   "type": "float",
+   "default": 0,
+   "legacyDefault": 1,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "macroPixels",
+   "label": "Macro Pixel Size",
+   "type": "float",
+   "default": 0,
+   "min": 0,
+   "max": 64,
+   "step": 0.5
+  },
+  {
+   "id": "pixelShape",
+   "label": "Pixel Shape",
+   "type": "choice",
+   "default": 0,
+   "options": [
+    "Round",
+    "Square",
+    "LCD Stripe"
+   ]
+  },
+  {
+   "id": "pixelGap",
+   "label": "Pixel Gap",
+   "type": "float",
+   "default": 0.15,
+   "min": 0,
+   "max": 0.8,
+   "step": 0.01
+  },
+  {
+   "id": "subpixel",
+   "label": "RGB Subpixels",
+   "type": "switch",
+   "default": true
+  },
+  {
+   "id": "pixelGlow",
+   "label": "Pixel Glow",
+   "type": "float",
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 0.01
+  },
+  {
+   "id": "cameraZoom",
+   "label": "Camera Zoom",
+   "type": "float",
+   "default": 1,
+   "min": 0.5,
+   "max": 8,
+   "step": 0.01
+  },
+  {
+   "id": "target",
+   "label": "Look Target",
+   "type": "point",
+   "default": [
+    0.5,
+    0.5
+   ],
+   "min": -1,
+   "max": 2,
+   "step": 0.001
+  },
+  {
+   "id": "focusPoint",
+   "label": "Focus Point",
+   "type": "point",
+   "default": [
+    0.5,
+    0.5
+   ],
+   "min": -1,
+   "max": 2,
+   "step": 0.001
+  },
+  {
+   "id": "tiltX",
+   "label": "Tilt X",
+   "type": "float",
+   "default": 0,
+   "min": -45,
+   "max": 45,
+   "step": 0.1
+  },
+  {
+   "id": "tiltY",
+   "label": "Tilt Y",
+   "type": "float",
+   "default": 0,
+   "min": -45,
+   "max": 45,
+   "step": 0.1
+  },
+  {
+   "id": "roll",
+   "label": "Roll",
+   "type": "angle",
+   "default": 0,
+   "min": -180,
+   "max": 180,
+   "step": 0.1
+  },
+  {
+   "id": "dof",
+   "label": "Depth of Field",
+   "type": "float",
+   "default": 0,
+   "min": 0,
+   "max": 24,
+   "step": 0.1
+  },
+  {
+   "id": "focusDepth",
+   "label": "Focus Depth",
+   "type": "float",
+   "default": 0.5,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "focusRange",
+   "label": "Focus Range",
+   "type": "float",
+   "default": 0.15,
+   "min": 0.01,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "depthFromLuma",
+   "label": "Depth From Luma",
+   "type": "switch",
+   "default": false
+  },
+  {
+   "id": "animateTarget",
+   "label": "Moving Target",
+   "type": "switch",
+   "default": false
+  },
+  {
+   "id": "targetSpeed",
+   "label": "Target Speed",
+   "type": "float",
+   "default": 0.1,
+   "min": 0,
+   "max": 2,
+   "step": 0.01
+  },
+  {
+   "id": "targetRange",
+   "label": "Target Range",
+   "type": "float",
+   "default": 0.15,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "animateAngle",
+   "label": "Animate Angle",
+   "type": "switch",
+   "default": false
+  },
+  {
+   "id": "angleSpeed",
+   "label": "Angle Speed",
+   "type": "float",
+   "default": 0.08,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "angleRange",
+   "label": "Angle Range",
+   "type": "float",
+   "default": 12,
+   "min": 0,
+   "max": 45,
+   "step": 0.1
+  },
+  {
+   "id": "animateFocus",
+   "label": "Moving Focus Point",
+   "type": "switch",
+   "default": false
+  },
+  {
+   "id": "focusSpeed",
+   "label": "Focus Speed",
+   "type": "float",
+   "default": 0.1,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "focusTravel",
+   "label": "Focus Travel",
+   "type": "float",
+   "default": 0.3,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "autoZoom",
+   "label": "Auto Zoom",
+   "type": "switch",
+   "default": true
+  },
+  {
+   "id": "autoExposure",
+   "label": "Auto Exposure",
+   "type": "switch",
+   "default": true
+  },
+  {
+   "id": "exposure",
+   "label": "Exposure",
+   "type": "float",
+   "default": 0,
+   "min": -3,
+   "max": 3,
+   "step": 0.01
+  },
+  {
+   "id": "tintColor",
+   "label": "Tint Color",
+   "type": "color",
+   "default": "#ffffffff"
+  },
+  {
+   "id": "tintAmount",
+   "label": "Tint Amount",
+   "type": "float",
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "vignette",
+   "label": "Lens Vignette",
+   "type": "float",
+   "default": 0.15,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "aberration",
+   "label": "Chromatic Aberration",
+   "type": "float",
+   "default": 0,
+   "min": 0,
+   "max": 16,
+   "step": 0.01
+  },
+  {
+   "id": "distortion",
+   "label": "Lens Distortion",
+   "type": "float",
+   "default": 0,
+   "min": -1,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "dust",
+   "label": "Glass Dust",
+   "type": "float",
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
+  },
+  {
+   "id": "dustSize",
+   "label": "Dust Size",
+   "type": "float",
+   "default": 6,
+   "min": 1,
+   "max": 32,
+   "step": 0.1
+  },
+  {
+   "id": "dustSeed",
+   "label": "Dust Seed",
+   "type": "float",
+   "default": 1,
+   "min": 0,
+   "max": 10,
+   "step": 0.1
+  },
+  {
+   "id": "quality",
+   "label": "Quality",
+   "type": "choice",
+   "default": 1,
+   "options": [
+    "Preview",
+    "Standard",
+    "High",
+    "Ultra"
+   ]
+  },
+  {
+   "id": "sheen",
+   "label": "Glass Sheen",
+   "type": "float",
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 0.01
   }
  ],
- "sksl": "uniform shader image;\nuniform float2 size;\nuniform float time;\nlayout(color) uniform half4 screenColor;\nuniform float threshold;\nuniform float softness;\nuniform float spill;\nuniform float blackClip;\nuniform float whiteClip;\nuniform float feather;\nuniform float despill;\nuniform float autoSample;\nuniform float invert;\nfloat2 chroma(half3 c) { return float2(-0.168736 * c.r - 0.331264 * c.g + 0.5 * c.b, 0.5 * c.r - 0.418688 * c.g - 0.081312 * c.b); }\nhalf4 sampleBackground(float2 coord) {\n    if (autoSample < 0.5) return screenColor;\n    float2 e = max(size, float2(2.0)) * 0.018;\n    return (image.eval(float2(e.x, e.y)) + image.eval(float2(size.x - e.x, e.y)) +\n            image.eval(float2(e.x, size.y - e.y)) + image.eval(float2(size.x - e.x, size.y - e.y))) * 0.25;\n}\nfloat matteAt(float2 coord, float2 keyChroma) {\n    half4 c = image.eval(coord);\n    if (c.a <= 0.001) return 0.0;\n    float d = distance(chroma(unpremul(c).rgb), keyChroma);\n    float keep = smoothstep(threshold, threshold + softness + 0.0001, d);\n    return invert > 0.5 ? 1.0 - keep : keep;\n}\nhalf4 main(float2 coord) {\n    half4 c = image.eval(coord);\n    float2 keyChroma = chroma(unpremul(sampleBackground(coord)).rgb);\n    float matte = matteAt(coord, keyChroma);\n    matte = clamp((matte - blackClip) / max(whiteClip - blackClip, 0.0001), 0.0, 1.0);\n    if (feather > 0.01) {\n        float radius = max(feather, 0.0);\n        float sum = matte;\n        float2 ax = float2(radius, 0.0);\n        float2 ay = float2(0.0, radius);\n        float2 ad = float2(radius * 0.7071, radius * 0.7071);\n        sum += matteAt(coord + ax, keyChroma);\n        sum += matteAt(coord - ax, keyChroma);\n        sum += matteAt(coord + ay, keyChroma);\n        sum += matteAt(coord - ay, keyChroma);\n        sum += matteAt(coord + ad, keyChroma);\n        sum += matteAt(coord - ad, keyChroma);\n        sum += matteAt(coord + float2(ad.x, -ad.y), keyChroma);\n        sum += matteAt(coord - float2(ad.x, -ad.y), keyChroma);\n        matte = mix(matte, sum / 9.0, clamp(feather / 12.0, 0.0, 1.0));\n    }\n    float3 rgb = unpremul(c).rgb;\n    float3 key = unpremul(sampleBackground(coord)).rgb;\n    float keyLen = max(dot(key, key), 0.0001);\n    float along = dot(rgb, key) / keyLen;\n    float neutral = dot(rgb, float3(0.2126, 0.7152, 0.0722));\n    float excess = max(along - neutral, 0.0);\n    float3 despilled = clamp(rgb - key * excess * despill * spill, 0.0, 1.0);\n    rgb = mix(rgb, despilled, clamp(spill + despill, 0.0, 1.0));\n    return half4(rgb * matte, c.a * matte);\n}\n"
+ "presets": [
+  {
+   "name": "Static Default",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 6,
+    "cameraZoom": 1.08,
+    "dof": 1.2,
+    "vignette": 0.18,
+    "aberration": 1.1,
+    "distortion": 0.03,
+    "dust": 0.08,
+    "dustSize": 5,
+    "quality": 2
+   }
+  },
+  {
+   "name": "Static Tinted",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 6,
+    "cameraZoom": 1.08,
+    "dof": 1.2,
+    "tintColor": "#ffffc48a",
+    "tintAmount": 0.22,
+    "vignette": 0.22,
+    "aberration": 1.2,
+    "quality": 2
+   }
+  },
+  {
+   "name": "Static Cool",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 6,
+    "cameraZoom": 1.06,
+    "dof": 1.4,
+    "tintColor": "#ff9cc8ff",
+    "tintAmount": 0.16,
+    "vignette": 0.2,
+    "quality": 2
+   }
+  },
+  {
+   "name": "Static Warm",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 5,
+    "cameraZoom": 1.1,
+    "dof": 1.6,
+    "tintColor": "#ffffa45e",
+    "tintAmount": 0.18,
+    "vignette": 0.16,
+    "quality": 2
+   }
+  },
+  {
+   "name": "Reading Front",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 4,
+    "cameraZoom": 1.28,
+    "target": [
+     0.5,
+     0.42
+    ],
+    "focusPoint": [
+     0.5,
+     0.42
+    ],
+    "tiltX": 8,
+    "tiltY": 0,
+    "dof": 2.2,
+    "focusRange": 0.2,
+    "quality": 2
+   }
+  },
+  {
+   "name": "Reading Move",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 4,
+    "cameraZoom": 1.32,
+    "target": [
+     0.5,
+     0.38
+    ],
+    "focusPoint": [
+     0.5,
+     0.38
+    ],
+    "animateTarget": true,
+    "targetSpeed": 0.08,
+    "targetRange": 0.18,
+    "dof": 2.4,
+    "quality": 2
+   }
+  },
+  {
+   "name": "Reading Angle",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 4,
+    "cameraZoom": 1.32,
+    "target": [
+     0.52,
+     0.42
+    ],
+    "focusPoint": [
+     0.52,
+     0.42
+    ],
+    "tiltX": 14,
+    "tiltY": 18,
+    "roll": -4,
+    "dof": 2.6,
+    "quality": 2
+   }
+  },
+  {
+   "name": "Reading Tilted",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 4,
+    "cameraZoom": 1.35,
+    "target": [
+     0.5,
+     0.45
+    ],
+    "focusPoint": [
+     0.5,
+     0.45
+    ],
+    "tiltX": 20,
+    "tiltY": -12,
+    "roll": 8,
+    "dof": 2.8,
+    "quality": 2
+   }
+  },
+  {
+   "name": "Reading Rack",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 4,
+    "cameraZoom": 1.3,
+    "target": [
+     0.5,
+     0.4
+    ],
+    "focusPoint": [
+     0.5,
+     0.55
+    ],
+    "animateFocus": true,
+    "focusSpeed": 0.09,
+    "focusTravel": 0.3,
+    "dof": 4.5,
+    "focusRange": 0.12,
+    "quality": 2
+   }
+  },
+  {
+   "name": "Side Focus Pull",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 5,
+    "cameraZoom": 1.45,
+    "target": [
+     0.36,
+     0.5
+    ],
+    "focusPoint": [
+     0.36,
+     0.5
+    ],
+    "tiltX": 16,
+    "tiltY": 24,
+    "roll": -12,
+    "dof": 5.5,
+    "focusRange": 0.12,
+    "quality": 3
+   }
+  },
+  {
+   "name": "Close Up Low",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 5,
+    "cameraZoom": 1.7,
+    "target": [
+     0.5,
+     0.58
+    ],
+    "focusPoint": [
+     0.5,
+     0.58
+    ],
+    "tiltX": 24,
+    "tiltY": -8,
+    "dof": 4.2,
+    "focusRange": 0.14,
+    "quality": 3
+   }
+  },
+  {
+   "name": "Close Up High",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 5,
+    "cameraZoom": 1.65,
+    "target": [
+     0.5,
+     0.48
+    ],
+    "focusPoint": [
+     0.5,
+     0.48
+    ],
+    "tiltX": -20,
+    "tiltY": 8,
+    "dof": 3.6,
+    "focusRange": 0.16,
+    "quality": 3
+   }
+  },
+  {
+   "name": "Sideways",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 5,
+    "cameraZoom": 1.22,
+    "target": [
+     0.62,
+     0.5
+    ],
+    "focusPoint": [
+     0.62,
+     0.5
+    ],
+    "tiltX": 0,
+    "tiltY": 28,
+    "roll": 90,
+    "dof": 2.4,
+    "quality": 2
+   }
+  },
+  {
+   "name": "Pan Down",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 5,
+    "cameraZoom": 1.3,
+    "target": [
+     0.5,
+     0.4
+    ],
+    "focusPoint": [
+     0.5,
+     0.4
+    ],
+    "animateTarget": true,
+    "targetSpeed": 0.06,
+    "targetRange": 0.28,
+    "dof": 2.6,
+    "quality": 2
+   }
+  },
+  {
+   "name": "Pan Up",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 5,
+    "cameraZoom": 1.3,
+    "target": [
+     0.5,
+     0.6
+    ],
+    "focusPoint": [
+     0.5,
+     0.6
+    ],
+    "animateTarget": true,
+    "targetSpeed": 0.06,
+    "targetRange": 0.28,
+    "dof": 2.6,
+    "quality": 2
+   }
+  },
+  {
+   "name": "Orbit Wides",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 4,
+    "cameraZoom": 1.18,
+    "target": [
+     0.5,
+     0.5
+    ],
+    "focusPoint": [
+     0.5,
+     0.5
+    ],
+    "animateAngle": true,
+    "angleSpeed": 0.05,
+    "angleRange": 18,
+    "tiltX": 14,
+    "tiltY": 20,
+    "dof": 2,
+    "quality": 2
+   }
+  },
+  {
+   "name": "Orbit Tight",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 6,
+    "cameraZoom": 1.55,
+    "target": [
+     0.5,
+     0.5
+    ],
+    "focusPoint": [
+     0.5,
+     0.5
+    ],
+    "animateAngle": true,
+    "angleSpeed": 0.08,
+    "angleRange": 28,
+    "tiltX": 22,
+    "tiltY": 30,
+    "dof": 3.4,
+    "quality": 3
+   }
+  },
+  {
+   "name": "Tilt Sweep",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 5,
+    "cameraZoom": 1.25,
+    "target": [
+     0.5,
+     0.5
+    ],
+    "focusPoint": [
+     0.5,
+     0.5
+    ],
+    "animateAngle": true,
+    "angleSpeed": 0.04,
+    "angleRange": 34,
+    "tiltX": 18,
+    "tiltY": 22,
+    "dof": 2.2,
+    "quality": 2
+   }
+  },
+  {
+   "name": "Macro Pixels",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 12,
+    "pixelShape": 2,
+    "pixelGap": 0.38,
+    "subpixel": true,
+    "pixelGlow": 0.45,
+    "cameraZoom": 2.1,
+    "dof": 5,
+    "focusRange": 0.2,
+    "quality": 3
+   }
+  },
+  {
+   "name": "Dust Focus",
+   "params": {
+    "keyMix": 0,
+    "macroPixels": 5,
+    "cameraZoom": 1.4,
+    "target": [
+     0.5,
+     0.5
+    ],
+    "focusPoint": [
+     0.38,
+     0.58
+    ],
+    "dof": 8,
+    "focusRange": 0.1,
+    "dust": 0.6,
+    "dustSize": 3.5,
+    "aberration": 2.5,
+    "vignette": 0.3,
+    "quality": 3
+   }
+  }
+ ],
+ "sksl": "uniform shader image;\nuniform float2 size;\nuniform float time;\nlayout(color) uniform half4 screenColor;\nuniform float autoSample;\nuniform float invert;\nuniform float threshold;\nuniform float softness;\nuniform float spill;\nuniform float blackClip;\nuniform float whiteClip;\nuniform float feather;\nuniform float despill;\nuniform float keyMix;\nuniform float macroPixels;\nuniform float pixelShape;\nuniform float pixelGap;\nuniform float subpixel;\nuniform float pixelGlow;\nuniform float cameraZoom;\nuniform float2 target;\nuniform float2 focusPoint;\nuniform float tiltX;\nuniform float tiltY;\nuniform float roll;\nuniform float dof;\nuniform float focusDepth;\nuniform float focusRange;\nuniform float depthFromLuma;\nuniform float animateTarget;\nuniform float targetSpeed;\nuniform float targetRange;\nuniform float animateAngle;\nuniform float angleSpeed;\nuniform float angleRange;\nuniform float animateFocus;\nuniform float focusSpeed;\nuniform float focusTravel;\nuniform float autoZoom;\nuniform float autoExposure;\nuniform float exposure;\nlayout(color) uniform half4 tintColor;\nuniform float tintAmount;\nuniform float vignette;\nuniform float aberration;\nuniform float distortion;\nuniform float dust;\nuniform float dustSize;\nuniform float dustSeed;\nuniform float quality;\nuniform float sheen;\nconst float PI = 3.14159265;\nfloat2 rot(float2 p, float a) { float c = cos(a); float s = sin(a); return float2(p.x * c - p.y * s, p.x * s + p.y * c); }\nfloat hash21(float2 p) { p = fract(p * float2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }\nhalf4 sampleSource(float2 uv) { return image.eval(clamp(uv, float2(0.0), float2(1.0)) * size); }\nfloat3 sourceRGB(float2 uv) { return unpremul(sampleSource(uv)).rgb; }\nfloat3 cameraUV(float2 coord, out float2 screenUV, out float2 focusUV) {\n    float2 uv = coord / max(size, float2(1.0));\n    screenUV = uv;\n    float tt = time;\n    float2 look = target;\n    if (animateTarget > 0.5) look += float2(sin(tt * targetSpeed * 6.283), cos(tt * targetSpeed * 5.117) * 0.55) * targetRange;\n    float a = radians(roll + (animateAngle > 0.5 ? sin(tt * angleSpeed * 6.283) * angleRange : 0.0));\n    float2 d = rot(uv - look, -a);\n    float sx = tan(radians(tiltX));\n    float sy = tan(radians(tiltY));\n    float2 tilted = d;\n    tilted.x += d.y * sx;\n    tilted.y += d.x * sy;\n    float zoom = clamp(cameraZoom, 0.5, 8.0);\n    if (autoZoom > 0.5) {\n        float cover = max(abs(look.x - 0.5), abs(look.y - 0.5)) * 2.0;\n        zoom = max(zoom, 1.0 / max(0.18, 1.0 - cover * 0.82));\n    }\n    tilted /= zoom;\n    float2 shaped = tilted * (1.0 + distortion * dot(tilted, tilted) * 2.0);\n    focusUV = focusPoint;\n    if (animateFocus > 0.5) focusUV.x += sin(tt * focusSpeed * 6.283) * focusTravel;\n    return look + shaped;\n}\nfloat2 chroma(half3 c) { return float2(-0.168736 * c.r - 0.331264 * c.g + 0.5 * c.b, 0.5 * c.r - 0.418688 * c.g - 0.081312 * c.b); }\nfloat matteAt(float2 uv, float2 keyChroma) {\n    half4 c = sampleSource(uv);\n    if (c.a <= 0.001) return 0.0;\n    float d = distance(chroma(unpremul(c).rgb), keyChroma);\n    float keep = smoothstep(threshold, threshold + softness + 0.0001, d);\n    return invert > 0.5 ? 1.0 - keep : keep;\n}\nfloat dustAt(float2 coord, float scale, float seed) {\n    if (scale <= 0.0) return 0.0;\n    float2 cell = coord / max(scale, 1.0);\n    float2 id = floor(cell);\n    float h = hash21(id + seed);\n    float speck = step(0.996 - dust * 0.012, h);\n    float2 f = fract(cell) - 0.5;\n    return (1.0 - smoothstep(0.04, 0.32, length(f))) * speck * dust;\n}\nhalf4 main(float2 coord) {\n    float2 screenUV;\n    float2 focusUV;\n    float2 p = cameraUV(coord, screenUV, focusUV);\n    float3 key = unpremul(sampleSource(p)).rgb;\n    float2 keyChroma = chroma(key);\n    float focusDist = depthFromLuma > 0.5 ? abs(dot(key, float3(0.2126, 0.7152, 0.0722)) - focusDepth) : distance(p, focusUV);\n    float coc = smoothstep(focusRange * 0.45, focusRange * 1.6, focusDist);\n    float radius = dof * coc / max(size.x, size.y);\n    float2 ca = (screenUV - 0.5) * aberration / max(size, float2(1.0));\n    int samples = 1 + int(clamp(quality, 0.0, 3.0)) * 2;\n    float3 rgb = float3(0.0);\n    float total = 0.0;\n    for (int i = 0; i < 7; i++) {\n        if (i >= samples) break;\n        float ang = float(i) * 2.399963 + 0.5;\n        float2 offset = float2(cos(ang), sin(ang)) * radius * (float(i) / 6.0);\n        float2 q = p + offset;\n        rgb += float3(sourceRGB(q + ca).r, sourceRGB(q).g, sourceRGB(q - ca).b);\n        total += 1.0;\n    }\n    rgb /= max(total, 1.0);\n    float2 cellSize = max(float2(macroPixels), float2(1.0));\n    float2 cellUV = p * size / cellSize;\n    float2 local = fract(cellUV);\n    if (macroPixels > 0.5) {\n        float2 center = (floor(cellUV) + 0.5) * cellSize / size;\n        rgb = float3(sourceRGB(center + ca).r, sourceRGB(center).g, sourceRGB(center - ca).b);\n        float aperture = pixelShape > 1.5 ? 1.0 : (pixelShape > 0.5 ? (1.0 - smoothstep(0.5 - pixelGap * 0.5, 0.5, max(abs(local.x - 0.5), abs(local.y - 0.5)))) : (1.0 - smoothstep(0.5 - pixelGap * 0.5, 0.5, length(local - 0.5))));\n        if (subpixel > 0.5) {\n            float3 stripe = float3(1.0 - smoothstep(0.0, 0.36, abs(local.x - 0.166)), 1.0 - smoothstep(0.0, 0.36, abs(local.x - 0.5)), 1.0 - smoothstep(0.0, 0.36, abs(local.x - 0.833)));\n            rgb *= mix(float3(1.0), stripe * 1.7, 0.62);\n        }\n        rgb *= mix(1.0, aperture, clamp(pixelGap * 1.8, 0.0, 1.0));\n        if (pixelGlow > 0.01) {\n            float2 left = (floor(cellUV) + float2(-0.5, 0.5)) * cellSize / size;\n            float2 right = (floor(cellUV) + float2(1.5, 0.5)) * cellSize / size;\n            float2 up = (floor(cellUV) + float2(0.5, -0.5)) * cellSize / size;\n            float2 down = (floor(cellUV) + float2(0.5, 1.5)) * cellSize / size;\n            float3 glow = (sourceRGB(left) + sourceRGB(right) + sourceRGB(up) + sourceRGB(down)) * 0.25;\n            rgb += glow * pixelGlow * 0.28;\n        }\n    }\n    float matte = keyMix > 0.001 ? mix(1.0, matteAt(p, keyChroma), clamp(keyMix, 0.0, 1.0)) : 1.0;\n    matte = clamp((matte - blackClip) / max(whiteClip - blackClip, 0.0001), 0.0, 1.0);\n    if (feather > 0.01) {\n        float r = max(feather, 0.0);\n        float sum = matte;\n        sum += matteAt(p + float2(r, 0.0) / size, keyChroma);\n        sum += matteAt(p - float2(r, 0.0) / size, keyChroma);\n        sum += matteAt(p + float2(0.0, r) / size, keyChroma);\n        sum += matteAt(p - float2(0.0, r) / size, keyChroma);\n        sum += matteAt(p + float2(r, r) * 0.7071 / size, keyChroma);\n        sum += matteAt(p - float2(r, r) * 0.7071 / size, keyChroma);\n        sum += matteAt(p + float2(r, -r) * 0.7071 / size, keyChroma);\n        sum += matteAt(p - float2(r, -r) * 0.7071 / size, keyChroma);\n        matte = mix(matte, sum / 9.0, clamp(feather / 12.0, 0.0, 1.0));\n    }\n    float keyLen = max(dot(key, key), 0.0001);\n    float along = dot(rgb, key) / keyLen;\n    float neutral = dot(rgb, float3(0.2126, 0.7152, 0.0722));\n    float excess = max(along - neutral, 0.0);\n    float3 despilled = clamp(rgb - key * excess * despill * spill, 0.0, 1.0);\n    rgb = mix(rgb, despilled, clamp(spill + despill, 0.0, 1.0));\n    float autoExp = autoExposure > 0.5 ? (0.42 - dot(key, float3(0.2126, 0.7152, 0.0722))) : 0.0;\n    rgb *= exp2(exposure + autoExp);\n    rgb = mix(rgb, rgb * tintColor.rgb, clamp(tintAmount, 0.0, 1.0));\n    float sheenLight = pow(max(0.0, 1.0 - length(screenUV - float2(0.35, 0.2))), 3.0);\n    rgb += sheen * sheenLight * 0.12;\n    float2 vd = screenUV - 0.5;\n    rgb *= 1.0 - vignette * dot(vd, vd) * 2.0;\n    rgb += dustAt(coord, dustSize, dustSeed) * 0.65;\n    float alpha = sampleSource(p).a * matte;\n    return half4(clamp(rgb, 0.0, 1.0) * matte, alpha);\n}\n"
 }

@@ -108,6 +108,7 @@ object DepthAnything {
             env = environment
             val path = file(context).path
             val cores = max(1, Runtime.getRuntime().availableProcessors())
+            val parallel = minOf(4, maxOf(2, cores / 2))
             val attempts = listOf(Backend.Nnapi, Backend.Xnnpack, Backend.Cpu)
             var last: Throwable? = null
             for (choice in attempts) {
@@ -121,12 +122,13 @@ object DepthAnything {
                             options.addNnapi(EnumSet.of(NNAPIFlags.USE_FP16))
                         }
                         Backend.Xnnpack -> {
-                            options.setIntraOpNumThreads(cores)
+                            val threads = maxOf(1, cores / parallel)
+                            options.setIntraOpNumThreads(threads)
                             options.setInterOpNumThreads(1)
-                            options.addXnnpack(mapOf("intra_op_num_threads" to "$cores", "execution_mode" to "1"))
+                            options.addXnnpack(mapOf("intra_op_num_threads" to "$threads", "execution_mode" to "1"))
                         }
                         Backend.Cpu -> {
-                            options.setIntraOpNumThreads(cores)
+                            options.setIntraOpNumThreads(maxOf(1, cores / parallel))
                             options.setInterOpNumThreads(1)
                         }
                     }

@@ -253,15 +253,33 @@ internal class MatteEncoder private constructor(private val codec: MediaCodec, p
         val image = checkNotNull(codec.getInputImage(index)) { AppText.get(R.string.ai_encoder_no_image) }
         val (yPlane, uPlane, vPlane) = image.planes
         val y = yPlane.buffer
-        for (row in 0 until height) {
-            val base = row * yPlane.rowStride
-            for (col in 0 until width) y.put(base + col * yPlane.pixelStride, matteLuma(matte[row * width + col].toInt() and 0xFF).toByte())
+        if (yPlane.pixelStride == 1) {
+            val row = ByteArray(width)
+            for (r in 0 until height) {
+                val base = r * yPlane.rowStride
+                val offset = r * width
+                for (col in 0 until width) row[col] = LUMA[matte[offset + col].toInt() and 0xFF]
+                y.position(base)
+                y.put(row)
+            }
+        } else {
+            for (row in 0 until height) {
+                val base = row * yPlane.rowStride
+                for (col in 0 until width) y.put(base + col * yPlane.pixelStride, LUMA[matte[row * width + col].toInt() and 0xFF])
+            }
         }
+        val chromaWidth = (width + 1) / 2
+        val chroma = ByteArray(chromaWidth) { 128.toByte() }
         for (plane in listOf(uPlane, vPlane)) {
             val buffer = plane.buffer
             for (row in 0 until (height + 1) / 2) {
                 val base = row * plane.rowStride
-                for (col in 0 until (width + 1) / 2) buffer.put(base + col * plane.pixelStride, 128.toByte())
+                if (plane.pixelStride == 1) {
+                    buffer.position(base)
+                    buffer.put(chroma)
+                } else {
+                    for (col in 0 until chromaWidth) buffer.put(base + col * plane.pixelStride, 128.toByte())
+                }
             }
         }
         codec.queueInputBuffer(index, 0, size, pts, 0)
@@ -319,6 +337,8 @@ internal class MatteEncoder private constructor(private val codec: MediaCodec, p
     }
 
     companion object {
+        private val LUMA = ByteArray(256) { matteLuma(it).toByte() }
+
         fun open(file: File, width: Int, height: Int, fps: Int): MatteEncoder {
             val list = MediaCodecList(MediaCodecList.REGULAR_CODECS)
             for ((w, h) in listOf(width to height, (width + 15) / 16 * 16 to (height + 15) / 16 * 16)) {

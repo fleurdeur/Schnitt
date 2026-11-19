@@ -54,27 +54,34 @@ suspend fun EditorState.addDepthMap(context: Context, layer: Layer, progress: (F
                     actual = encoder.width to encoder.height
                     var done = 0
                     val workers = DepthAnything.workerCount(context)
+                    // Static UI and held shots repeat exactly.  Keep a small
+                    // hash cache so those frames reuse the previous depth map
+                    // instead of running the model again.
+                    val cache = object : LinkedHashMap<Long, ByteArray>(8, 0.75f, true) {
+                        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, ByteArray>?) = size > 8
+                    }
                     for (batch in stamps.chunked(workers)) {
-                        val frames = ArrayList<Pair<Long, Bitmap>>(batch.size)
+                        val frames = ArrayList<Triple<Long, Bitmap, Long>>(batch.size)
                         try {
                             reader.read(batch) { pts, yuv ->
                                 val argb = yuv.argb(encoder.width, encoder.height, reader.colorStandard, reader.fullRange)
-                                frames += pts to Bitmap.createBitmap(argb, encoder.width, encoder.height, Bitmap.Config.ARGB_8888)
+                                frames += Triple(pts, Bitmap.createBitmap(argb, encoder.width, encoder.height, Bitmap.Config.ARGB_8888), fingerprint(argb))
                             }
-                            val depths = coroutineScope {
-                                frames.map { (pts, bitmap) ->
-                                    async(Dispatchers.Default) {
-                                        pts to DepthAnything.depthGray(context, bitmap, encoder.width, encoder.height)
-                                    }
-                                }.awaitAll()
+                            val unique = LinkedHashMap<Long, Int>()
+                            frames.forEachIndexed { i, (_, _, hash) -> if (hash !in cache) unique.putIfAbsent(hash, i) }
+                            val fresh = coroutineScope {
+                                unique.map { (hash, i) -> async(Dispatchers.Default) {
+                                    hash to DepthAnything.depthGray(context, frames[i].second, encoder.width, encoder.height)
+                                } }.awaitAll()
                             }
-                            for ((pts, depth) in depths) {
-                                encoder.write(pts, depth)
+                            for ((hash, depth) in fresh) cache[hash] = depth
+                            for ((pts, _, hash) in frames) {
+                                encoder.write(pts, cache.getValue(hash))
                                 done++
                                 progress(0.02f + 0.97f * done / stamps.size)
                             }
                         } finally {
-                            for ((_, bitmap) in frames) bitmap.recycle()
+                            for ((_, bitmap, _) in frames) bitmap.recycle()
                         }
                     }
                     progress(0.99f)
@@ -105,6 +112,14 @@ suspend fun EditorState.addDepthMap(context: Context, layer: Layer, progress: (F
  * keeps long clips fast while the depth video keeps the original timestamps and
  * duration, so it still lines up with the source.
  */
+private fun fingerprint(pixels: IntArray): Long {
+    var h = 1125899906842597L
+    val step = (pixels.size / 4096).coerceAtLeast(1)
+    var i = 0
+    while (i < pixels.size) { h = h * 31 + pixels[i]; i += step }
+    return h
+}
+
 private fun depthStamps(stamps: LongArray, inMs: Int, outMs: Int, seconds: Double): List<Long> {
     val all = matteStamps(stamps, inMs, outMs)
     if (all.size < 2) return all

@@ -7137,7 +7137,154 @@
         },
         "despill": {
           "label": "Despill Amount"
+        },
+        "keyMix": {
+          "label": "Key Mix"
+        },
+        "macroPixels": {
+          "label": "Macro Pixel Size"
+        },
+        "pixelShape": {
+          "label": "Pixel Shape",
+          "options": [
+            "Round",
+            "Square",
+            "LCD Stripe"
+          ]
+        },
+        "pixelGap": {
+          "label": "Pixel Gap"
+        },
+        "subpixel": {
+          "label": "RGB Subpixels"
+        },
+        "pixelGlow": {
+          "label": "Pixel Glow"
+        },
+        "cameraZoom": {
+          "label": "Camera Zoom"
+        },
+        "target": {
+          "label": "Look Target"
+        },
+        "focusPoint": {
+          "label": "Focus Point"
+        },
+        "tiltX": {
+          "label": "Tilt X"
+        },
+        "tiltY": {
+          "label": "Tilt Y"
+        },
+        "roll": {
+          "label": "Roll"
+        },
+        "dof": {
+          "label": "Depth of Field"
+        },
+        "focusDepth": {
+          "label": "Focus Depth"
+        },
+        "focusRange": {
+          "label": "Focus Range"
+        },
+        "depthFromLuma": {
+          "label": "Depth From Luma"
+        },
+        "animateTarget": {
+          "label": "Moving Target"
+        },
+        "targetSpeed": {
+          "label": "Target Speed"
+        },
+        "targetRange": {
+          "label": "Target Range"
+        },
+        "animateAngle": {
+          "label": "Animate Angle"
+        },
+        "angleSpeed": {
+          "label": "Angle Speed"
+        },
+        "angleRange": {
+          "label": "Angle Range"
+        },
+        "animateFocus": {
+          "label": "Moving Focus Point"
+        },
+        "focusSpeed": {
+          "label": "Focus Speed"
+        },
+        "focusTravel": {
+          "label": "Focus Travel"
+        },
+        "autoZoom": {
+          "label": "Auto Zoom"
+        },
+        "autoExposure": {
+          "label": "Auto Exposure"
+        },
+        "exposure": {
+          "label": "Exposure"
+        },
+        "tintColor": {
+          "label": "Tint Color"
+        },
+        "tintAmount": {
+          "label": "Tint Amount"
+        },
+        "vignette": {
+          "label": "Lens Vignette"
+        },
+        "aberration": {
+          "label": "Chromatic Aberration"
+        },
+        "distortion": {
+          "label": "Lens Distortion"
+        },
+        "dust": {
+          "label": "Glass Dust"
+        },
+        "dustSize": {
+          "label": "Dust Size"
+        },
+        "dustSeed": {
+          "label": "Dust Seed"
+        },
+        "quality": {
+          "label": "Quality",
+          "options": [
+            "Preview",
+            "Standard",
+            "High",
+            "Ultra"
+          ]
+        },
+        "sheen": {
+          "label": "Glass Sheen"
         }
+      },
+      "presets": {
+        "static-default": "Static Default",
+        "static-tinted": "Static Tinted",
+        "static-cool": "Static Cool",
+        "static-warm": "Static Warm",
+        "reading-front": "Reading Front",
+        "reading-move": "Reading Move",
+        "reading-angle": "Reading Angle",
+        "reading-tilted": "Reading Tilted",
+        "reading-rack": "Reading Rack",
+        "side-focus-pull": "Side Focus Pull",
+        "close-up-low": "Close Up Low",
+        "close-up-high": "Close Up High",
+        "sideways": "Sideways",
+        "pan-down": "Pan Down",
+        "pan-up": "Pan Up",
+        "orbit-wides": "Orbit Wides",
+        "orbit-tight": "Orbit Tight",
+        "tilt-sweep": "Tilt Sweep",
+        "macro-pixels": "Macro Pixels",
+        "dust-focus": "Dust Focus"
       }
     }
   }

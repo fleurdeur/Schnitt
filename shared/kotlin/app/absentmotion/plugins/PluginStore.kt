@@ -224,6 +224,18 @@ class PluginStore(private val context: Context) {
                 entry?.relativeTo(folder)?.invariantSeparatorsPath, true, summary, mapEffects(xml + " " + fileName), source)
         }
         val files = folder.walkTopDown().filter { it.isFile }.toList()
+        val ffx = files.firstOrNull { it.extension.equals("ffx", true) }
+        if (ffx != null) {
+            val parsed = FfxPreset.parse(ffx)
+            val effects = (parsed?.effects?.let { mapEffects(it.joinToString(" ")) }.orEmpty() + mapEffects(fileName + " " + folder.name)).distinct()
+            return Plugin(
+                id = id, name = fileName.substringBeforeLast('.').ifBlank { "After Effects preset" }, version = "1.0",
+                kind = PluginKind.Effect, folder = folder.path, entry = ffx.relativeTo(folder).invariantSeparatorsPath,
+                enabled = true, source = source, effects = effects,
+                summary = "After Effects FFX preset · ${parsed?.effects?.take(3)?.joinToString(", ").orEmpty().ifBlank { "effect" }} · " +
+                    "${parsed?.scalars?.size ?: 0} saved values read and attached to the matching editable effect",
+            )
+        }
         val script = files.firstOrNull { it.extension.equals("jsxbin", true) } ?: files.firstOrNull { it.extension.equals("jsx", true) }
         val html = files.firstOrNull { it.extension.equals("html", true) || it.extension.equals("htm", true) }
         val native = files.firstOrNull { it.extension.lowercase() in NATIVE }

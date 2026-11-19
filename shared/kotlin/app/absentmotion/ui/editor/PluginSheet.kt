@@ -68,6 +68,7 @@ import app.absentmotion.R
 import app.absentmotion.editor.EditorState
 import app.absentmotion.editor.addEffectToChosen
 import app.absentmotion.effects.EffectCatalog
+import app.absentmotion.plugins.FfxPreset
 import app.absentmotion.plugins.Jsx
 import app.absentmotion.plugins.JsxInterpreter
 import app.absentmotion.plugins.Plugin
@@ -275,6 +276,7 @@ private fun PluginDetail(state: EditorState, plugin: Plugin, catalog: EffectCata
     androidx.compose.runtime.LaunchedEffect(generated?.key) {
         values.clear()
         generated?.params?.forEach { values[it.id] = it.default }
+        if (generated != null) FfxPreset.mappedFor(plugin, generated).forEach { (id, value) -> values[id] = value }
     }
     fun apply(id: String) {
         val layer = state.scene.layer(targetId) ?: state.selected
