@@ -457,7 +457,7 @@
    }
   }
  },
-"com.alightcreative.spectralmap": {
+ "com.alightcreative.spectralmap": {
   "to": "gradientmap",
   "params": {
    "blueColor": {
@@ -4966,7 +4966,7 @@
    }
   }
  },
-"com.alightcreative.effects.oscillate2": {
+ "com.alightcreative.effects.oscillate2": {
   "to": "oscillate",
   "params": {
    "direction": {
@@ -7229,6 +7229,17 @@
     "to": "alpha",
     "min": 0,
     "max": 1
+   },
+   "blendMode": {
+    "to": "blendMode"
+   },
+   "blending": {
+    "to": "blendMode"
+   },
+   "offset": {
+    "to": "offset",
+    "min": -2,
+    "max": 2
    }
   },
   "set": {

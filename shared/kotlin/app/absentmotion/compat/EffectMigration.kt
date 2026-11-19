@@ -220,6 +220,7 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
         val chosen = best.first
         val dropped = ArrayList<String>()
         val used = HashSet<String>()
+        val unmapped = ArrayList<XmlNode>()
         val mapped = props.mapNotNull { prop ->
             val name = prop["name"]!!
             val label = prop["label"]
@@ -228,6 +229,10 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
                 ?: label?.let { l -> chosen.params.firstOrNull { !used.contains(it.id) && sameParam(it.label, l) } }
                 ?: byShape(prop, chosen, used, props)
             if (target == null) {
+                // Keep the source property verbatim even when this app has no
+                // control for it. Dropping it also dropped every keyframe on
+                // that row, which is what made imported animations look static.
+                if (prop.children.any { it.name == "kf" }) unmapped += prop
                 dropped += name
                 null
             } else {
@@ -236,7 +241,8 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
             }
         }
         if (mapped.isEmpty()) return null
-        return FallbackMatch(node.copy(attrs = node.attrs + ("id" to chosen.id)), chosen, dropped)
+        val extras = node.children.filter { it.name != "property" }
+        return FallbackMatch(node.copy(attrs = node.attrs + ("id" to chosen.id), children = mapped + unmapped + extras), chosen, dropped)
     }
 
     private fun byShape(prop: XmlNode, effect: EffectDefinition, used: Set<String>, all: List<XmlNode>): EffectParam? {
@@ -320,7 +326,21 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
             if (name in gates || (turn != null && (name == turn.quat || name == turn.spin))) continue
             val conversions = rule.params[name]
             if (conversions == null) {
-                if (keep && own.params.any { it.id == name }) made.putIfAbsent(name, child) else drop(name)
+                // Keep same-named controls even when the curated rule did not
+                // list them, and keep the original property verbatim when the
+                // target has no counterpart. Never erase its keyframes.
+                val animated = child.children.any { it.name == "kf" }
+                val auto = (if (keep) own.params.firstOrNull { it.id == name } else null)
+                    ?: if (animated) own.params.firstOrNull { sameParam(it.id, name) || sameParam(it.label, name) } else null
+                if (auto != null) {
+                    made.putIfAbsent(auto.id, property(child, auto.id, auto.type) { text -> convertFor(auto, child, text) })
+                } else {
+                    // Keep animated source rows even when this build has no
+                    // matching control yet. Their keyframes survive a re-export
+                    // and a later importer can still read them.
+                    if (child.children.any { it.name == "kf" }) others += child
+                    drop(name)
+                }
                 continue
             }
             val split = conversions.size > 1

@@ -1499,30 +1499,7 @@ void DrawShuttered(SkCanvas* canvas, const std::vector<Layer>& siblings, const L
         if (steady) return SkVector{0, 0};
         return SiblingMatrix(siblings, l, at((double)to / samples)).mapPoint(middle) - SiblingMatrix(siblings, l, at((double)from / samples)).mapPoint(middle);
     };
-    if (l.kind == "embedScene") {
-        canvas->saveLayer(SkCanvas::SaveLayerRec(nullptr, &composite, 0));
-        SkPaint add;
-        add.setBlendMode(SkBlendMode::kPlus);
-        for (int i = 0; i < samples;) {
-            const double when = at((i + 0.5) / samples);
-            int same = 1;
-            while (i + same < samples && (steady || at((i + same + 0.5) / samples) == when)) same++;
-            const float weight = (float)same / samples;
-            // Set alpha on the paint instead of a colour matrix. The matrix
-            // scaled only alpha in some Skia builds and left RGB at full
-            // strength, so additive samples turned coloured layers white.
-            add.setAlphaf(weight);
-            add.setImageFilter(SmearFilter(gap(i, i + same)));
-            canvas->saveLayer(nullptr, &add);
-            DrawOne(canvas, siblings, l, when, pictures, sample);
-            canvas->restore();
-            if (gBreak) (*gBreak)();
-            i += same;
-        }
-        canvas->restore();
-        return;
-    }
-    struct Taken { Recorded r; float share; SkVector move; };
+    struct Taken { Recorded r; float share; SkVector move; double when; };
     std::vector<Taken> taken;
     SkRect all = SkRect::MakeEmpty();
     bool bounded = true;
@@ -1530,37 +1507,49 @@ void DrawShuttered(SkCanvas* canvas, const std::vector<Layer>& siblings, const L
         const double when = at((i + 0.5) / samples);
         int same = 1;
         while (i + same < samples && (steady || at((i + same + 0.5) / samples) == when)) same++;
-        Recorded r = RecordInDevice(canvas, [&](SkCanvas* c) { DrawOne(c, siblings, l, when, pictures, sample); });
-        bounded = bounded && r.bounded;
-        all.join(r.bounds);
-        taken.push_back({std::move(r), (float)same / samples, gap(i, i + same)});
+        if (std::abs(when - timeMs) > 0.001) {
+            Recorded r = RecordInDevice(canvas, [&](SkCanvas* c) { DrawOne(c, siblings, l, when, pictures, sample); });
+            bounded = bounded && r.bounded;
+            all.join(r.bounds);
+            taken.push_back({std::move(r), (float)same / samples, gap(i, i + same), when});
+        }
         i += same;
     }
-    if (taken.empty() || std::all_of(taken.begin(), taken.end(), [](const Taken& k) { return k.r.bounds.isEmpty(); })) {
+    const SkRect clip = canvas->getLocalClipBounds();
+    SkRect wide = all.makeOutset(0, 0);
+    if (!wide.isEmpty()) {
+        float longest = 0;
+        for (const Taken& k : taken) longest = std::max(longest, k.move.length());
+        wide.outset(longest, longest);
+        if (!clip.isEmpty()) wide.intersect(clip);
+    }
+    if (!taken.empty() && !all.isEmpty() && (wide.isEmpty() || !wide.isFinite())) {
+        // A degenerate clip must never suppress the actual layer.
         return DrawOne(canvas, siblings, l, timeMs, pictures, sample);
     }
-    float longest = 0;
-    for (const Taken& k : taken) longest = std::max(longest, k.move.length());
-    const SkRect clip = canvas->getLocalClipBounds();
-    SkRect wide = all.makeOutset(longest, longest);
-    if (!clip.isEmpty()) wide.intersect(clip);
-    if (wide.isEmpty()) return DrawOne(canvas, siblings, l, timeMs, pictures, sample);
-    canvas->saveLayer(SkCanvas::SaveLayerRec(bounded ? &wide : nullptr, &composite, 0));
-    SkPaint add;
-    add.setBlendMode(SkBlendMode::kPlus);
-    for (const auto& [r, share, move] : taken) {
-        add.setAlphaf(share);
-        add.setImageFilter(SmearFilter(move));
-        SkRect spread = r.bounds.makeOutset(move.length(), move.length());
-        if (!clip.isEmpty()) spread.intersect(clip);
-        if (spread.isEmpty()) continue;
-        canvas->saveLayer(bounded ? &spread : nullptr, &add);
-        PlayInDevice(canvas, r.picture.get());
+    if (!taken.empty()) {
+        canvas->saveLayer(SkCanvas::SaveLayerRec(bounded ? &wide : nullptr, &composite, 0));
+        SkPaint add;
+        add.setBlendMode(SkBlendMode::kSrcOver);
+        for (const auto& [r, share, move, when] : taken) {
+            add.setAlphaf(share);
+            add.setImageFilter(SmearFilter(move));
+            SkRect spread = r.bounds.makeOutset(move.length(), move.length());
+            if (!clip.isEmpty()) spread.intersect(clip);
+            if (spread.isEmpty()) continue;
+            canvas->saveLayer(bounded ? &spread : nullptr, &add);
+            PlayInDevice(canvas, r.picture.get());
+            canvas->restore();
+            if (gBreak) (*gBreak)();
+        }
         canvas->restore();
-        if (gBreak) (*gBreak)();
     }
-    canvas->restore();
+    // Keep the layer itself sharp and fully visible on top of the trail. A
+    // shutter sample alone is not motion blur; it is a stack of translucent
+    // pose copies, so the current pose must always be drawn.
+    DrawOne(canvas, siblings, l, timeMs, pictures, sample);
 }
+
 
 float FadeOpacity(const Layer& l, double timeMs, float t) {
     float alpha = 1;

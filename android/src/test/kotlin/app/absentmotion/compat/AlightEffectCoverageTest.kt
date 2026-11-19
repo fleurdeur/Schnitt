@@ -60,6 +60,53 @@ class AlightEffectCoverageTest {
         assertEquals(0.02f * 0.57f * 1080f, migrate("""<effect id="com.alightcreative.effects.smoothedges"><property name="strength" type="float" value="0.02" /></effect>""", "540,540").floats("blur")[0], 1e-3f)
     }
 
+    @Test fun fadeKeepsItsInAndOutTimes() {
+        val fade = migrate("""<effect id="com.alightcreative.effects.fade"><property name="inTime" type="float" value="1.5" /><property name="outTime" type="float" value="0.75" /></effect>""")
+        assertEquals("absent.fade", fade["id"])
+        assertEquals(listOf(1.5f, 0.75f), listOf("fadeIn", "fadeOut").map { fade.floats(it)[0] })
+    }
+
+    @Test fun bareOscillateKeepsFrequencyMagnitudeAndWave() {
+        val o = migrate("""<effect id="com.alightcreative.effects.oscillate"><property name="angle" type="float" value="30" /><property name="freq" type="float" value="2.7" /><property name="mag" type="float" value="4.99" /><property name="type" type="int" value="1" /></effect>""")
+        assertEquals("absent.oscillate", o["id"])
+        assertEquals(listOf(30f, 2.7f, 4.99f, 1f), listOf("angle", "frequency", "magnitude", "wave").map { o.floats(it)[0] })
+    }
+
+    @Test fun mirrorKeepsBlendModeOffsetAndTheirKeyframes() {
+        val mirror = migrate("""<effect id="com.alightcreative.effects.mirror">
+            <property name="type" type="int" value="0" />
+            <property name="blendMode" type="int"><kf t="0.000000" v="3.000000" /><kf t="0.500000" v="4.000000" /></property>
+            <property name="offset" type="float"><kf t="0.000000" v="-0.250000" /><kf t="0.700000" v="0.750000" /></property>
+            <property name="alpha" type="float" value="0.800000" />
+        </effect>""")
+        assertEquals("absent.mirror", mirror["id"])
+        assertEquals(90f, mirror.floats("angle")[0], 1e-6f)
+        val blend = mirror.children.single { it["name"] == "blendMode" }
+        assertEquals(listOf("3.000000", "4.000000"), blend.children.map { it["v"] })
+        val offset = mirror.children.single { it["name"] == "offset" }
+        assertEquals(listOf("-0.250000", "0.750000"), offset.children.map { it["v"] })
+        assertEquals(0.8f, mirror.floats("alpha")[0], 1e-6f)
+    }
+
+    @Test fun motionBlurKeepsItsKeyframedTune() {
+        val blur = migrate("""<effect id="com.alightcreative.effects.motionblur4">
+            <property name="tune" type="float"><kf t="0.000000" v="0.200000" /><kf t="0.500000" v="1.500000" /></property>
+            <property name="usePos" type="bool" value="true" />
+            <property name="useScale" type="bool" value="false" />
+            <property name="useAngle" type="bool" value="true" />
+        </effect>""")
+        assertEquals("absent.motionblur", blur["id"])
+        val tune = blur.children.single { it["name"] == "tune" }
+        assertEquals(listOf("0.200000", "1.500000"), tune.children.map { it["v"] })
+        assertEquals("false", blur.children.single { it["name"] == "scale" }["value"])
+    }
+
+    @Test fun textSpacingStaysOnTheTextRenderer() {
+        val spacing = migrate("""<effect id="com.alightcreative.effects.textspacing"><property name="letterspacing" type="float" value="0.72" /><property name="linespacing" type="float" value="1.1" /></effect>""")
+        assertEquals("com.alightcreative.effects.textspacing", spacing["id"])
+        assertEquals(0.72f, spacing.floats("letterspacing")[0], 1e-6f)
+    }
+
     @Test fun drawingEffectsImportFromAlight() {
         val d = migrate("""<effect id="com.alightcreative.effects.drawing.progress"><property name="start" type="float" value="25" /><property name="end" type="float" value="80" /></effect>""")
         assertEquals("absent.drawingprogress", d["id"])
