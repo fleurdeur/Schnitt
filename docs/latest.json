@@ -1,28 +1,13 @@
 {
-  "tag": "v5.9.3",
-  "name": "Schnitt 5.9.3",
-  "published": "2026-11-19T13:23:51Z",
-  "notes": "# Schnitt 5.9.3\r\n\r\n**APP CRASHES DON'T UPDATE: FIXED VERSION WILL COME OUT TOMORROW**\r\n\r\nA smaller, faster build with more reliable Alight Motion import.\r\n\r\n## Smaller download\r\n\r\n- The standard APK is substantially smaller. Code shrinking and optimization are enabled again, native engine libraries are stripped, and the optional Aurea backend is no longer bundled in the standard download.\r\n- The redundant 64-bit fallback engine is gone; 32-bit builds keep their fallback. Nothing in the editor structure was removed.\r\n- Aurea preset support remains available as an opt-in build for ARM64.\r\n\r\n## Effects that work\r\n\r\n- Fade In and Fade Out now change layer opacity directly. This works for shapes, text, video, images, groups and imported Alight layers, and it combines with opacity keyframes instead of replacing them.\r\n- Motion Blur no longer turns layers white. Blur samples are kept inside the layer surface and use a normal alpha fade.\r\n- More Alight effects are handled by the native motion renderer instead of being guessed into an unrelated effect. Oscillate, Blink, Flicker, Pulse Opacity, Spin, Pulsate, Swing, Jitter, Shake and Scale Assist keep their original controls.\r\n- Effects that cannot be matched safely are left out instead of being rewired into a different look. Explicit Alight rules still take priority, so stacked effects keep their order and fall back automatically.\r\n- Turbulent stretch, text spacing and gradient map imports keep their settings.\r\n\r\n## Faster opening\r\n\r\n- A project file is read once when opened, and its version snapshot is written in the background.\r\n- Effect matching uses direct lookup tables, and slow-motion normalization no longer rescans the whole layer list for every layer.\r\n- Media lookup caches resolution details, and local files are checked before the content resolver.\r\n",
+  "tag": "v5.9.4",
+  "name": "Schnitt 5.9.4",
+  "published": "2026-11-19T21:28:17Z",
+  "notes": "# Schnitt 5.9.4\n\nThis release fixes the install and startup problems in 5.9.3.\n\n## What went wrong\n\n- 5.9.3 enabled aggressive code and resource shrinking for the first time. That could remove classes and resources that are reached only from native callbacks, the package installer or reflection, which made the APK fail to install or crash at launch.\n- 5.9.4 removes that experimental shrinking. It uses the same proven packaging path as 5.9.2.\n\n## What is still smaller\n\n- The standard APK still does not bundle the optional Aurea backend.\n- Native engine libraries are still stripped.\n- The redundant 64-bit fallback engine is still gone; 32-bit builds keep their fallback.\n- The result is still much smaller than 5.9.2 without changing app behaviour.\n\n## Kept from 5.9.3\n\n- Fade In and Fade Out change layer opacity directly and work with all layer types.\n- Motion Blur no longer turns layers white.\n- More Alight effects use the native motion renderer; unsafe fallback matches are rejected.\n- Project open is faster: one file read, background version snapshot, direct effect lookup and cached media checks.\n\n## Aurea is now a plugin\n\n- Aurea preset support is no longer a second APK. It is a downloadable plugin ZIP on the release page.\n- Import it from Settings then Plugins then Import plugin. The app keeps its own After Effects project reader for aep files.\n- The plugin is optional, ARM64 only and loads only after it is installed, so it no longer affects the app download.\n",
   "assets": [
     {
       "name": "app-arm64-v8a.apk",
-      "size": 78365503,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.3/app-arm64-v8a.apk"
-    },
-    {
-      "name": "app-armeabi-v7a.apk",
-      "size": 83976110,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.3/app-armeabi-v7a.apk"
-    },
-    {
-      "name": "app-aurea-arm64-v8a.apk",
-      "size": 142021514,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.3/app-aurea-arm64-v8a.apk"
-    },
-    {
-      "name": "app-universal.apk",
-      "size": 122647354,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.3/app-universal.apk"
+      "size": 93282138,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.4/app-arm64-v8a.apk"
     }
   ]
 }
