@@ -1,23 +1,13 @@
 {
-  "tag": "v5.9.0",
-  "name": "Schnitt 5.9.0",
-  "published": "2026-11-19T08:09:24Z",
-  "notes": "# Schnitt 5.9.0\n\n## Perfect Screen, rebuilt as a virtual macro camera\n\nPerfect Screen is now a complete screen-shoot simulator in one effect. It renders the LCD grid of a macro display, keeps its pixels stable when the camera is pushed against the glass, and adds real depth of field, glass bulge, chromatic fringing, dust specks, sheen and vignette.\n\nThe camera can be aimed by dragging the Target and Focus Point controls directly on the preview, or by using the new tilt, roll, zoom and focus sliders. Twenty presets cover static looks, reading sweeps, focus pulls and cinematic perspective moves.\n\n## Movement without keyframes\n\nMoving Target, Animate Angle and Moving Focus Point give continuous motion from three simple switches. Auto Zoom keeps the source layer covering the frame, Auto Exposure balances dark interfaces against bright screens, and Colour Tint adds warm, cool or green panel casts. Quality Scaling uses fewer samples during playback and automatically raises them for final renders.\n\n## Faster depth maps\n\nDepth maps now reuse unchanged frames, write their grayscale video in bulk, and divide CPU and XNNPACK work across worker threads without oversubscribing the phone. The result is unchanged, but long clips finish sooner.\n\n## Daylight theme\n\nChoosing Daylight in Select Your Theme now switches to the real bright Daylight palette. The label and the theme it applies match.\n\n## After Effects presets\n\nThe Plugins screen now reads After Effects FFX preset files without running Adobe code. Effect names, parameter names and saved values are extracted and attached to the matching built-in effect as an editable preset. Existing JSX, JSXBIN, AEX and ZXP imports are unchanged.\n\n## Other fixes\n\n- Perfect Screen thumbnails and all twenty preset tiles are included.\n- Motion Blur, Raster Extrude, Flex Layout and Animate Path Points keep working with the new theme and storage changes.\n- Storage cleanup and the smaller preview cache from 5.8.0 remain in place.\n",
+  "tag": "v5.9.1",
+  "name": "Schnitt 5.9.1",
+  "published": "2026-11-19T08:37:23Z",
+  "notes": "# Schnitt 5.9.1\n\nThis is a performance and storage release. Project files, effects and exported videos keep their existing formats.\n\n## Less memory while editing\n\nWaveforms now keep only the sixteen most recent audio tracks in memory. Font typefaces keep the twenty-four most recently used faces, and web image search results keep a small rolling window. Thumbnail bitmaps are released as soon as the editor goes to the background, and Android low-memory callbacks now clear the same caches immediately.\n\nThe effect catalog is parsed once per language instead of being rebuilt for every preview, preset sheet and project preview. Imported effects still appear immediately.\n\n## Less storage used by caches\n\nPreview copies of large videos now have a 1 GB budget instead of 2 GB. Abandoned preview copies, partial files and failed jobs older than thirty days are removed on the daily clean-up. Downloadable Google fonts keep the most recent 64 MB, old cache files are removed after fourteen days, and waveform data is capped at 32 MB. Unused web image search downloads are cleaned with the rest of the project media.\n\n## Native reader note\n\nThe Aurea tree in the aur folder contains a proprietary native After Effects reader inside libaurea.so. Its code and assets are not open source, so Schnitt does not embed that library; the existing independent importers remain in use.\n\n## Under the hood\n\nThe daily clean-up now budgets cache, previews, fonts, waveforms and web image downloads separately. Nothing in project folders, exported videos or imported fonts is touched.\n",
   "assets": [
     {
       "name": "app-arm64-v8a.apk",
-      "size": 92284237,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.0/app-arm64-v8a.apk"
-    },
-    {
-      "name": "app-armeabi-v7a.apk",
-      "size": 90128311,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.0/app-armeabi-v7a.apk"
-    },
-    {
-      "name": "app-universal.apk",
-      "size": 144491018,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.0/app-universal.apk"
+      "size": 92290240,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.1/app-arm64-v8a.apk"
     }
   ]
 }
