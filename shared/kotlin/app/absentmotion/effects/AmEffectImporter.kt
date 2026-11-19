@@ -628,23 +628,32 @@ object AmEffectImporter {
         val out = StringBuilder(source.length + 64)
         var at = 0
         while (true) {
-            val match = Regex("""\btexture2DCv\s*\(|\btexture2D\s*\(""").find(source, at) ?: break
+            val match = Regex("""\b(texture2DCv|texture2DProj|texture2D)\s*\(""").find(source, at) ?: break
             val open = source.indexOf('(', match.range.first)
             var p = open + 1
             var depth = 1
             var comma = -1
+            val commas = ArrayList<Int>(4)
             while (p < source.length && depth > 0) {
                 when (source[p]) {
                     '(' -> depth++
                     ')' -> depth--
-                    ',' -> if (depth == 1 && comma < 0) comma = p
+                    ',' -> if (depth == 1) {
+                        if (comma < 0) comma = p
+                        commas += p
+                    }
                 }
                 if (depth == 0) break
                 p++
             }
             if (depth != 0 || comma < 0) { out.append(source, at, p + 1); at = p + 1; continue }
             val texture = source.substring(open + 1, comma).trim().removeSuffix(".texture").trim()
-            val coord = source.substring(comma + 1, p).trim()
+            val secondEnd = commas.getOrNull(1) ?: p
+            var coord = source.substring(comma + 1, secondEnd).trim()
+            // GLSL sampler calls may carry an optional bias or gradient pair.
+            // A runtime shader has no derivatives/bias, so the first coordinate
+            // argument is the complete sample position for this use.
+            if (match.groupValues[1] == "texture2DProj") coord = "($coord).xy / max(($coord).w, 1e-6)"
             val replacement = map(texture, coord)
             out.append(source, at, match.range.first)
             out.append(replacement ?: source.substring(match.range.first, p + 1))

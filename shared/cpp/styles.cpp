@@ -1430,7 +1430,13 @@ struct Recorded {
     bool bounded = false;
 };
 
-Recorded RecordInDevice(SkCanvas* canvas, const SkRect& area, const std::function<void(SkCanvas*)>& draw) {
+Recorded RecordInDevice(SkCanvas* canvas, const std::function<void(SkCanvas*)>& draw) {
+    // Recording the whole infinite motion-blur area made the later saveLayer
+    // ask the GPU for a multi-million-pixel surface. On some drivers that
+    // allocation fails and the layer flashes black. The canvas clip is the
+    // only part that can be seen, so record and bound to it instead.
+    SkRect area = canvas->getLocalClipBounds();
+    if (area.isEmpty() || !area.isFinite()) area = SkRect::MakeLTRB(-1e5f, -1e5f, 1e5f, 1e5f);
     SkPictureRecorder recorder;
     SkRTreeFactory tight;
     SkCanvas* c = recorder.beginRecording(area, &tight);
@@ -1492,7 +1498,7 @@ void DrawShuttered(SkCanvas* canvas, const std::vector<Layer>& siblings, const L
         return SiblingMatrix(siblings, l, at((double)to / samples)).mapPoint(middle) - SiblingMatrix(siblings, l, at((double)from / samples)).mapPoint(middle);
     };
     if (l.kind == "embedScene") {
-        canvas->saveLayer(SkCanvas::SaveLayerRec(nullptr, &composite, SkCanvas::kF16ColorType));
+        canvas->saveLayer(SkCanvas::SaveLayerRec(nullptr, &composite, 0));
         SkPaint add;
         add.setBlendMode(SkBlendMode::kPlus);
         for (int i = 0; i < samples;) {
@@ -1512,7 +1518,6 @@ void DrawShuttered(SkCanvas* canvas, const std::vector<Layer>& siblings, const L
         canvas->restore();
         return;
     }
-    const SkRect area = SkRect::MakeLTRB(-1e6f, -1e6f, 1e6f, 1e6f);
     struct Taken { Recorded r; float share; SkVector move; };
     std::vector<Taken> taken;
     SkRect all = SkRect::MakeEmpty();
@@ -1521,23 +1526,31 @@ void DrawShuttered(SkCanvas* canvas, const std::vector<Layer>& siblings, const L
         const double when = at((i + 0.5) / samples);
         int same = 1;
         while (i + same < samples && (steady || at((i + same + 0.5) / samples) == when)) same++;
-        Recorded r = RecordInDevice(canvas, area, [&](SkCanvas* c) { DrawOne(c, siblings, l, when, pictures, sample); });
+        Recorded r = RecordInDevice(canvas, [&](SkCanvas* c) { DrawOne(c, siblings, l, when, pictures, sample); });
         bounded = bounded && r.bounded;
         all.join(r.bounds);
         taken.push_back({std::move(r), (float)same / samples, gap(i, i + same)});
         i += same;
     }
+    if (taken.empty() || std::all_of(taken.begin(), taken.end(), [](const Taken& k) { return k.r.bounds.isEmpty(); })) {
+        return DrawOne(canvas, siblings, l, timeMs, pictures, sample);
+    }
     float longest = 0;
     for (const Taken& k : taken) longest = std::max(longest, k.move.length());
-    const SkRect wide = all.makeOutset(longest, longest);
-    canvas->saveLayer(SkCanvas::SaveLayerRec(bounded ? &wide : nullptr, &composite, SkCanvas::kF16ColorType));
+    const SkRect clip = canvas->getLocalClipBounds();
+    SkRect wide = all.makeOutset(longest, longest);
+    if (!clip.isEmpty()) wide.intersect(clip);
+    if (wide.isEmpty()) return DrawOne(canvas, siblings, l, timeMs, pictures, sample);
+    canvas->saveLayer(SkCanvas::SaveLayerRec(bounded ? &wide : nullptr, &composite, 0));
     SkPaint add;
     add.setBlendMode(SkBlendMode::kPlus);
     for (const auto& [r, share, move] : taken) {
         const float scale[20] = {1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, share, 0};
         add.setColorFilter(SkColorFilters::Matrix(scale));
         add.setImageFilter(SmearFilter(move));
-        const SkRect spread = r.bounds.makeOutset(move.length(), move.length());
+        SkRect spread = r.bounds.makeOutset(move.length(), move.length());
+        if (!clip.isEmpty()) spread.intersect(clip);
+        if (spread.isEmpty()) continue;
         canvas->saveLayer(bounded ? &spread : nullptr, &add);
         PlayInDevice(canvas, r.picture.get());
         canvas->restore();
@@ -1703,8 +1716,7 @@ void DrawOne(SkCanvas* canvas, const std::vector<Layer>& siblings, const Layer& 
         }
         const bool sees = SeesPrevious(siblings, l);
         if (!group && !sees && !spilled && !repeated && !EffectsApply(siblings, l)) {
-            const SkRect area = SkRect::MakeLTRB(-1e6f, -1e6f, 1e6f, 1e6f);
-            const Recorded r = RecordInDevice(canvas, area, [&](SkCanvas* c) {
+            const Recorded r = RecordInDevice(canvas, [&](SkCanvas* c) {
                 DrawContent(c, siblings, l, timeMs, 1, decorated, pictures, repeated ? &copies : nullptr);
                 centredBorders(c, 1);
             });

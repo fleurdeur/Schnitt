@@ -7,6 +7,7 @@ import app.absentmotion.effects.EffectParam
 import app.absentmotion.model.Scene
 import app.absentmotion.model.XmlNode
 import app.absentmotion.model.formatFloats
+import app.absentmotion.model.keyframes
 import app.absentmotion.model.valueAt
 import app.absentmotion.platform.Context
 import org.json.JSONArray
@@ -39,6 +40,7 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
         val blank: String? = null,
         val signs: List<Float> = emptyList(),
         val pre: List<Float> = emptyList(),
+        val vector: String? = null,
     )
 
     class Turn(val quat: String, val spin: String, val to: List<String>)
@@ -88,10 +90,69 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
         val h = scene.node["height"]?.finiteFloat()?.takeIf { it > 0f } ?: 1080f
         var root = visit(scene.node, floatArrayOf(w, h, 0f, w, h))
         val foreign = root["am"]?.startsWith("com.alightcreative") == true
-        if (foreign) root = root.copy(attrs = root.attrs + ("am" to "app.absentmotion"), children = root.children.map(::squaredBlendOpacity))
+        if (foreign) {
+            root = alightPivots(root)
+            root = root.copy(attrs = root.attrs + ("am" to "app.absentmotion"), children = root.children.map(::squaredBlendOpacity))
+        }
         return Result(if (converted.isEmpty() && !renamed && !foreign) scene else Scene(root), converted, dropped)
     }
 
+
+    /**
+     * Alight Motion keeps a layer's location as its centre and its pivot as an
+     * independent anchor offset. Our editor stores the pivot-space location
+     * (the point that lands on location after the pivot is subtracted). Adding
+     * the pivot to location once, at import, preserves every imported position
+     * and keyframe without changing how native and hand-authored scenes work.
+     */
+    private fun alightPivots(node: XmlNode): XmlNode = when (node.name) {
+        "scene" -> node.copy(children = node.children.map(::alightPivots))
+        in Scene.LAYER_TAGS -> {
+            val changed = alightPivot(node)
+            changed.copy(children = changed.children.map { if (it.name == "scene") alightPivots(it) else it })
+        }
+        else -> node
+    }
+
+    private fun alightPivot(layer: XmlNode): XmlNode {
+        if (layer.name == "camera") return layer
+        val transform = layer.children.firstOrNull { it.name == "transform" } ?: return layer
+        val pivot = transform.children.firstOrNull { it.name == "pivot" } ?: return layer
+        val pivots = values(pivot).flatMap { it.split(',') }.mapNotNull { it.trim().finiteFloat() }
+        if (pivots.isEmpty() || pivots.all { abs(it) < 1e-6f }) return layer
+        val location = transform.children.firstOrNull { it.name == "location" } ?: XmlNode("location", mapOf("value" to "0,0,0"))
+        val times = (location.keyframes.map { it.t } + pivot.keyframes.map { it.t }).distinct().sorted()
+        if (times.isEmpty()) {
+            val l = numbers(location["value"], 3)
+            val p = numbers(pivot["value"], 2)
+            val made = floatArrayOf(l[0] + p[0], l[1] + p[1], l[2])
+            return layer.copy(children = layer.children.map {
+                if (it !== transform) it else transform.copy(children = transform.children.map { c ->
+                    if (c !== location) c else location.with("value", formatFloats(made))
+                })
+            })
+        }
+        val locationKeys = location.keyframes.associateBy { it.t }
+        val pivotKeys = pivot.keyframes.associateBy { it.t }
+        val made = times.map { at ->
+            val l = numbers(location.valueAt(at), 3)
+            val p = numbers(pivot.valueAt(at), 2)
+            val e = locationKeys[at]?.e ?: pivotKeys[at]?.e
+            XmlNode("kf", linkedMapOf("t" to String.format(Locale.US, "%.6f", at),
+                "v" to formatFloats(floatArrayOf(l[0] + p[0], l[1] + p[1], l[2]))).also { attrs ->
+                if (!e.isNullOrBlank()) attrs["e"] = e
+            })
+        }
+        val rebuilt = XmlNode("location", location.attrs - "value", made)
+        return layer.copy(children = layer.children.map {
+            if (it !== transform) it else transform.copy(children = transform.children.map { c -> if (c !== location) c else rebuilt })
+        })
+    }
+
+    private fun numbers(text: String?, count: Int): FloatArray {
+        val parsed = text?.split(',')?.mapNotNull { it.trim().finiteFloat() }.orEmpty()
+        return FloatArray(count) { parsed.getOrElse(it) { 0f } }
+    }
 
     /**
      * An imported XML can reference an effect that this build does not ship.
@@ -241,8 +302,12 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
                 if (param != null) {
                     val shift = c.plus?.let { other -> effect.children.firstOrNull { it.name == "property" && it["name"] == other }?.valueAt(0f)?.finiteFloat() } ?: 0f
                     val off = c.gate?.let { gate -> effect.children.firstOrNull { it.name == "property" && it["name"] == gate }?.valueAt(0f)?.trim() != "true" } ?: false
+                    val reference = c.vector?.let { name -> effect.children.firstOrNull { it.name == "property" && it["name"] == name } }
                     made[param.id] = if (off) XmlNode("property", mapOf("name" to param.id, "type" to param.type, "value" to "#00000000"))
-                        else property(child, param.id, param.type) { text -> convertValue(text, c, if (c.component >= 0) c.component else if (split && c.take == 0) i else -1, shift, dims) }
+                        else property(child, param.id, param.type) { text, at ->
+                            convertValue(text, c, if (c.component >= 0) c.component else if (split && c.take == 0) i else -1, shift, dims,
+                                reference?.valueAt(at)?.finiteFloat())
+                        }
                 } else if (c?.neutral == null || values(child).any { !same(if (split) it.split(',').getOrElse(i) { "" } else it, c.neutral) }) {
                     drop(if (split) "$name (${i + 1})" else name)
                 }
@@ -288,13 +353,16 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
         return effect.copy(children = children)
     }
 
-    private fun property(source: XmlNode, name: String, type: String, change: (String) -> String): XmlNode {
+    private fun property(source: XmlNode, name: String, type: String, change: (String, Float) -> String): XmlNode {
         val attrs = linkedMapOf("name" to name, "type" to type)
-        source.attrs.forEach { (k, v) -> if (k != "name" && k != "type") attrs[k] = if (k == "value") change(v) else v }
+        source.attrs.forEach { (k, v) -> if (k != "name" && k != "type") attrs[k] = if (k == "value") change(v, 0f) else v }
         return source.copy(attrs = attrs, children = source.children.map { kf ->
-            if (kf.name == "kf" && kf["v"] != null) kf.with("v", change(kf["v"]!!)) else kf
+            if (kf.name == "kf" && kf["v"] != null) kf.with("v", change(kf["v"]!!, kf["t"]?.finiteFloat() ?: 0f)) else kf
         })
     }
+
+    private fun property(source: XmlNode, name: String, type: String, change: (String) -> String): XmlNode =
+        property(source, name, type) { value, _ -> change(value) }
 
     private fun values(node: XmlNode): List<String> = listOfNotNull(node["value"]) + node.children.mapNotNull { it["v"] }
 
@@ -304,7 +372,7 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
         return if (x.all { it != null } && y.all { it != null }) x == y else a.trim() == b.trim()
     }
 
-    private fun convertValue(text: String, c: Conversion, component: Int, shift: Float, dims: FloatArray): String {
+    private fun convertValue(text: String, c: Conversion, component: Int, shift: Float, dims: FloatArray, reference: Float? = null): String {
         val t = text.trim().let { s -> if (c.blank != null && s.split(',').all { it.trim().finiteFloat() == 0f }) c.blank else s }
         if (t == "true" || t == "false") return c.values[t]?.let { formatFloats(floatArrayOf(it)) } ?: t
         if (t.startsWith("#")) return t
@@ -313,6 +381,17 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
         val numbers = picked.map { p ->
             val n = p.trim().finiteFloat() ?: return t
             c.values[n.toInt().toString()]?.takeIf { n % 1f == 0f } ?: n
+        }
+        if (c.vector != null && numbers.size == 1) {
+            // Old Alight turbulent noise stored stretch as one signed number:
+            // a positive value widened Y, a negative value widened X. The
+            // current effect exposes two axes, so expand it using the scale
+            // value from the same effect at this keyframe.
+            val stretch = numbers[0]
+            val scale = reference?.takeIf { abs(it) > 1e-4f } ?: 1f
+            val pair = if (stretch >= 0f) floatArrayOf(1f, 1f + stretch / scale)
+            else floatArrayOf(1f - stretch / scale, 1f)
+            return formatFloats(FloatArray(2) { pair[it].coerceIn(c.min, c.max) })
         }
         val size = when (c.per) { "width" -> dims[0]; "height" -> dims[1]; "spanWidth" -> dims.getOrElse(3) { dims[0] }; "spanHeight" -> dims.getOrElse(4) { dims[1] }; else -> 1f }
         return formatFloats(FloatArray(numbers.size) { i ->
@@ -374,6 +453,7 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
             json.optString("blank").takeIf { it.isNotEmpty() },
             json.optJSONArray("signs")?.let { a -> List(a.length()) { a.getDouble(it).toFloat() } }.orEmpty(),
             json.optJSONArray("pre")?.let { a -> List(a.length()) { a.getDouble(it).toFloat() } }.orEmpty(),
+            json.optString("vector").takeIf { it.isNotEmpty() },
         )
     }
 }
