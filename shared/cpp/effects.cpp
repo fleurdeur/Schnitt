@@ -46,6 +46,13 @@ const char* const kLift = "absent.backdrop";
 const char* const kAmLift = "com.alightcreative.effects.lift";
 bool IsLift(const std::string& id) { return id == kLift || id == kAmLift; }
 
+// Fade is an opacity multiplier, not an image filter. Keeping it out of the
+// shader chain makes it work for text, shapes and video alike, and makes it
+// stack with existing opacity keyframes exactly like Alight Motion.
+bool IsFade(const std::string& id) {
+    return id == "absent.fade" || id == "fade" || id == "com.alightcreative.effects.fade";
+}
+
 const char* const kPuppet = "absent.puppet";
 
 bool BuiltIn(const std::string& id) {
@@ -1095,6 +1102,7 @@ bool EffectRuntime::spills(const Layer& layer) const {
 
 bool EffectRuntime::needs(const Layer& layer, bool Definition::*input) const {
     return std::any_of(layer.effects.begin(), layer.effects.end(), [&](const LayerEffect& e) {
+        if (IsFade(e.id)) return false;
         const Definition* d = e.hidden ? nullptr : find(e.id);
         return d && (d->shader || BuiltIn(e.id)) && d->*input;
     });
@@ -1104,7 +1112,7 @@ bool EffectRuntime::behind(const Layer& layer) const { return needs(layer, &Defi
 
 bool EffectRuntime::reaches(const Layer& layer) const {
     return std::any_of(layer.effects.begin(), layer.effects.end(), [&](const LayerEffect& e) {
-        if (e.hidden || IsLift(e.id)) return false;
+        if (e.hidden || IsLift(e.id) || IsFade(e.id)) return false;
         if (BuiltIn(e.id)) return true;
         const Definition* d = find(e.id);
         return d && d->shader && (!d->pointwise || d->blurred);
@@ -1115,6 +1123,7 @@ bool EffectRuntime::steady(const Layer& layer, float from, float to) const {
     const auto still = [&](const Anim& a) { return a.steady(from, to); };
     return std::all_of(layer.effects.begin(), layer.effects.end(), [&](const LayerEffect& e) {
         if (e.hidden) return true;
+        if (IsFade(e.id)) return true;
         if (e.id == kPuppet) {
             const Property* sway = e.prop("sway");
             if (sway && (!still(sway->anim) || sway->anim.get(0, from, 0) >= 0.5f)) return false;
@@ -1170,7 +1179,7 @@ sk_sp<SkImageFilter> EffectRuntime::chain(const Scene& scene, const Layer& layer
     const auto pointwiseAfter = [&](size_t from) {
         for (size_t j = from; j < end; j++) {
             const LayerEffect& next = layer.effects[j];
-            if (next.hidden || IsLift(next.id) || (layer.video && next.id == "absent.datamosh")) continue;
+            if (next.hidden || IsLift(next.id) || IsFade(next.id) || (layer.video && next.id == "absent.datamosh")) continue;
             if (next.id == kPuppet || BuiltIn(next.id)) return false;
             const Definition* d = find(next.id);
             if (d && d->shader && (!d->pointwise || d->blurred)) return false;
@@ -1180,7 +1189,7 @@ sk_sp<SkImageFilter> EffectRuntime::chain(const Scene& scene, const Layer& layer
     for (size_t k = from >= 0 ? (size_t)from : before >= 0 ? 0 : (size_t)(liftAt(layer) + 1); k < end; k++) {
         const LayerEffect& e = layer.effects[k];
         at = k;
-        if (e.hidden || IsLift(e.id) || (layer.video && e.id == "absent.datamosh")) continue;
+        if (e.hidden || IsLift(e.id) || IsFade(e.id) || (layer.video && e.id == "absent.datamosh")) continue;
         const Definition* d = find(e.id);
         const auto* defaults = d ? &d->defaults : nullptr;
         if (e.id == kPuppet) {

@@ -437,7 +437,27 @@
    "softness": 0
   }
  },
- "com.alightcreative.spectralmap": {
+ "com.alightcreative.gradientmap": {
+  "to": "gradientmap",
+  "params": {
+   "color1": {
+    "to": "color1"
+   },
+   "color2": {
+    "to": "color2"
+   },
+   "color3": {
+    "to": "color3"
+   },
+   "phase": {
+    "to": "phase"
+   },
+   "repeat": {
+    "to": "repeat"
+   }
+  }
+ },
+"com.alightcreative.spectralmap": {
   "to": "gradientmap",
   "params": {
    "blueColor": {
@@ -4919,7 +4939,34 @@
    "seed": 0
   }
  },
- "com.alightcreative.effects.oscillate2": {
+ "com.alightcreative.effects.oscillate": {
+  "to": "oscillate",
+  "params": {
+   "direction": {
+    "to": "direction",
+    "min": 0,
+    "max": 2
+   },
+   "angle": {
+    "to": "angle"
+   },
+   "freq": {
+    "to": "frequency"
+   },
+   "mag": {
+    "to": "magnitude"
+   },
+   "type": {
+    "to": "wave",
+    "min": 0,
+    "max": 1
+   },
+   "phase": {
+    "to": "phase"
+   }
+  }
+ },
+"com.alightcreative.effects.oscillate2": {
   "to": "oscillate",
   "params": {
    "direction": {

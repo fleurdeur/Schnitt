@@ -560,6 +560,8 @@ struct Override {
     float alpha = 1;
 };
 
+float FadeOpacity(const Layer& l, double timeMs, float t);
+
 void DrawOne(SkCanvas* canvas, const std::vector<Layer>& siblings, const Layer& l, double timeMs,
              const MediaPictures& pictures, const Override& ov);
 void DrawList(SkCanvas* canvas, const std::vector<Layer>& layers, int width, int height, bool top, double timeMs,
@@ -1506,8 +1508,10 @@ void DrawShuttered(SkCanvas* canvas, const std::vector<Layer>& siblings, const L
             int same = 1;
             while (i + same < samples && (steady || at((i + same + 0.5) / samples) == when)) same++;
             const float weight = (float)same / samples;
-            const float scale[20] = {1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, weight, 0};
-            add.setColorFilter(SkColorFilters::Matrix(scale));
+            // Set alpha on the paint instead of a colour matrix. The matrix
+            // scaled only alpha in some Skia builds and left RGB at full
+            // strength, so additive samples turned coloured layers white.
+            add.setAlphaf(weight);
             add.setImageFilter(SmearFilter(gap(i, i + same)));
             canvas->saveLayer(nullptr, &add);
             DrawOne(canvas, siblings, l, when, pictures, sample);
@@ -1545,8 +1549,7 @@ void DrawShuttered(SkCanvas* canvas, const std::vector<Layer>& siblings, const L
     SkPaint add;
     add.setBlendMode(SkBlendMode::kPlus);
     for (const auto& [r, share, move] : taken) {
-        const float scale[20] = {1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, share, 0};
-        add.setColorFilter(SkColorFilters::Matrix(scale));
+        add.setAlphaf(share);
         add.setImageFilter(SmearFilter(move));
         SkRect spread = r.bounds.makeOutset(move.length(), move.length());
         if (!clip.isEmpty()) spread.intersect(clip);
@@ -1557,6 +1560,21 @@ void DrawShuttered(SkCanvas* canvas, const std::vector<Layer>& siblings, const L
         if (gBreak) (*gBreak)();
     }
     canvas->restore();
+}
+
+float FadeOpacity(const Layer& l, double timeMs, float t) {
+    float alpha = 1;
+    const float seconds = (float)((l.steppedMs(timeMs) - l.startTime) / 1000.0);
+    const float duration = (float)((l.endTime - l.startTime) / 1000.0);
+    for (const LayerEffect& e : l.effects) {
+        if (e.hidden) continue;
+        if (!(e.id == "absent.fade" || e.id == "fade")) continue;
+        const float fadeIn = std::clamp(Setting(e, "fadeIn", t, 0.5f), 0.0f, 10.0f);
+        const float fadeOut = std::clamp(Setting(e, "fadeOut", t, 0.5f), 0.0f, 10.0f);
+        if (fadeIn > 0) alpha *= std::clamp(seconds / fadeIn, 0.0f, 1.0f);
+        if (fadeOut > 0) alpha *= std::clamp((duration - seconds) / fadeOut, 0.0f, 1.0f);
+    }
+    return std::clamp(alpha, 0.0f, 1.0f);
 }
 
 void DrawOne(SkCanvas* canvas, const std::vector<Layer>& siblings, const Layer& l, double timeMs,
@@ -1666,7 +1684,7 @@ void DrawOne(SkCanvas* canvas, const std::vector<Layer>& siblings, const Layer& 
         return;
     }
     const float t = l.localTime(timeMs);
-    const float opacity = std::clamp(ov.unitOpacity ? ov.alpha : l.opacity.get(0, t, 1) * MotionOpacity(l, timeMs) * ov.alpha, 0.0f, 1.0f);
+    const float opacity = std::clamp((ov.unitOpacity ? ov.alpha : l.opacity.get(0, t, 1) * MotionOpacity(l, timeMs) * ov.alpha) * FadeOpacity(l, timeMs, t), 0.0f, 1.0f);
     if (!(opacity > 0)) return;
     const bool group = l.kind == "embedScene";
     bool decorated = false;

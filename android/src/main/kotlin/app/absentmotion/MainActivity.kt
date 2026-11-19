@@ -569,11 +569,12 @@ class MainActivity : ComponentActivity() {
         val started = SystemClock.elapsedRealtime()
         var tip = false
         val scene = try {
+            val xml = withContext(DiskThread.dispatcher) { store.text(id) }
             val loaded = CrashLogs.during("opening a project") {
-                withContext(DiskThread.dispatcher) {
-                    store.text(id)?.let { runCatching { store.versions.snapshot(id, it) } }
-                    store.load(id)
-                }
+                withContext(DiskThread.dispatcher) { xml?.let { store.load(id, it) } }
+            }
+            if (xml != null) {
+                DiskThread.executor.execute { runCatching { store.versions.snapshot(id, xml) } }
             }
             loaded?.let { scene ->
                 withContext(Dispatchers.IO) {

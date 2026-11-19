@@ -468,7 +468,14 @@ fun Layer.withSlowestSpeed(): Layer {
     return copy(node = n)
 }
 
-fun Scene.withSlowestSpeeds(): Scene = layers.fold(this) { scene, layer ->
-    val fixed = layer.withSlowestSpeed()
-    if (fixed === layer) scene else scene.update(layer.id) { fixed }
+fun Scene.withSlowestSpeeds(): Scene {
+    var changed = false
+    val fixed = node.children.map { child ->
+        if (child.name !in Scene.LAYER_TAGS) child else {
+            val layer = Layer(child)
+            val slower = layer.withSlowestSpeed()
+            if (slower === layer) child else { changed = true; slower.node }
+        }
+    }
+    return if (changed) Scene(node.copy(children = fixed)) else this
 }

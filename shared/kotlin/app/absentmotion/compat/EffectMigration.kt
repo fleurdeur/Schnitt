@@ -19,6 +19,23 @@ import kotlin.math.roundToInt
 import kotlin.math.withSign
 
 class EffectMigration(private val rules: Map<String, Rule>, private val catalog: EffectCatalog) {
+    private val definitionsByKey = catalog.definitions.associateBy { it.key }
+    private val definitionsById = catalog.definitions.associateBy { it.id }
+
+    /** Alight effects that the native motion/text renderer already understands
+     *  without a catalog entry. They must not be rewired through the generic
+     *  fallback: that loses parameters and can move a layer. */
+    private val nativeAlight = setOf(
+        "com.alightcreative.effects.fade", "com.alightcreative.effects.blink", "com.alightcreative.effects.blink2",
+        "com.alightcreative.effects.flicker", "com.alightcreative.effects.flicker2",
+        "com.alightcreative.effects.pulse-opacity", "com.alightcreative.effects.pulse_opacity2",
+        "com.alightcreative.effects.oscillate", "com.alightcreative.effects.oscillate2", "com.alightcreative.effects.oscillate3",
+        "com.alightcreative.effects.spin", "com.alightcreative.effects.pulsate", "com.alightcreative.effects.pulsate2",
+        "com.alightcreative.effects.swing", "com.alightcreative.effects.swing2",
+        "com.alightcreative.effects.jitter", "com.alightcreative.effects.randomdisplace",
+        "com.alightcreative.effects.shake", "com.alightcreative.effects.shake2",
+        "com.alightcreative.effects.scaleassist",
+    )
     class Conversion(
         val to: String?,
         val power: Float = 1f,
@@ -56,8 +73,13 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
         val dropped = sortedSetOf<String>()
         var renamed = false
         fun visit(node: XmlNode, dims: FloatArray): XmlNode {
+            // Text spacing is read directly by the native text layout, not by
+            // the effect catalog. Keep it untouched instead of letting the
+            // generic fallback rewire its properties into another effect.
+            if (node.name == "effect" && node["id"] == ForeignEffectIds.TEXT_SPACING) return node
             val rule = if (node.name == "effect") rules[node["id"]]?.takeIf { r -> r.onlyWith == null || node.children.any { c -> c.name == "property" && c["name"] == r.onlyWith } } else null
-            val own = rule?.let { catalog.definitions.firstOrNull { d -> d.key == it.to } }
+            if (node.name == "effect" && rule == null && node["id"] in nativeAlight) return node
+            val own = rule?.let { definitionsByKey[it.to] }
             val older = own != null && node["id"] == own.id
             // A curated rule is a promise that the built-in effect is the
             // implementation we want. A bundled Alight shader must not win just
@@ -69,8 +91,8 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
                 if (older) renamed = true else converted.merge("${node["id"]!!.substringAfterLast('.')} → ${own.name}", 1, Int::plus)
                 return convert(node, rule, own, older, dims) { dropped += "${own.name}: $it" }
             }
-            val nativeAm = if (node.name == "effect") catalog.definitions.firstOrNull {
-                it.id == node["id"] && (it.key.startsWith("am-") || it.external)
+            val nativeAm = if (node.name == "effect") definitionsById[node["id"]]?.takeIf {
+                it.key.startsWith("am-") || it.external
             } else null
             if (nativeAm != null) return align(node, nativeAm)
             val alightId = node["id"]?.startsWith("com.alightcreative.") == true
@@ -189,7 +211,13 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
             val sizePenalty = abs(d.params.size - props.size) * 0.15f
             d to (exact * 10f + normalized * 5f + overlap * 4f + jaccard * 8f + family * 3f - sizePenalty)
         }.filter { it.second > 0f }
-        val chosen = scored.maxByOrNull { it.second }?.first ?: return null
+        val best = scored.maxByOrNull { it.second } ?: return null
+        // A family word alone is not enough: rewiring a layer effect to an
+        // unrelated control set is what makes imported layers jump or turn
+        // into a different look. Require at least one matching parameter or a
+        // strong name match before using a fallback.
+        if (best.second < 7f) return null
+        val chosen = best.first
         val dropped = ArrayList<String>()
         val used = HashSet<String>()
         val mapped = props.mapNotNull { prop ->

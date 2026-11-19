@@ -105,7 +105,11 @@ class ProjectStore(private val root: File) {
 
     private fun recoveryFile(id: String) = File(root, "recovery").child("$id.xml")
 
-    fun load(id: String): Scene? = read(id)?.let { withLinkedElements(it, id) }?.withSlowestSpeeds()
+    fun load(id: String): Scene? = text(id)?.let { load(id, it) }
+
+    /** Uses the XML already read by the caller, so opening a project reads the file once. */
+    fun load(id: String, text: String): Scene? =
+        projectScene(text)?.let { withLinkedElements(it, id) }?.withSlowestSpeeds()
 
     private fun read(id: String): Scene? = text(id)?.let(::projectScene)
 
