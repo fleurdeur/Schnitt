@@ -15,6 +15,11 @@
       "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.3/app-armeabi-v7a.apk"
     },
     {
+      "name": "app-aurea-arm64-v8a.apk",
+      "size": 142021514,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.3/app-aurea-arm64-v8a.apk"
+    },
+    {
       "name": "app-universal.apk",
       "size": 122647354,
       "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.3/app-universal.apk"
