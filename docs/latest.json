@@ -13,6 +13,11 @@
       "name": "app-armeabi-v7a.apk",
       "size": 98939920,
       "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.5/app-armeabi-v7a.apk"
+    },
+    {
+      "name": "app-universal.apk",
+      "size": 137610200,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.5/app-universal.apk"
     }
   ]
 }
