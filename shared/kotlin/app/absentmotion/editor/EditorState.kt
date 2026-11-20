@@ -328,6 +328,8 @@ class EditorState(
 
     var easingHint by mutableStateOf(false)
 
+    var mcpOpen by mutableStateOf(false)
+
     var expressionOpen by mutableStateOf(false)
     var expressionRef by mutableStateOf<PropRef?>(null)
         private set

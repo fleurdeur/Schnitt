@@ -126,6 +126,9 @@ class MainActivity : ComponentActivity() {
     private val filePicker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments()) { MediaPicks.addPictures(it) }
     private val soundPicker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments()) { MediaPicks.addSounds(it) }
     private val notifyPermission = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
+    private val treePicker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) app.absentmotion.platform.LinkedMediaTrees.picked(applicationContext, uri)
+    }
     internal lateinit var store: ProjectStore
     internal lateinit var settings: AppSettings
     private lateinit var templates: TemplateStore
@@ -155,6 +158,7 @@ class MainActivity : ComponentActivity() {
     private var importFailed by mutableStateOf<String?>(null)
     private var importProgress by mutableStateOf<Float?>(null)
     private var importDetail by mutableStateOf<String?>(null)
+    private var sharedMedia by mutableStateOf<List<SharedMedia>>(emptyList())
     private var fontOffer by mutableStateOf<Pair<EditorState, List<String>>?>(null)
     private val fontsDeclined = HashSet<String>()
     private var engineProblem by mutableStateOf<String?>(null)
@@ -236,6 +240,8 @@ class MainActivity : ComponentActivity() {
             { filePicker.launch(arrayOf("image/*", "video/*", "audio/*")) },
             { soundPicker.launch(arrayOf("audio/*", "application/ogg", "application/x-flac")) },
         ) { editor?.projectId }
+        app.absentmotion.platform.LinkedMediaTrees.install(this, applicationContext) { treePicker.launch(null) }
+        app.absentmotion.media.MediaLibrarySource.linkedMedia = app.absentmotion.platform.LinkedMediaTrees::listVisual
         lifecycleScope.launch {
             androidx.compose.runtime.snapshotFlow { editor }.collectLatest { state ->
                 if (state == null) return@collectLatest
@@ -249,7 +255,7 @@ class MainActivity : ComponentActivity() {
         TestHooks.start(this)
         lifecycleScope.launch { androidx.compose.runtime.snapshotFlow { settings.openGl }.drop(1).collect { engine.restart() } }
         app.absentmotion.ui.home.Updater.calm = ::updateCalm
-        app.absentmotion.ui.home.Updater.atLaunch(applicationContext)
+        app.absentmotion.ui.home.Updater.atLaunch(applicationContext, open = intent.action == app.absentmotion.ui.home.UpdateService.OpenUpdate)
         lifecycleScope.launch { engineWorks() }
         firstRun = FirstRun.of(settings, TestHooks.onboarding(intent).takeIf { savedInstanceState == null })
         whatsNew = app.absentmotion.ui.home.WhatsNewNotes.pending(this, settings)
@@ -389,7 +395,7 @@ class MainActivity : ComponentActivity() {
                 }
                 app.absentmotion.ui.tutorial.TutorialHost(
                     open, store, settings,
-                    homeFree = open == null && first == null && !opening && editingTemplate == null && exportingFromList == null && importPreview == null && offer == null && crashed == null && !problemShown && imported.isEmpty() && whatsNew == null,
+                    homeFree = open == null && first == null && !opening && editingTemplate == null && exportingFromList == null && importPreview == null && offer == null && crashed == null && !problemShown && imported.isEmpty() && whatsNew == null && sharedMedia.isEmpty(),
                     onOpen = ::open, onCloseEditor = ::closeEditor, onChanged = { projectsChanged++ },
                 )
             }
@@ -418,7 +424,37 @@ class MainActivity : ComponentActivity() {
 
     private fun importShared() {
         val uris = ImportHandOff.take().map(Uri::parse)
-        if (uris.isNotEmpty()) importUris(uris)
+        if (uris.isEmpty()) return
+        val target = editor?.takeUnless { closingEditor }
+        lifecycleScope.launch {
+            val classified = withContext(Dispatchers.IO) { uris.map { it to readSharedMedia(it) } }
+            val projects = classified.filter { it.second == null }.map { it.first }
+            if (projects.isNotEmpty()) importUris(projects)
+            val media = classified.mapNotNull { it.second }
+            if (media.isEmpty()) return@launch
+            if (target != null && editor === target && !closingEditor) queueSharedMedia(target.projectId, media)
+            else sharedMedia += media
+        }
+    }
+
+    private fun openShared(id: String?) {
+        val media = sharedMedia
+        if (media.isEmpty() || editor != null || opening || openingProject) return
+        openingProject = true
+        openJob = lifecycleScope.launch {
+            try {
+                val project = id ?: try { createSharedProject(applicationContext, store, settings, media) }
+                catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (e: Exception) { Log.w("AMImport", "cannot create a project from shared media", e); null }
+                if (project == null) {
+                    Toast.makeText(this@MainActivity, getString(R.string.home_create_project_failed), Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+                val state = openNow(project) ?: return@launch
+                sharedMedia = sharedMedia.drop(media.size)
+                queueSharedMedia(state.projectId, media)
+            } finally { openingProject = false }
+        }
     }
 
     private fun importUris(uris: List<Uri>) {
@@ -455,9 +491,10 @@ class MainActivity : ComponentActivity() {
                             importDetail = getString(if (alight) R.string.import_preparing else R.string.import_reading)
                         }
                         try {
-                            reports += importer.import {
-                                (remote?.inputStream() ?: contentResolver.openInputStream(uri))?.let { stoppable(it, job) }
-                            }.map {
+                            val parsed = if (remote != null) importer.import(remote) else importer.import {
+                                contentResolver.openInputStream(uri)?.let { stoppable(it, job) }
+                            }
+                            reports += parsed.map {
                                 afterImport()
                                 if (!it.template) it else templates.adopt(store, it.id, engine)?.let { id -> it.copy(id = id) } ?: it.copy(template = false)
                             }.onEach { report ->
@@ -779,7 +816,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        importShared()
+        if (intent.action == app.absentmotion.ui.home.UpdateService.OpenUpdate) app.absentmotion.ui.home.Updater.atLaunch(applicationContext, open = true)
+        else importShared()
         TestHooks.newIntent(this, intent)
     }
 
@@ -809,6 +847,7 @@ class MainActivity : ComponentActivity() {
         if (app.absentmotion.editor.ElementNav.open === elementNav) app.absentmotion.editor.ElementNav.open = null
         elementNav = null
         MediaPicks.release(this)
+        app.absentmotion.platform.LinkedMediaTrees.release(this)
         crashSaver?.current = { null }
         if (app.absentmotion.ui.home.Updater.calm == ::updateCalm) app.absentmotion.ui.home.Updater.calm = { false }
         app.absentmotion.export.ExportEngine.release(engine)

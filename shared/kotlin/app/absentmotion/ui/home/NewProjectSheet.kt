@@ -461,7 +461,7 @@ private fun DropdownField(
             Text(text, Modifier.weight(1f), color = Am.HomeInk, fontSize = 16.sp, maxLines = 1)
             Icon(HomeIcons.ChevronDown, null, Modifier.size(24.dp), tint = Am.HomeInk)
         }
-        RefMenu(open, { open = false }, ListColor, FieldShape, Modifier.width(180.dp), maxHeight = 330.dp) { menu { open = false } }
+        RefMenu(open, { open = false }, Am.Card, FieldShape, Modifier.width(180.dp), maxHeight = 330.dp) { menu { open = false } }
     }
 }
 
@@ -475,9 +475,9 @@ private fun PickRow(text: String, swatch: Int? = null, divider: Boolean, onClick
             Swatch(swatch)
             Spacer(Modifier.width(8.dp))
         }
-        Text(text, color = Am.OnNavy, fontSize = 16.sp, maxLines = 1)
+        Text(text, color = Am.HomeInk, fontSize = 16.sp, maxLines = 1)
     }
-    if (divider) Box(Modifier.fillMaxWidth().height(1.dp).background(ListLine))
+    if (divider) Box(Modifier.fillMaxWidth().height(1.dp).background(Am.HomeLine))
 }
 
 @Composable
@@ -541,7 +541,7 @@ private fun SavedSizeStrip(form: Form, settings: AppSettings) {
                     Text(size.name, Modifier.widthIn(max = 150.dp), color = Am.HomeInk, fontSize = 14.sp, lineHeight = 16.sp, maxLines = 1)
                     Text(size.label, color = DimText, fontSize = 11.sp, lineHeight = 13.sp, maxLines = 1)
                 }
-                RefMenu(menu, { menu = false }, ListColor, FieldShape, Modifier.width(180.dp)) {
+                RefMenu(menu, { menu = false }, Am.Card, FieldShape, Modifier.width(180.dp)) {
                     PickRow(stringResource(R.string.rename), divider = true) { menu = false; naming = size to size.name }
                     PickRow(stringResource(R.string.delete), divider = false) { menu = false; settings.savedSizes = SavedSizes.without(settings.savedSizes, size) }
                 }

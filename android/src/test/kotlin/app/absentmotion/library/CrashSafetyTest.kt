@@ -83,7 +83,7 @@ class CrashSafetyTest {
         val root = tmp.newFolder()
         val store = ProjectStore(root)
         val projects = File(root, "projects")
-        assertTrue(projects.setWritable(false))
+        org.junit.Assume.assumeTrue("the filesystem cannot make the project folder read-only", projects.setWritable(false))
         try {
             org.junit.Assume.assumeFalse(projects.canWrite())
             store.create(Scene.create("New", 100, 100, 30, 0))

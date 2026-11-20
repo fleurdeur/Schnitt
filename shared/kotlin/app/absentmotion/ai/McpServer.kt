@@ -4,6 +4,9 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import app.absentmotion.editor.EditorState
+import app.absentmotion.editor.Expressions
+import app.absentmotion.editor.bakeExpression
+import app.absentmotion.editor.expressionText
 import app.absentmotion.editor.addCamera
 import app.absentmotion.editor.addLight
 import app.absentmotion.editor.addNull
@@ -200,6 +203,12 @@ object McpServer {
         put(tool("layer.delete", "Delete the selected layer.", "{}"))
         put(tool("layer.set", "Set a property value. Values are floats separated by commas.", """{"id":{"type":"integer"},"property":{"type":"string"},"value":{"type":"string"}}""", listOf("id", "property", "value")))
         put(tool("keyframe.add", "Add a keyframe in milliseconds. Omit value to reuse the current property value.", """{"id":{"type":"integer"},"property":{"type":"string"},"timeMs":{"type":"number"},"value":{"type":"string"}}""", listOf("id", "property", "timeMs")))
+        put(tool("property.list", "List a layer's transform and property values, keyframes and expressions.", """{"id":{"type":"integer"}}""", listOf("id")))
+        put(tool("keyframe.list", "List all keyframes for one property.", """{"id":{"type":"integer"},"property":{"type":"string"}}""", listOf("id", "property")))
+        put(tool("keyframe.remove", "Remove the keyframe nearest a time in milliseconds.", """{"id":{"type":"integer"},"property":{"type":"string"},"timeMs":{"type":"number"}}""", listOf("id", "property", "timeMs")))
+        put(tool("expression.get", "Read the stored expression text for a property.", """{"id":{"type":"integer"},"property":{"type":"string"}}""", listOf("id", "property")))
+        put(tool("expression.set", "Bake an expression into keyframes using the expression editor language.", """{"id":{"type":"integer"},"property":{"type":"string"},"expression":{"type":"string"}}""", listOf("id", "property", "expression")))
+        put(tool("expression.eval", "Evaluate an expression at a time without editing.", """{"id":{"type":"integer"},"expression":{"type":"string"},"timeMs":{"type":"number"}}""", listOf("id", "expression")))
         put(tool("time.set", "Move the playhead to a time in milliseconds.", """{"timeMs":{"type":"number"},"playing":{"type":"boolean"}}""", listOf("timeMs")))
         put(tool("edit.undo", "Undo the last edit.", "{}"))
         put(tool("edit.redo", "Redo the last undone edit.", "{}"))
@@ -208,6 +217,10 @@ object McpServer {
     private fun tool(name: String, description: String, properties: String, required: List<String> = emptyList()) =
         JSONObject().put("name", name).put("description", description)
             .put("inputSchema", JSONObject().put("type", "object").put("properties", JSONObject(properties)).put("required", JSONArray(required)))
+
+    fun catalog(): List<Pair<String, String>> = tools().let { list ->
+        (0 until list.length()).map { i -> list.getJSONObject(i).let { it.getString("name") to it.getString("description") } }
+    }
 }
 
 object McpBridge {
@@ -274,6 +287,18 @@ private object McpTools {
             state.edit("mcp-set") { s -> s.update(id) { it.withValue(ref, formatFloats(values)) } }
             "set $property"
         }
+        "property.list" -> McpBridge.onMain { state ->
+            val layer = state.scene.layer(args.getLong("id")) ?: error("no layer")
+            JSONArray().apply {
+                for (ref in listOf(PropRef.Location, PropRef.Scale, PropRef.Rotation, PropRef.Opacity, PropRef.Tilt)) {
+                    val element = layer.element(ref) ?: continue
+                    put(JSONObject().put("property", ref.name).put("value", element["value"]).put("keyframes", element.keyframes.size)
+                        .put("expression", element.children.firstOrNull { it.name == "expression" }?.get("value") ?: JSONObject.NULL))
+                }
+                for (node in layer.node.children) if (node.name == "property") put(JSONObject().put("property", node["name"]).put("value", node["value"])
+                    .put("keyframes", node.keyframes.size).put("expression", node.children.firstOrNull { it.name == "expression" }?.get("value") ?: JSONObject.NULL))
+            }.toString(2)
+        }
         "keyframe.add" -> McpBridge.onMain { state ->
             val id = args.getLong("id")
             val property = args.getString("property")
@@ -287,6 +312,43 @@ private object McpTools {
             state.edit("mcp-key") { s -> s.update(id) { it.withElement(ref, element.withKeyframes(keys.sortedBy { k -> k.t })) } }
             "keyframe $property at $t"
         }
+        "keyframe.list" -> McpBridge.onMain { state ->
+            val layer = state.scene.layer(args.getLong("id")) ?: error("no layer")
+            val ref = refOf(layer, args.getString("property"))
+            JSONArray().apply { layer.element(ref)?.keyframes?.forEach { put(JSONObject().put("t", it.t).put("value", it.v).put("easing", it.e ?: "linear")) } }.toString(2)
+        }
+        "keyframe.remove" -> McpBridge.onMain { state ->
+            val layer = state.scene.layer(args.getLong("id")) ?: error("no layer")
+            val property = args.getString("property")
+            val ref = refOf(layer, property)
+            val element = layer.element(ref) ?: error("no property $property")
+            val span = (layer.endTime - layer.startTime).coerceAtLeast(1)
+            val t = ((args.getDouble("timeMs") - layer.startTime) / span).toFloat()
+            val nearest = element.keyframes.minByOrNull { kotlin.math.abs(it.t - t) } ?: error("no keyframes")
+            val keys = element.keyframes.filter { it !== nearest }
+            state.edit("mcp-key-remove") { sc -> sc.update(layer.id) { it.withElement(ref, element.withKeyframes(keys)) } }
+            "removed keyframe at ${nearest.t}"
+        }
+        "expression.get" -> McpBridge.onMain { state ->
+            val layer = state.scene.layer(args.getLong("id")) ?: error("no layer")
+            layer.expressionText(refOf(layer, args.getString("property"))) ?: ""
+        }
+        "expression.set" -> McpBridge.onMain { state ->
+            val layer = state.scene.layer(args.getLong("id")) ?: error("no layer")
+            val property = args.getString("property")
+            state.edit("mcp-expression") { it.bakeExpression(layer.id, refOf(layer, property), args.getString("expression"), property) }
+            "baked $property"
+        }
+        "expression.eval" -> McpBridge.onMain { state ->
+            val layer = state.scene.layer(args.getLong("id")) ?: error("no layer")
+            val ms = args.optDouble("timeMs", state.timeMs.toDouble())
+            val span = (layer.endTime - layer.startTime).coerceAtLeast(1)
+            val t = ((ms - layer.startTime) / span).toFloat().coerceIn(0f, 1f)
+            Expressions.parts(args.getString("expression")).mapIndexed { i, part ->
+                Expressions.evaluate(part, (ms - layer.startTime).toFloat() / 1000f, t, state.scene.frameAt(ms.toInt()), state.scene.fps,
+                    state.scene.width, state.scene.height, i, 0f)
+            }.joinToString(",")
+        }
         "time.set" -> McpBridge.onMain { state ->
             val ms = args.getDouble("timeMs").toInt()
             state.frame = state.scene.frameAt(ms).coerceIn(0, state.scene.lastFrame)
@@ -297,6 +359,9 @@ private object McpTools {
         "edit.redo" -> McpBridge.onMain { state -> state.redo(); "redone" }
         else -> error("unknown tool $name")
     }
+
+    private fun refOf(layer: app.absentmotion.model.Layer, property: String): PropRef =
+        if (layer.element(PropRef(PropRef.Kind.Transform, property)) != null) PropRef(PropRef.Kind.Transform, property) else PropRef(PropRef.Kind.Child, property)
 
     private fun floats(text: String): FloatArray =
         text.split(',', ' ', '\t').mapNotNull { it.trim().toFloatOrNull() }.toFloatArray().takeIf { it.isNotEmpty() } ?: floatArrayOf(0f)

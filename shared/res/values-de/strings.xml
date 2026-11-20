@@ -2580,4 +2580,31 @@
     <string name="image_library_empty">No public images matched. Try a different phrase.</string>
     <string name="image_library_add">Add to timeline</string>
     <string name="theme_amoled">Schnitt AMOLED</string>
+<string name="share_add_to_project">Zu einem Projekt hinzufügen?</string>
+<plurals name="share_sounds">
+        <item quantity="one">%1$d Sound</item>
+        <item quantity="other">%1$d Sounds</item>
+    </plurals>
+<plurals name="share_pictures">
+        <item quantity="one">%1$d Bild</item>
+        <item quantity="other">%1$d Bilder</item>
+    </plurals>
+<plurals name="share_videos">
+        <item quantity="one">%1$d Video</item>
+        <item quantity="other">%1$d Videos</item>
+    </plurals>
+<string name="share_or_add_to">Oder hinzufügen zu</string>
+<plurals name="share_files">
+        <item quantity="one">%1$d Datei</item>
+        <item quantity="other">%1$d Dateien</item>
+    </plurals>
+<string name="media_drive_add_folder">Laufwerk oder Ordner</string>
+<string name="media_drive_cannot_open">Ordnerauswahl konnte nicht geöffnet werden</string>
+<string name="update_notification_install">Tippe, um das Update zu installieren.</string>
+<string name="update_foreground_hint">Lass AbsentMotion geöffnet, bis der Download fertig ist.</string>
+<string name="update_background_hint">Du kannst AbsentMotion verlassen. Der Download läuft weiter, und eine Benachrichtigung sagt dir, wann das Update installiert werden kann.</string>
+<string name="update_notification_ready">AbsentMotion %1$s kann installiert werden</string>
+<string name="update_notification_downloading">AbsentMotion %1$s wird heruntergeladen</string>
+<string name="update_channel">Updates</string>
+<string name="update_hide">Ausblenden</string>
 </resources>

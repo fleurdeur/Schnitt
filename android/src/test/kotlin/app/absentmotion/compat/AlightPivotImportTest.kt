@@ -63,6 +63,25 @@ class AlightPivotImportTest {
         assertEquals(listOf("100.000000,100.000000,0.000000", "120.000000,90.000000,0.000000"), location.keyframes.map { it.v })
     }
 
+    @Test fun aGroupWithoutItsOwnCanvasInheritsTheProjectSize() {
+        val out = migrate("""<scene width="1080" height="1920" fps="30" totalTime="2000" am="com.alightcreative.motion/5.0">
+            <embedScene id="1" startTime="0" endTime="1999">
+              <transform><location value="540,960,0"/></transform>
+              <scene fps="30" totalTime="2000">
+                <embedScene id="2" startTime="0" endTime="1999">
+                  <scene fps="30" totalTime="2000"><shape id="3" startTime="0" endTime="1999" fillType="color"/></scene>
+                </embedScene>
+              </scene>
+            </embedScene></scene>""")
+        val group = out.children.single { it.name == "embedScene" }
+        val inner = group.children.single { it.name == "scene" }
+        assertEquals("1080", inner["width"])
+        assertEquals("1920", inner["height"])
+        val nested = inner.children.single { it.name == "embedScene" }.children.single { it.name == "scene" }
+        assertEquals("1080", nested["width"])
+        assertEquals("1920", nested["height"])
+    }
+
     @Test fun camerasAreNotShiftedByTheirPivot() {
         val out = migrate("""<scene width="1080" height="1080" fps="30" totalTime="2000" am="com.alightcreative.motion/5.0">
             <camera id="1" startTime="0" endTime="2000">

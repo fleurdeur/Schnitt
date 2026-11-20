@@ -69,6 +69,12 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
     }
 
     fun migrate(scene: Scene): Result {
+        // Projects already written by Schnitt, with no Alight effect left,
+        // cannot be changed by this pass. Returning before walking every
+        // property and keyframe is the main reason large projects open faster.
+        if (scene.node["am"] == "app.absentmotion" && !hasAlightEffect(scene.node)) {
+            return Result(scene, emptyMap(), emptySet())
+        }
         val converted = linkedMapOf<String, Int>()
         val dropped = sortedSetOf<String>()
         var renamed = false
@@ -114,11 +120,44 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
         val foreign = root["am"]?.startsWith("com.alightcreative") == true
         if (foreign) {
             root = alightPivots(root)
+            root = normalizeGroups(root, root["width"]?.toIntOrNull() ?: 1080, root["height"]?.toIntOrNull() ?: 1080)
             root = root.copy(attrs = root.attrs + ("am" to "app.absentmotion"), children = root.children.map(::squaredBlendOpacity))
         }
         return Result(if (converted.isEmpty() && !renamed && !foreign) scene else Scene(root), converted, dropped)
     }
 
+
+
+
+    private fun hasAlightEffect(node: XmlNode): Boolean =
+        node.name == "effect" && node["id"]?.startsWith("com.alightcreative.") == true ||
+            node.children.any(::hasAlightEffect)
+
+    /**
+     * A group with a scene that lost or never had its canvas size used the
+     * native 1080 fallback, so the group was the wrong size and sat in the
+     * wrong place against the project. Give it the parent composition size.
+     */
+    private fun normalizeGroups(node: XmlNode, parentWidth: Int, parentHeight: Int): XmlNode {
+        val width = node["width"]?.toIntOrNull()?.takeIf { it > 0 } ?: parentWidth
+        val height = node["height"]?.toIntOrNull()?.takeIf { it > 0 } ?: parentHeight
+        return node.copy(children = node.children.map { child ->
+            when (child.name) {
+                "scene" -> normalizeGroups(child, width, height)
+                "embedScene" -> {
+                    val inner = child.child("scene")
+                    if (inner == null) child
+                    else {
+                        val fixed = inner.with("width", "${inner["width"]?.toIntOrNull()?.takeIf { it > 0 } ?: width}")
+                            .with("height", "${inner["height"]?.toIntOrNull()?.takeIf { it > 0 } ?: height}")
+                        child.withChild("scene", normalizeGroups(fixed, fixed["width"]!!.toInt(), fixed["height"]!!.toInt()))
+                    }
+                }
+                in Scene.LAYER_TAGS -> normalizeGroups(child, width, height)
+                else -> child
+            }
+        })
+    }
 
     /**
      * Alight Motion keeps a layer's location as its centre and its pivot as an

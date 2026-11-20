@@ -108,8 +108,8 @@ private val PanelColor get() = Am.HomePanel
 private val OpenColor get() = androidx.compose.ui.graphics.lerp(Am.HomePanel, Am.HomeInk, 0.06f)
 private val PanelShape = RoundedCornerShape(7.dp)
 private val DividerColor get() = Am.HomeLine
-private val ListLineColor get() = Am.NavyLine
-private val ChosenRow get() = Am.NavyHi
+private val ListLineColor get() = Am.HomeLine
+private val ChosenRow get() = Am.Chosen
 internal val CardGap = 10.dp
 private const val DESK = app.absentmotion.platform.PlatformFeatures.desktop
 
@@ -610,7 +610,7 @@ private fun DurationRow(settings: AppSettings) {
                 Text("${settings.defaultLayerDuration}s", Modifier.weight(1f), color = Am.Navy, fontSize = 16.sp)
                 Icon(HomeIcons.ChevronDown, null, Modifier.size(24.dp), tint = Am.Navy)
             }
-            RefMenu(open, { open = false }, Am.Navy, shape, Modifier.width(90.dp), maxHeight = 327.dp) {
+            RefMenu(open, { open = false }, Am.Card, shape, Modifier.width(90.dp), maxHeight = 327.dp) {
                 AppSettings.LAYER_DURATIONS.forEachIndexed { i, seconds ->
                     val chosen = seconds == settings.defaultLayerDuration
                     Box(
@@ -618,7 +618,7 @@ private fun DurationRow(settings: AppSettings) {
                             .clickable { settings.defaultLayerDuration = seconds; open = false }.padding(start = 14.dp),
                         contentAlignment = Alignment.CenterStart,
                     ) {
-                        Text("${seconds}s", color = Am.OnNavy, fontSize = 16.sp)
+                        Text("${seconds}s", color = Am.HomeInk, fontSize = 16.sp)
                     }
                     if (i < AppSettings.LAYER_DURATIONS.lastIndex) Box(Modifier.fillMaxWidth().height(1.dp).background(ListLineColor))
                 }
@@ -658,7 +658,7 @@ private fun ThemeRow(settings: AppSettings) {
                 Text(settings.themeLabel.text(), Modifier.weight(1f), color = Am.Navy, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Icon(HomeIcons.ChevronDown, null, Modifier.size(24.dp), tint = Am.Navy)
             }
-            RefMenu(open, { open = false }, Am.Navy, shape, Modifier.width(210.dp), maxHeight = 327.dp) {
+            RefMenu(open, { open = false }, Am.Card, shape, Modifier.width(210.dp), maxHeight = 327.dp) {
                 for ((id, label) in settings.themes) ThemeItem(label.text(), id == settings.theme) { open = false; if (id != settings.theme) app.absentmotion.ui.theme.ThemeFade.change { settings.theme = id } }
                 Box(Modifier.fillMaxWidth().height(1.dp).background(ListLineColor))
                 ThemeItem(stringResource(R.string.settings_import_theme), false) { open = false; picker.launch() }
@@ -672,7 +672,7 @@ private fun ThemeItem(label: String, chosen: Boolean, onClick: () -> Unit) {
     Box(
         Modifier.fillMaxWidth().heightIn(min = 40.dp).background(if (chosen) ChosenRow else Color.Transparent).deskPress().clickable(onClick = onClick).padding(horizontal = 14.dp),
         contentAlignment = Alignment.CenterStart,
-    ) { Text(label, color = Am.OnNavy, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+    ) { Text(label, color = Am.HomeInk, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
 }
 
 private fun readThemeText(context: Context, uri: Uri): String {

@@ -217,7 +217,7 @@ object PlatformFeatures {
     const val camera = true
     const val tools = true
     const val userFiles = false
-    const val linkFolders = false
+    const val linkFolders = true
 }
 
 fun textFieldFocused(): Boolean = false
@@ -236,13 +236,15 @@ fun Hint(text: String, content: @androidx.compose.runtime.Composable () -> Unit)
 @androidx.compose.runtime.Composable
 fun Hint(text: String, modifier: androidx.compose.ui.Modifier, content: @androidx.compose.runtime.Composable () -> Unit) = content()
 
-fun linkFolderLabel(): String = ""
+fun linkFolderLabel(): String = app.absentmotion.i18n.AppText.get(R.string.media_drive_add_folder)
 
-fun libraryFolderName(uri: android.net.Uri): String? = null
+fun libraryFolderName(uri: android.net.Uri): String? = LinkedMediaTrees.folderName(uri)
 
-fun removeFromLibrary(uri: android.net.Uri, unlinkFolder: Boolean) {}
+fun removeFromLibrary(uri: android.net.Uri, unlinkFolder: Boolean) {
+    if (unlinkFolder) LinkedMediaTrees.unlinkFor(uri)
+}
 
-fun linkMediaFolder() {}
+fun linkMediaFolder() = LinkedMediaTrees.openPicker()
 
 fun libraryFilePath(uri: android.net.Uri): String = uri.path.orEmpty()
 
@@ -281,18 +283,27 @@ internal fun captionTextHeight(fonts: app.absentmotion.fonts.FontLibrary, text: 
 }
 internal fun fontPreviewStyle() = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)
 
-internal fun readPreviewPixel(surface: Any?, x: Float, y: Float, complete: (Int?) -> Unit) {
+internal fun readPreviewPixel(surface: Any?, x: Float, y: Float, complete: (Int?) -> Unit) =
+    readPreviewPatch(surface, x, y, 1) { bitmap ->
+        complete(if (bitmap != null && bitmap.width > 0 && bitmap.height > 0) bitmap.getPixel(bitmap.width / 2, bitmap.height / 2) else null)
+    }
+
+/** Copies a square patch around a normalised preview point for the eyedropper loupe. */
+internal fun readPreviewPatch(surface: Any?, x: Float, y: Float, size: Int, complete: (android.graphics.Bitmap?) -> Unit) {
     val view = surface as? android.view.SurfaceView
     val frame = view?.holder?.surfaceFrame
     if (view == null || frame == null || frame.width() <= 0 || frame.height() <= 0) { complete(null); return }
+    val side = size.coerceAtLeast(1).coerceAtMost(minOf(frame.width(), frame.height()))
     val px = (x * frame.width()).toInt().coerceIn(0, frame.width() - 1)
     val py = (y * frame.height()).toInt().coerceIn(0, frame.height() - 1)
-    val pixel = android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888)
+    val left = (px - side / 2).coerceIn(0, (frame.width() - side).coerceAtLeast(0))
+    val top = (py - side / 2).coerceIn(0, (frame.height() - side).coerceAtLeast(0))
+    val bitmap = android.graphics.Bitmap.createBitmap(side, side, android.graphics.Bitmap.Config.ARGB_8888)
     runCatching {
-        android.view.PixelCopy.request(view, android.graphics.Rect(px, py, px + 1, py + 1), pixel, { result ->
-            complete(if (result == android.view.PixelCopy.SUCCESS) pixel.getPixel(0, 0) else null)
+        android.view.PixelCopy.request(view, android.graphics.Rect(left, top, left + side, top + side), bitmap, { result ->
+            if (result == android.view.PixelCopy.SUCCESS) complete(bitmap) else { bitmap.recycle(); complete(null) }
         }, android.os.Handler(android.os.Looper.getMainLooper()))
-    }.onFailure { complete(null) }
+    }.onFailure { bitmap.recycle(); complete(null) }
 }
 
 internal fun captionDownloadDescription(context: Context, name: String, bytes: Long) =
@@ -427,7 +438,9 @@ internal fun deviceSounds(context: Context): List<app.absentmotion.audio.DeviceA
             }
         }
     } catch (_: Exception) { }
-    return found
+    val known = found.mapTo(HashSet()) { it.name to it.durationMs }
+    val linked = LinkedMediaTrees.listSounds(context).filterNot { it.name to it.durationMs in known }
+    return if (linked.isEmpty()) found else (found + linked).sortedByDescending { it.date }
 }
 
 fun revealDeskFile(uri: android.net.Uri) {}

@@ -131,14 +131,14 @@ internal fun ExpressionDialog(state: EditorState) {
                     }
                 }
                 Text(
-                    "Baking writes ordinary keyframes, so export, undo and every importer keep working. The expression source is stored on the property.",
+                    "The expression runs as soon as you add it. Its generated values stay hidden from the timeline so they never mix with your own keyframes.",
                     Modifier.padding(horizontal = 14.dp, vertical = 8.dp), color = Am.Caption, fontSize = 10.sp, lineHeight = 14.sp,
                 )
                 Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 10.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Spacer(Modifier.weight(1f))
                     Text("CANCEL", Modifier.clip(RoundedCornerShape(7.dp)).clickable { state.expressionOpen = false }.padding(horizontal = 12.dp, vertical = 9.dp), color = Am.OnDarkDim, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Box(Modifier.clip(RoundedCornerShape(7.dp)).background(Am.Accent).clickable { state.applyExpression() }.padding(horizontal = 13.dp, vertical = 9.dp)) {
-                        Text("BAKE KEYFRAMES", color = Am.OnAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("ADD EXPRESSION", color = Am.OnAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
         }

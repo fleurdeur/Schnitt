@@ -3,7 +3,7 @@ package app.absentmotion.ui.editor.panels
 import androidx.compose.ui.res.stringResource
 import app.absentmotion.R
 import app.absentmotion.platform.BackHandler
-import app.absentmotion.platform.readPreviewPixel
+import app.absentmotion.platform.readPreviewPatch
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -31,10 +31,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +51,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -272,19 +277,27 @@ internal fun EyedropperLoupe(state: EditorState, modifier: Modifier = Modifier) 
     if (state.eyedropper == null) return
     var box by remember { mutableStateOf(IntSize.Zero) }
     var moved by remember { mutableStateOf<Offset?>(null) }
+    var patch by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var queued by remember { mutableStateOf(false) }
+    val latestPick by rememberUpdatedState(state.eyedropper)
+    val latestPatch by rememberUpdatedState(patch)
+    DisposableEffect(Unit) { onDispose { latestPatch?.recycle() } }
     fun at() = moved ?: Offset(box.width / 2f, box.height / 2f)
 
     fun sample(last: Boolean) {
-        if (box.width == 0 || box.height == 0 || (busy && !last)) {
-            if (last) state.endGesture()
-            return
-        }
+        if (box.width == 0 || box.height == 0) { if (last) state.endGesture(); return }
+        if (busy) { if (last) queued = true; return }
         busy = true
-        readPreviewPixel(state.previewSurface, at().x / box.width, at().y / box.height) { colour ->
+        val pick = latestPick
+        readPreviewPatch(state.previewSurface, at().x / box.width, at().y / box.height, 41) { bitmap ->
             busy = false
-            if (colour != null) state.eyedropper?.invoke(colour)
-            if (last) state.endGesture()
+            if (bitmap != null) {
+                patch?.takeIf { it !== bitmap }?.recycle()
+                patch = bitmap
+                pick?.invoke(bitmap.getPixel(bitmap.width / 2, bitmap.height / 2))
+            }
+            if (last || queued) { queued = false; sample(last) }
         }
     }
 
@@ -293,6 +306,8 @@ internal fun EyedropperLoupe(state: EditorState, modifier: Modifier = Modifier) 
             awaitEachGesture {
                 val down = awaitFirstDown()
                 down.consume()
+                moved = down.position
+                sample(false)
                 drag(down.id) { change ->
                     moved = (at() + change.positionChange()).let { Offset(it.x.coerceIn(0f, box.width.toFloat()), it.y.coerceIn(0f, box.height.toFloat())) }
                     change.consume()
@@ -304,12 +319,44 @@ internal fun EyedropperLoupe(state: EditorState, modifier: Modifier = Modifier) 
     ) {
         val u = 1.dp.toPx()
         val c = at()
+        val centre = patch?.let { Color(it.getPixel(it.width / 2, it.height / 2)) } ?: Am.Accent
+        val radius = 35 * u
+        val lift = 82 * u
+        val lens = Offset(c.x, (c.y - lift).coerceAtLeast(radius + 6 * u))
+        // Put the magnifier above the finger so it never hides the pixel being picked.
+        drawCircle(Color.Black.copy(alpha = .28f), radius + 2 * u, lens + Offset(0f, 2 * u))
+        drawCircle(Am.Card, radius + 2 * u, lens)
+        patch?.let { bitmap ->
+            val image = bitmap.asImageBitmap()
+            val side = radius * 2
+            clipPath(Path().apply { addOval(androidx.compose.ui.geometry.Rect(lens - Offset(radius, radius), Size(side, side))) }) {
+                drawImage(image, dstOffset = androidx.compose.ui.unit.IntOffset((lens.x - radius).roundToInt(), (lens.y - radius).roundToInt()),
+                    dstSize = androidx.compose.ui.unit.IntSize(side.roundToInt(), side.roundToInt()), filterQuality = FilterQuality.None)
+            }
+        }
+        drawCircle(Am.Accent, radius + 1.5f * u, lens, style = Stroke(2 * u))
+        drawCircle(Color.White, radius * .46f, lens, style = Stroke(1.5f * u))
+        drawCircle(centre, radius * .44f, lens)
+        drawCircle(Am.Accent, radius * .46f, lens, style = Stroke(1.5f * u))
+        // Crosshair on the live pixel.
         val under = Color.Black.copy(alpha = 0.5f)
-        drawCircle(under, 23 * u, c, style = Stroke(3f * u))
+        drawCircle(under, 16 * u, c, style = Stroke(3f * u))
         drawLine(under, c - Offset(6 * u, 0f), c + Offset(6 * u, 0f), 2.5f * u)
         drawLine(under, c - Offset(0f, 6 * u), c + Offset(0f, 6 * u), 2.5f * u)
-        drawCircle(Color.White.copy(alpha = 0.9f), 23 * u, c, style = Stroke(1.5f * u))
+        drawCircle(Color.White.copy(alpha = 0.95f), 16 * u, c, style = Stroke(1.5f * u))
         drawLine(Color.White, c - Offset(5 * u, 0f), c + Offset(5 * u, 0f), 1 * u)
         drawLine(Color.White, c - Offset(0f, 5 * u), c + Offset(0f, 5 * u), 1 * u)
+        // The hex label is a themed Compose text overlay below the lens.
+    }
+    patch?.let { bitmap ->
+        val c = at()
+        val u = with(LocalDensity.current) { 1.dp.toPx() }
+        val radius = 35 * u
+        val lift = 82 * u
+        val lens = Offset(c.x, (c.y - lift).coerceAtLeast(radius + 6 * u))
+        Text("#%06X".format(bitmap.getPixel(bitmap.width / 2, bitmap.height / 2) and 0xFFFFFF),
+            Modifier.offset { androidx.compose.ui.unit.IntOffset((lens.x - 28 * u).roundToInt(), (lens.y + radius + 4 * u).roundToInt()) }
+                .background(Am.Card, RoundedCornerShape(8.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
+            color = Am.HomeInk, fontSize = 10.sp, maxLines = 1)
     }
 }

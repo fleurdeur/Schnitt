@@ -549,20 +549,22 @@ object GltfReader {
         val holders = Ints()
         val holderParts = Ints()
         val holderParents = Ints()
-        fun visit(index: Int, parent: FloatArray, depth: Int, parentNode: Int) {
+        fun visit(index: Int, parent: FloatArray, depth: Int, parentPart: Int) {
             val node = nodes.getOrNull(index) ?: return
             if (depth > 64 || visited[index]) return
             visited[index] = true
             val world = multiply(parent, localMatrix(node))
             worlds[index] = world
+            var childParent = parentPart
             if (node.has("mesh")) {
                 val name = node.optString("name").ifBlank { "Part ${partNames.size + 1}" }
-                partParents.add(if (parentNode >= 0) nodePart[parentNode] else -1)
+                partParents.add(parentPart)
                 nodePart[index] = partNames.size
                 partNames.add(name)
-                holders.add(index); holderParts.add(partNames.size - 1); holderParents.add(partParents.last())
+                holders.add(index); holderParts.add(partNames.size - 1); holderParents.add(parentPart)
+                childParent = partNames.size - 1
             }
-            node.optJSONArray("children")?.let { c -> for (i in 0 until c.length()) visit(c.optInt(i, -1), world, depth + 1, index) }
+            node.optJSONArray("children")?.let { c -> for (i in 0 until c.length()) visit(c.optInt(i, -1), world, depth + 1, childParent) }
         }
 
         val identity = FloatArray(16) { if (it % 5 == 0) 1f else 0f }

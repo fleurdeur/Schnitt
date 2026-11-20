@@ -8,10 +8,20 @@ import app.absentmotion.model.Scene
 import app.absentmotion.model.replaceMedia
 import app.absentmotion.model.withLegacyExifOrientation
 import app.absentmotion.media.exifTag
+import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 object MediaRelink {
-    fun opens(context: Context, uri: String) =
-        runCatching { context.contentResolver.openAssetFileDescriptor(Uri.parse(uri), "r")?.use { true } }.getOrNull() == true
+    private val exif = ConcurrentHashMap<String, Int>()
+
+    fun opens(context: Context, uri: String): Boolean {
+        if (uri.startsWith("file://")) {
+            val path = runCatching { Uri.parse(uri).path }.getOrNull() ?: return false
+            return File(path).isFile
+        }
+        if (uri.startsWith("/")) return File(uri).isFile
+        return runCatching { context.contentResolver.openAssetFileDescriptor(Uri.parse(uri), "r")?.use { true } }.getOrNull() == true
+    }
 
     fun find(context: Context, media: MediaDeclaration): String? {
         if (media.filename.isEmpty() || media.size <= 0) return null
@@ -38,7 +48,10 @@ object MediaRelink {
         val uri = if (opens(context, m.uri)) m.uri else find(context, m)
         if (uri == null) s else {
             val linked = if (uri == m.uri && !s.isMissing(uri)) s else s.replaceMedia(m.uri, MediaDeclaration(m.node.with("uri", uri).with("missing", null)))
-            if (m.type.startsWith("image/") && m.orientation == 0) linked.withLegacyExifOrientation(uri, exifTag(context.contentResolver, Uri.parse(uri))) else linked
+            if (m.type.startsWith("image/") && m.orientation == 0) {
+                val turn = exif.getOrPut(uri) { exifTag(context.contentResolver, Uri.parse(uri)) }
+                linked.withLegacyExifOrientation(uri, turn)
+            } else linked
         }
     }
 }

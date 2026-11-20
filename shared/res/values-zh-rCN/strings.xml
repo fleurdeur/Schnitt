@@ -2551,4 +2551,27 @@
     <string name="image_library_empty">No public images matched. Try a different phrase.</string>
     <string name="image_library_add">Add to timeline</string>
     <string name="theme_amoled">Schnitt AMOLED</string>
+<string name="share_add_to_project">添加到项目？</string>
+<plurals name="share_sounds">
+        <item quantity="other">%1$d 个声音</item>
+    </plurals>
+<plurals name="share_pictures">
+        <item quantity="other">%1$d 张图片</item>
+    </plurals>
+<plurals name="share_videos">
+        <item quantity="other">%1$d 个视频</item>
+    </plurals>
+<string name="share_or_add_to">或添加到</string>
+<plurals name="share_files">
+        <item quantity="other">%1$d 个文件</item>
+    </plurals>
+<string name="media_drive_add_folder">驱动器或文件夹</string>
+<string name="media_drive_cannot_open">无法打开文件夹选择器</string>
+<string name="update_notification_install">点按以安装更新。</string>
+<string name="update_foreground_hint">下载完成前请保持 AbsentMotion 打开。</string>
+<string name="update_background_hint">你可以离开 AbsentMotion。下载会继续进行，准备好安装时会有通知提醒你。</string>
+<string name="update_notification_ready">AbsentMotion %1$s 已可安装</string>
+<string name="update_notification_downloading">正在下载 AbsentMotion %1$s</string>
+<string name="update_channel">更新</string>
+<string name="update_hide">隐藏</string>
 </resources>

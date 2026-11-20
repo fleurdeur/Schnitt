@@ -42,6 +42,12 @@ internal fun rememberAddLibrary(demoMode: Boolean): AddLibrary {
         if (library.audioRevision > 0) delay(400)
         library.audio = deviceAudio(context)
     }
+    LaunchedEffect(Unit) {
+        app.absentmotion.media.MediaLibrarySource.revision.collect {
+            library.mediaRevision++
+            library.audioRevision++
+        }
+    }
     DisposableEffect(context) {
         val main = Handler(Looper.getMainLooper())
         fun observer(change: () -> Unit) = object : ContentObserver(main) {

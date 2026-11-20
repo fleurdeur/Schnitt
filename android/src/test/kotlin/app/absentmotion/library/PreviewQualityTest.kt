@@ -16,12 +16,12 @@ class PreviewQualityTest {
     }
 
     @Test fun anUnknownValueFallsBackToTheOldSwitch() {
-        assertEquals(PreviewQuality.Half, PreviewQuality.of("Eighth", draft = true))
+        assertEquals(PreviewQuality.Eighth, PreviewQuality.of("Eighth", draft = true))
         assertEquals(PreviewQuality.Full, PreviewQuality.of("", draft = false))
     }
 
     @Test fun eachChoiceDividesThePreviewResolution() {
-        assertEquals(listOf(1, 2, 4), PreviewQuality.entries.map { it.divisor })
+        assertEquals(listOf(1, 2, 4, 8, 16), PreviewQuality.entries.map { it.divisor })
         for (q in PreviewQuality.entries) assertEquals(q, PreviewQuality.of(q.name, draft = false))
     }
 }

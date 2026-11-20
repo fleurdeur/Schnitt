@@ -84,7 +84,7 @@ fun previewComplexityDivisor(scene: Scene): Int {
 }
 
 fun sceneCacheDivisor(scene: Scene, requested: Int): Int =
-    (requested.coerceAtLeast(1) + previewComplexityDivisor(scene)).coerceAtMost(4)
+    (requested.coerceAtLeast(1) + previewComplexityDivisor(scene)).coerceAtMost(16)
 
 fun cacheFrameSize(scene: Scene, fit: Float, divisor: Int): Pair<Int, Int> =
     cacheFrameSize(scene.width, scene.height, fit, sceneCacheDivisor(scene, divisor))

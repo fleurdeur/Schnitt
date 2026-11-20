@@ -2609,4 +2609,35 @@
     <string name="image_library_empty">No public images matched. Try a different phrase.</string>
     <string name="image_library_add">Add to timeline</string>
     <string name="theme_amoled">Schnitt AMOLED</string>
+<string name="share_add_to_project">Ajouter à un projet ?</string>
+<plurals name="share_sounds">
+        <item quantity="one">%1$d son</item>
+        <item quantity="many">%1$d sons</item>
+        <item quantity="other">%1$d sons</item>
+    </plurals>
+<plurals name="share_pictures">
+        <item quantity="one">%1$d image</item>
+        <item quantity="many">%1$d images</item>
+        <item quantity="other">%1$d images</item>
+    </plurals>
+<plurals name="share_videos">
+        <item quantity="one">%1$d vidéo</item>
+        <item quantity="many">%1$d vidéos</item>
+        <item quantity="other">%1$d vidéos</item>
+    </plurals>
+<string name="share_or_add_to">Ou l’ajouter à</string>
+<plurals name="share_files">
+        <item quantity="one">%1$d fichier</item>
+        <item quantity="many">%1$d fichiers</item>
+        <item quantity="other">%1$d fichiers</item>
+    </plurals>
+<string name="media_drive_add_folder">Lecteur ou dossier</string>
+<string name="media_drive_cannot_open">Impossible d’ouvrir le sélecteur de dossier</string>
+<string name="update_notification_install">Touchez pour installer la mise à jour.</string>
+<string name="update_foreground_hint">Gardez AbsentMotion ouvert jusqu’à la fin du téléchargement.</string>
+<string name="update_background_hint">Vous pouvez quitter AbsentMotion. Le téléchargement continue et une notification vous préviendra quand la mise à jour sera prête à installer.</string>
+<string name="update_notification_ready">AbsentMotion %1$s est prêt à être installé</string>
+<string name="update_notification_downloading">Téléchargement d’AbsentMotion %1$s</string>
+<string name="update_channel">Mises à jour</string>
+<string name="update_hide">Masquer</string>
 </resources>

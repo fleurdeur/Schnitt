@@ -49,20 +49,31 @@ internal object MediaPicks {
 
     private val pictures = mutableStateListOf<Pair<Uri, Long>>()
     private val sounds = mutableStateListOf<Pair<Uri, Long>>()
+    private class SharedPicks(val project: String, val pictures: List<Uri>, val sounds: List<Uri>)
+    private val shared = mutableStateListOf<SharedPicks>()
 
-    val waiting: Int get() = pictures.size + sounds.size
+    val waiting: Int get() = pictures.size + sounds.size + shared.size
 
     fun addPictures(uris: List<Uri>) { pictures += uris.map { it to System.currentTimeMillis() } }
 
     fun addSounds(uris: List<Uri>) { sounds += uris.map { it to System.currentTimeMillis() } }
 
+    /** Media shared from another app is always added to the named project. */
+    fun addShared(project: String, pictures: List<Uri>, sounds: List<Uri>) {
+        if (pictures.isNotEmpty() || sounds.isNotEmpty()) shared += SharedPicks(project, pictures, sounds)
+    }
+
     suspend fun deliver(state: EditorState, context: Context) {
         val now = System.currentTimeMillis()
         val pictures = take(pictures, now)
         val sounds = take(sounds, now)
-        if (target != null && target != state.projectId) return
+        if (target != null && target != state.projectId && shared.none { it.project == state.projectId }) return
         if (pictures.isNotEmpty()) state.addPictures(context, pictures)
         if (sounds.isNotEmpty()) state.addSounds(context, sounds)
+        val pick = shared.firstOrNull { it.project == state.projectId } ?: return
+        shared.remove(pick)
+        if (pick.pictures.isNotEmpty()) state.addPictures(context, pick.pictures)
+        if (pick.sounds.isNotEmpty()) state.addSounds(context, pick.sounds)
     }
 
     private fun take(list: MutableList<Pair<Uri, Long>>, now: Long): List<Uri> =

@@ -93,7 +93,11 @@ class Importer(
     private val limits: ImportLimits = ImportLimits(),
     private val fonts: File? = null,
 ) {
-    fun import(open: () -> InputStream?): List<ImportReport> = try {
+    fun import(file: File): List<ImportReport> = import({ file.inputStream() }, file)
+
+    fun import(open: () -> InputStream?): List<ImportReport> = import(open, null)
+
+    private fun import(open: () -> InputStream?, source: File?): List<ImportReport> = try {
         fun stream() = open() ?: throw ImportFailed(txt(R.string.library_err_no_data))
         val head = stream().use { it.readAtMost(12) }
         if (head.size >= 12 && head[0] == 'R'.code.toByte() && head[1] == 'I'.code.toByte() && head[2] == 'F'.code.toByte() && head[3] == 'X'.code.toByte() &&
@@ -107,7 +111,10 @@ class Importer(
                 add(store.newId(), root, emptyMap())
             }
         }
-        if (head.size >= 2 && head[0] == 'P'.code.toByte() && head[1] == 'K'.code.toByte()) fromPackage(::stream)
+        if (head.size >= 2 && head[0] == 'P'.code.toByte() && head[1] == 'K'.code.toByte()) {
+            zipSource = source?.let { runCatching { java.util.zip.ZipFile(it) }.getOrNull() }
+            fromPackage(::stream)
+        }
         else if (head.size >= 4 && head[0] == 0xD0.toByte() && head[1] == 0xCF.toByte() && head[2] == 0x11.toByte() && head[3] == 0xE0.toByte()) throw ImportFailed(txt(R.string.fla_err_old))
         else {
             val text = stream().use { readText(it, MaxXml) }.removePrefix("\uFEFF")
@@ -125,6 +132,9 @@ class Importer(
         }
     } catch (e: OutOfMemoryError) {
         throw ImportFailed(txt(R.string.library_err_xml_large))
+    } finally {
+        runCatching { zipSource?.close() }
+        zipSource = null
     }
 
     private fun fromPackage(open: () -> InputStream): List<ImportReport> {
@@ -217,7 +227,8 @@ class Importer(
             val localFonts = HashMap<String, String>()
             if (copies.isNotEmpty() || fontEntries.isNotEmpty()) {
                 copies.values.flatten().forEach { it.parentFile?.mkdirs() }
-                eachEntry(open, limits) { name, input ->
+                val wanted = copies.keys + fontEntries.keys
+                eachEntry(open, limits, wanted) { name, input ->
                     fontEntries[name]?.let { font -> installFont(input, font, fonts!!, fontFiles)?.let { localFonts[font] = it } }
                     val targets = copies[name] ?: return@eachEntry
                     written -= copy(input, targets.first(), written)
@@ -225,7 +236,14 @@ class Importer(
                 }
             }
             val renamedFonts = localFonts.filter { (old, new) -> old != new }
-            scenes.indices.mapTo(saved) { add(ids[it], check(scenes[it]).let { root -> if (renamedFonts.isEmpty()) root else root.mapFonts(renamedFonts) }, moved[it]) }
+            // Alight packages often repeat the same image under several names.
+            // Within one project directory, keep one copy and point every layer
+            // at it. This cuts the imported size without changing any pixel.
+            val canonical = dedupe(copies.values.flatten())
+            val uniqueMoved = moved.map { map ->
+                map.mapValues { (_, uri) -> canonical[runCatching { File(java.net.URI(uri)) }.getOrNull()]?.toURI()?.toString() ?: uri }
+            }
+            scenes.indices.mapTo(saved) { add(ids[it], check(scenes[it]).let { root -> if (renamedFonts.isEmpty()) root else root.mapFonts(renamedFonts) }, uniqueMoved[it]) }
             ids.forEach { File(store.mediaDir(it), ImportMarker).delete(); store.mediaDir(it).delete() }
             val shared = community?.takeIf { saved.size == 1 }?.let { CommunityInfo.read(it, communityFiles) }
             return if (!ours) saved.map { if (it.element) it else it.copy(template = true) } else if (shared != null) saved.map { it.copy(community = shared) } else saved
@@ -344,6 +362,7 @@ class Importer(
     }
 
     companion object {
+        @Volatile private var zipSource: java.util.zip.ZipFile? = null
         private const val MaxXml = 16 shl 20
         private const val MaxAep = 256 shl 20
         private const val MaxFlaMedia = 256 shl 20
@@ -421,6 +440,37 @@ class Importer(
             return "imported?name=${target.name}"
         }
 
+        private fun dedupe(files: Collection<File>): Map<File, File> {
+            val canonical = HashMap<File, File>()
+            for ((_, group) in files.filter { it.isFile && it.length() in 64 * 1024..8 * 1024 * 1024 && it.parentFile?.name?.startsWith("model-") != true }
+                .groupBy { it.parentFile to it.length() }) {
+                if (group.size < 2) continue
+                val byHash = HashMap<String, File>()
+                for (file in group) {
+                    val hash = runCatching { digest(file) }.getOrNull() ?: continue
+                    val first = byHash.getOrPut(hash) { file }
+                    if (first != file) {
+                        canonical[file] = first
+                        file.delete()
+                    }
+                }
+            }
+            return canonical
+        }
+
+        private fun digest(file: File): String {
+            val md = java.security.MessageDigest.getInstance("SHA-256")
+            file.inputStream().buffered().use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val n = input.read(buffer)
+                    if (n < 0) break
+                    md.update(buffer, 0, n)
+                }
+            }
+            return md.digest().joinToString("") { "%02x".format(it) }
+        }
+
         private fun leaf(name: String): String? = name.substringAfterLast('/').substringAfterLast('\\').takeIf { it.isNotEmpty() && it != "." && it != ".." }
 
         private fun portable(name: String) = name.replace(Regex("[<>:\"|?*\\x00-\\x1f]"), "_").trimEnd(' ', '.').ifEmpty { "media" }
@@ -433,9 +483,36 @@ class Importer(
             return path.takeIf { it in paths } ?: paths.firstOrNull { it.endsWith("/$path") } ?: paths.firstOrNull { leaf(it) == name }
         }
 
-        private fun eachEntry(open: () -> InputStream, limits: ImportLimits, visit: (String, InputStream) -> Unit) {
+        private fun eachEntry(open: () -> InputStream, limits: ImportLimits, only: Set<String>? = null, visit: (String, InputStream) -> Unit) {
             var left = limits.unpacked
             var entries = 0
+            zipSource?.let { zip ->
+                fun charge(n: Int) {
+                    left -= n
+                    if (left < 0) throw ImportFailed(txt(R.string.library_err_package_large, (limits.unpacked shr 20).toString()))
+                }
+                for (entry in zip.entries()) {
+                    if (entry.isDirectory) continue
+                    if (++entries > limits.entries) throw ImportFailed(txt(R.string.library_err_too_many_files, limits.entries.toString()))
+                    val path = entryPath(entry.name).takeIf { leaf(it) != null } ?: continue
+                    if (only != null && path !in only) continue
+                    val raw = zip.getInputStream(entry)
+                    val counted = object : InputStream() {
+                        override fun read(): Int = raw.read().also { if (it >= 0) charge(1) }
+                        override fun read(b: ByteArray, off: Int, len: Int): Int = raw.read(b, off, len).also { if (it > 0) charge(it) }
+                    }
+                    try {
+                        // A ZipFile can seek to the next entry. Never drain an
+                        // entry the caller did not ask for: the first pass would
+                        // otherwise decompress every video and image in an
+                        // Alight link just to discover its manifest.
+                        visit(path, counted)
+                    } finally {
+                        runCatching { counted.close() }
+                    }
+                }
+                return
+            }
             ZipInputStream(open().buffered()).use { zip ->
                 fun charge(n: Int) {
                     left -= n
@@ -448,7 +525,8 @@ class Importer(
                 while (true) {
                     val entry = (try { zip.nextEntry } catch (e: IllegalArgumentException) { throw ImportFailed(txt(R.string.library_err_malformed_package, e.message.toString())) }) ?: break
                     if (++entries > limits.entries) throw ImportFailed(txt(R.string.library_err_too_many_files, limits.entries.toString()))
-                    if (!entry.isDirectory) entryPath(entry.name).takeIf { leaf(it) != null }?.let { visit(it, counted) }
+                    val path = entryPath(entry.name).takeIf { leaf(it) != null }
+                    if (path != null && (only == null || path in only)) visit(path, counted)
                     counted.drain()
                 }
             }

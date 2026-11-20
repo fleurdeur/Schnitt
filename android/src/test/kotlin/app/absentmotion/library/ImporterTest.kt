@@ -108,6 +108,30 @@ class ImporterTest {
         assertFalse(node.children.first { it.name == "media" && it["filename"] == "a.jpg" }.attrs.containsKey("missing"))
     }
 
+    @Test fun aLocalPackageIsReadSeekablyAndRepeatedAssetsShareOneFile() {
+        val scene = """<scene title="P" width="100" height="100" fps="30" totalTime="1000">
+            <media uri="amproj:one.png" filename="one.png" />
+            <media uri="amproj:two.png" filename="two.png" />
+            <shape id="1" startTime="0" endTime="999" fillType="media" fillImage="amproj:one.png" s=".rect" />
+            <shape id="2" startTime="0" endTime="999" fillType="media" fillImage="amproj:two.png" s=".rect" />
+        </scene>"""
+        val image = ByteArray(70 * 1024) { (it % 251).toByte() }
+        val manifest = JSONObject().put("format", "absentmotion-package").put("media", JSONArray().also { list ->
+            list.put(JSONObject().put("uri", "amproj:one.png").put("entry", "media/one.png"))
+            list.put(JSONObject().put("uri", "amproj:two.png").put("entry", "media/two.png"))
+        })
+        val bytes = zip(listOf("project.xml" to scene.toByteArray(), "media/one.png" to image, "media/two.png" to image,
+            "manifest.json" to manifest.toString().toByteArray()))
+        val file = tmp.newFile("link.zip").apply { writeBytes(bytes) }
+        val store = ProjectStore(tmp.newFolder())
+        val report = Importer(store, exists = { it.startsWith("file:") }).import(file).single()
+        val node = store.load(report.id)!!.node
+        val first = node.children.first { it["id"] == "1" }["fillImage"]
+        val second = node.children.first { it["id"] == "2" }["fillImage"]
+        assertEquals(first, second)
+        assertEquals(1, store.mediaDir(report.id).listFiles()!!.count { it.isFile })
+    }
+
     @Test fun namesInsideAZipCannotLeaveTheProjectFolder() {
         val scene = """<scene width="10" height="10"><shape id="1" fillImage="x://a" /></scene>"""
         val manifest = JSONObject().put("media", JSONArray().put(JSONObject().put("uri", "x://a").put("entry", "../../../escape.jpg")))

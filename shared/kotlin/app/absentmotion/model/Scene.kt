@@ -399,7 +399,7 @@ data class Layer(val node: XmlNode, val t: Float = 0f, val snap: ClosedFloatingP
     fun withValue(ref: PropRef, value: String): Layer =
         withElement(ref, (element(ref) ?: XmlNode(ref.name)).withValueAt(t, value, snap))
 
-    fun keyframes(ref: PropRef): List<Keyframe> = element(ref)?.keyframes ?: emptyList()
+    fun keyframes(ref: PropRef): List<Keyframe> = element(ref)?.keyframes?.filterNot { it.gen == "expression" } ?: emptyList()
 
     fun onKeyframe(ref: PropRef): Boolean = (element(ref)?.keyframeAt(snap) ?: -1) >= 0
 
@@ -443,7 +443,7 @@ data class Layer(val node: XmlNode, val t: Float = 0f, val snap: ClosedFloatingP
                 if (scope?.ref != SpeedRef) return
                 val timing = VideoTiming(this)
                 n.keyframes.forEach { out.add(startTime + timing.localMs(it.t.toDouble() / 1_000_000).roundToInt()) }
-            } else if (n.name == "kf") n["t"]?.finiteFloat()?.let { out.add(timeOf(it)) }
+            } else if (n.name == "kf") n["t"]?.finiteFloat()?.takeIf { n["gen"] != "expression" }?.let { out.add(timeOf(it)) }
             else if (n.name != "scene") n.children.forEach(::walk)
         }
         walk(if (scope == null) node else scopeNode(scope) ?: return emptyList())

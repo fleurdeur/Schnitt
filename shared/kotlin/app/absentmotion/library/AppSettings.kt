@@ -326,7 +326,8 @@ class AppSettings(private val context: Context) {
 }
 
 enum class PreviewQuality(val divisor: Int, @StringRes val label: Int) {
-    Full(1, R.string.settings_preview_full), Half(2, R.string.settings_preview_half), Quarter(4, R.string.settings_preview_quarter);
+    Full(1, R.string.settings_preview_full), Half(2, R.string.settings_preview_half), Quarter(4, R.string.settings_preview_quarter),
+    Eighth(8, R.string.settings_preview_eighth), Sixteenth(16, R.string.settings_preview_sixteenth);
 
     companion object {
         fun of(stored: String?, draft: Boolean): PreviewQuality = entries.firstOrNull { it.name == stored } ?: if (draft) Half else Full

@@ -237,7 +237,7 @@ internal fun Scene.bakeExpression(layerId: Long, ref: PropRef, text: String, lab
             val raw = source.getOrElse(i) { source.last() }
             Expressions.evaluate(raw, (frame - start) / 1000f, t, frame, fps, width, height, i, existing.getOrElse(i) { 0f })
         }
-        keys += Keyframe(t, formatFloats(values))
+        keys += Keyframe(t, formatFloats(values), gen = "expression")
     }
     val expression = XmlNode("expression", linkedMapOf("value" to text).also { if (label.isNotBlank()) it["label"] = label })
     val next = element.copy(children = element.children.filterNot { it.name == "expression" } + expression).withKeyframes(keys)

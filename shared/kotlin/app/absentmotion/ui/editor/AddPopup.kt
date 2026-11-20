@@ -1,5 +1,6 @@
 package app.absentmotion.ui.editor
 
+import app.absentmotion.BuildConfig
 import app.absentmotion.platform.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -216,6 +217,7 @@ private fun ShapePages(state: EditorState, modifier: Modifier) = androidx.compos
 @Composable
 private fun ToolsPage(state: EditorState, modifier: Modifier) {
     val tools = listOfNotNull(
+        if (BuildConfig.EXPERIMENTAL) Triple(0, app.absentmotion.ui.editor.PanelIcons.Bot, 0) else null,
         Triple(1, app.absentmotion.ui.home.HomeIcons.Compress, R.string.tools_compress),
         Triple(3, app.absentmotion.ui.home.HomeIcons.Trim, R.string.tools_trim),
         Triple(4, app.absentmotion.ui.home.HomeIcons.Audio, R.string.tools_extract),
@@ -226,11 +228,13 @@ private fun ToolsPage(state: EditorState, modifier: Modifier) {
         items(tools, key = { it.first }) { (id, icon, label) ->
             val press = remember { MutableInteractionSource() }
             Column(
-                Modifier.size(80.dp, 96.dp).tutorialGuard().pressScale(press, TilePress).clickable(press, LocalIndication.current) { state.toolOpen = id },
+                Modifier.size(80.dp, 96.dp).tutorialGuard().pressScale(press, TilePress).clickable(press, LocalIndication.current) {
+                    if (id == 0) { state.addOpen = false; state.mcpOpen = true } else state.toolOpen = id
+                },
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
             ) {
-                Icon(icon, null, Modifier.size(28.dp), tint = Am.OnDark)
-                Text(stringResource(label), Modifier.padding(top = 6.dp, start = 4.dp, end = 4.dp), color = Am.OnDark, fontSize = 12.sp, lineHeight = 14.sp, textAlign = TextAlign.Center, maxLines = 2)
+                Icon(icon, null, Modifier.size(28.dp), tint = if (id == 0 && state.settings.mcpEnabled) Am.Accent else Am.OnDark)
+                Text(if (label == 0) "MCP agent" else stringResource(label), Modifier.padding(top = 6.dp, start = 4.dp, end = 4.dp), color = if (id == 0) Am.Accent else Am.OnDark, fontSize = 12.sp, lineHeight = 14.sp, textAlign = TextAlign.Center, maxLines = 2)
             }
         }
     }

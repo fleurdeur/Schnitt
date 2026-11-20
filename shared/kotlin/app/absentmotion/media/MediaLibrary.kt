@@ -186,6 +186,11 @@ internal fun exifTag(resolver: ContentResolver, uri: Uri): Int = runCatching {
     resolver.openInputStream(uri)?.use { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }
 }.getOrNull() ?: ExifInterface.ORIENTATION_NORMAL
 
+internal object MediaLibrarySource {
+    @Volatile var linkedMedia: ((Context) -> List<DeviceMedia>)? = null
+    val revision = kotlinx.coroutines.flow.MutableStateFlow(0)
+}
+
 data class DeviceMedia(val uri: Uri, val name: String, val albumId: String, val album: String,
                        val video: Boolean, val durationMs: Long, val date: Long, val modified: Long, val svg: Boolean = false)
 
@@ -204,8 +209,13 @@ suspend fun deviceMedia(context: Context, demoOnly: Boolean = false): List<Devic
             }
         } catch (_: Exception) { }
     }
+    MediaLibrarySource.linkedMedia?.invoke(context)?.let { linked ->
+        val known = found.mapTo(HashSet()) { it.name to it.modified }
+        found += linked.filterNot { it.name to it.modified in known }
+    }
     refreshThumbnailVersions(found)
-    found.filter { !demoOnly || it.album.contains("demo", ignoreCase = true) }.sortedWith(compareByDescending<DeviceMedia> { it.date }.thenByDescending { it.uri.lastPathSegment?.toLongOrNull() ?: 0 })
+    found.filter { !demoOnly || it.album.contains("demo", ignoreCase = true) }
+        .sortedWith(compareByDescending<DeviceMedia> { it.date }.thenByDescending { it.uri.lastPathSegment?.toLongOrNull() ?: 0L }.thenBy { it.name })
 }
 
 private val thumbnailCache = object : android.util.LruCache<String, Bitmap>(12 * 1024 * 1024) {

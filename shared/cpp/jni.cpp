@@ -434,8 +434,8 @@ JNIEXPORT jboolean JNICALL JNI_FN(nativeSetModel)(JNIEnv* env, jclass, jbyteArra
                     model->colors.size() == count && model->triangles.size() % 3 == 0 && model->slots.size() == model->triangles.size() / 3 &&
                     std::all_of(model->triangles.begin(), model->triangles.end(), [&](int i) { return i >= 0 && (size_t)i < count; }) &&
                     (model->partOfVertex.empty() || model->partOfVertex.size() == count) && model->partCenters.size() % 3 == 0 &&
-                    std::all_of(model->partOfVertex.begin(), model->partOfVertex.end(), [&](int i) { return i >= 0 && (size_t)(i * 3 + 2) < model->partCenters.size(); }) &&
-                    std::all_of(model->partParents.begin(), model->partParents.end(), [&](int i) { return i >= -1 && (size_t)(i * 3 + 2) < model->partCenters.size(); });
+                    std::all_of(model->partOfVertex.begin(), model->partOfVertex.end(), [&](int i) { return i >= 0 && (size_t)i < model->partCenters.size() / 3; }) &&
+                    std::all_of(model->partParents.begin(), model->partParents.end(), [&](int i) { return i >= -1 && (i < 0 || (size_t)i < model->partCenters.size() / 3); });
     if (ok) am::SetModel(key, std::move(model));
     return ok;
 }

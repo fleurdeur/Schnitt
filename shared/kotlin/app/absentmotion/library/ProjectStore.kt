@@ -109,7 +109,9 @@ class ProjectStore(private val root: File) {
 
     /** Uses the XML already read by the caller, so opening a project reads the file once. */
     fun load(id: String, text: String): Scene? =
-        projectScene(text)?.let { withLinkedElements(it, id) }?.withSlowestSpeeds()
+        projectScene(text)?.let { scene ->
+            (if ("link=" in text) withLinkedElements(scene, id) else scene).withSlowestSpeeds()
+        }
 
     private fun read(id: String): Scene? = text(id)?.let(::projectScene)
 

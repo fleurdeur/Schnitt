@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +47,7 @@ import app.absentmotion.ui.editor.DropOrRise
 import app.absentmotion.ui.editor.MenuPopup
 import app.absentmotion.ui.editor.MenuRow
 import app.absentmotion.ui.editor.MotionSheet
+import app.absentmotion.ui.editor.PanelIcons
 import app.absentmotion.ui.editor.Tile
 import app.absentmotion.ui.editor.TileGrid
 import androidx.compose.ui.graphics.ImageBitmap
@@ -375,12 +377,24 @@ private fun EffectColor(state: EditorState, param: EffectParam, raw: String, ena
     val color = parseColor(raw) ?: 0xFFFFFFFF.toInt()
     var expanded by remember(param.id) { mutableStateOf(false) }
     var library by remember(param.id) { mutableStateOf(false) }
+    var picking by remember(param.id) { mutableStateOf(false) }
+    val latestSet by rememberUpdatedState(set)
+    if (picking) DisposableEffect(state) {
+        state.eyedropper = { rgb -> latestSet(formatColor((color and 0xFF000000.toInt()) or (rgb and 0xFFFFFF))) }
+        onDispose { if (state.eyedropper != null) state.eyedropper = null }
+    }
     if (library) PaletteSheet(color) { library = false }
     Column {
         Row(Modifier.fillMaxWidth().height(38.dp).padding(3.dp).alpha(if (enabled) 1f else 0.35f), verticalAlignment = Alignment.CenterVertically) {
             PropertyLabel(param.label, active, enabled, Modifier.width(75.dp).fillMaxHeight(), select)
             Box(Modifier.weight(1f).fillMaxHeight().padding(5.dp).clip(PanelShape).background(Color(color)).clickable(enabled = enabled) { select(); expanded = !expanded })
-            Text(raw.uppercase(), Modifier.width(82.dp).clickable(enabled = enabled) {
+            Box(Modifier.width(32.dp).fillMaxHeight().padding(horizontal = 1.dp)
+                .clip(PanelShape).background(if (picking) Am.Accent else Am.FieldHi.copy(alpha = .22f))
+                .clickable(enabled = enabled) { select(); picking = !picking }, contentAlignment = Alignment.Center) {
+                PanelIcon(PanelIcons.Eyedropper, if (picking) Am.OnAccent else Am.OnDark, size = 17.dp,
+                    description = stringResource(R.string.a11y_eyedropper))
+            }
+            Text(raw.uppercase(), Modifier.width(76.dp).clickable(enabled = enabled) {
                 select()
                 state.keypad = KeypadRequest(listOf("R", "G", "B", "A").mapIndexed { i, label -> KeypadField(label, ((color ushr intArrayOf(16,8,0,24)[i]) and 255).toFloat(), "", 0f, 255f) }, 0) { next ->
                     var out = 0

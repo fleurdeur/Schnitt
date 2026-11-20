@@ -128,7 +128,7 @@ internal fun UpdateDialog(settings: AppSettings) {
 private fun UpdateFlowDialog(step: UpdateStep) {
     val context = LocalContext.current
     val release = step.release ?: return
-    val hide = { Updater.hidden = true }
+    val hide = Updater::hide
     val cancel = { Updater.cancel(context) }
     when (step) {
         is UpdateStep.Downloading -> UpdateCard(HomeIcons.ArrowDown, stringResource(R.string.update_downloading), hide, release.version) {
@@ -139,7 +139,11 @@ private fun UpdateFlowDialog(step: UpdateStep) {
                 Text("${(fraction * 100).toInt()}%", color = Am.Navy, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             }
             if (step.waiting) Body(stringResource(R.string.update_reconnecting), live = true)
-            Buttons { Secondary(stringResource(R.string.cancel), cancel) }
+            Body(stringResource(if (UpdateService.canNotify(context)) R.string.update_background_hint else R.string.update_foreground_hint), live = false)
+            Buttons {
+                Secondary(stringResource(R.string.cancel), cancel)
+                Secondary(stringResource(R.string.update_hide), hide)
+            }
         }
         is UpdateStep.Checking -> UpdateCard(app.absentmotion.ui.export.ExportIcons.Lock, stringResource(R.string.update_checking_download), {}, release.version) {
             LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 18.dp).clip(RoundedCornerShape(4.dp)), color = Am.Accent, trackColor = Am.Navy.copy(alpha = 0.12f))

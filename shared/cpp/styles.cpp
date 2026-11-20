@@ -600,7 +600,10 @@ void DrawGroup(SkCanvas* canvas, const Layer& l, double timeMs, const MediaPictu
             return;
         }
     }
-    const bool framed = l.fixedPrecompose && l.innerWidth > 0 && l.innerHeight > 0;
+    // Every group has the bounds of its inner composition. Fixed precompose
+    // renders to that exact surface; dynamic precompose still clips to the same
+    // frame so a group can never spill past its imported size.
+    const bool framed = l.innerWidth > 0 && l.innerHeight > 0;
     if (framed) {
         canvas->save();
         canvas->clipRect(SkRect::MakeIWH(l.innerWidth, l.innerHeight));
@@ -1885,7 +1888,9 @@ static bool ContainsOne(const std::vector<Layer>& siblings, const Layer& l, doub
     for (auto it = l.inner().rbegin(); innerTime >= 0 && it != l.inner().rend(); ++it) {
         if (Contains(l.inner(), *it, innerTime, inner, l.innerWidth, l.innerHeight, masks)) return true;
     }
-    return false;
+    // A group is selected by its frame, including transparent parts, exactly
+    // like the imported group layer.
+    return innerTime >= 0 && SkRect::MakeWH(l.innerWidth, l.innerHeight).contains(inner.fX, inner.fY);
 }
 
 static float DrawnOutset(const Layer& l, float t) {
@@ -1918,7 +1923,12 @@ static bool ContentRect(const Layer& l, double timeMs, const SkMatrix& matrix, S
         right = std::max(right, child.fRight);
         bottom = std::max(bottom, child.fBottom);
     }
-    if (left <= right && top <= bottom) *out = SkRect::MakeLTRB(left, top, right, bottom);
+    if (left <= right && top <= bottom) {
+        // The group frame is part of the layer's size. Replacing the frame with
+        // the children's bounds made imported groups look smaller and shifted
+        // against the project canvas in the selection box.
+        out->join(SkRect::MakeLTRB(left, top, right, bottom));
+    }
     return true;
 }
 

@@ -54,6 +54,7 @@ import app.absentmotion.ui.theme.presence
 import app.absentmotion.editor.FullColor
 import androidx.compose.runtime.remember
 import androidx.compose.ui.res.stringResource
+import app.absentmotion.BuildConfig
 import app.absentmotion.R
 import app.absentmotion.ui.tutorial.tutorialGuard
 import app.absentmotion.ui.tutorial.tutorialTarget
@@ -86,6 +87,7 @@ fun EditorScreen(state: EditorState, onExit: () -> Unit) {
             val color = remember { arrayOfNulls<FullColor>(1) }.also { if (state.fullColor != null) it[0] = state.fullColor }[0]
             Presence(state.fullColor != null) { color?.let { PhoneScreen(onDismiss = { state.endGesture(); state.fullColor = null }, title = stringResource(R.string.color), onConfirm = { state.endGesture(); state.fullColor = null }) { Box(Modifier.fillMaxSize().presence(rise = 16.dp)) { FullColorPicker(state, it) } } } }
             if (state.cameraOpen) EditorCamera(state, scope)
+            if (BuildConfig.EXPERIMENTAL && state.mcpOpen) McpPanel(state)
         }
     }
 }
@@ -228,7 +230,7 @@ private fun PhoneEditorBody(state: EditorState, onExit: () -> Unit, addLibrary: 
 internal fun lowerPanelHeight(available: Dp, wanted: Dp): Dp = minOf(wanted, maxOf(available - EditorBars - MinPreview, MinLower))
 
 private val EditorBars = 88.dp
-private val MinPreview = 92.dp
+private val MinPreview = 120.dp
 private val MinLower = 140.dp
 
 @Composable
