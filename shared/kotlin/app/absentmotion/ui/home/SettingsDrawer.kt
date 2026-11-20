@@ -118,6 +118,7 @@ fun SettingsDrawer(settings: AppSettings, drawer: androidx.compose.material3.Dra
     var about by remember { mutableStateOf(false) }
     var help by remember { mutableStateOf(false) }
     var crashLogs by remember { mutableStateOf(false) }
+    var debugLog by remember { mutableStateOf(false) }
     var language by remember { mutableStateOf(false) }
     var demoNote by remember { mutableStateOf(false) }
     var whatsNew by remember { mutableStateOf(false) }
@@ -151,12 +152,14 @@ fun SettingsDrawer(settings: AppSettings, drawer: androidx.compose.material3.Dra
             LinkRow(stringResource(R.string.settings_about)) { about = true }
             Spacer(Modifier.height(CardGap))
             LinkRow(stringResource(R.string.crash_logs)) { crashLogs = true }
+            LinkRow("Advanced: debug log") { debugLog = true }
         }
     }
     if (language) LanguageDialog { language = false }
     if (help) HelpScreen { help = false }
     if (about) AboutScreen(settings) { about = false }
     if (crashLogs) CrashLogsScreen { crashLogs = false }
+    if (debugLog) DebugLogScreen { debugLog = false }
     if (whatsNew) CurrentWhatsNew(settings) { whatsNew = false }
     if (demoNote) AlertDialog(
         onDismissRequest = { demoNote = false },

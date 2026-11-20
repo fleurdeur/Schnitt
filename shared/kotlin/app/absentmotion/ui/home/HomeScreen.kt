@@ -421,17 +421,24 @@ internal fun UploadCard(onUpload: () -> Unit) {
 
 @Composable
 private fun ImportDialog(reports: List<ImportReport>, onDismiss: () -> Unit, onOpen: () -> Unit) {
+    val warning = reports.any { it.warnings }
+    val warnHeadings = setOf(R.string.library_report_cannot_run, R.string.library_report_dropped, R.string.library_report_unknown)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.import_complete), color = Am.Navy) },
+        title = { Text(stringResource(if (warning) R.string.import_complete_with_warnings else R.string.import_complete), color = Am.Navy) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
+                if (warning) Text(
+                    "Some effects could not be carried over. They are listed below, and are kept in the project file where possible.",
+                    Modifier.fillMaxWidth().padding(bottom = 4.dp), color = Am.Accent, fontSize = 14.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium,
+                )
                 for (report in reports) {
                     report.community?.let { CommunityCard(it) }
                     if (reports.size > 1 && report.community == null) Text(report.title, Modifier.padding(top = 8.dp), color = Am.Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     for ((heading, lines) in report.sections) {
-                        Text(heading.text(), Modifier.padding(top = 8.dp), color = Am.Navy, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                        for (line in lines) Text("\u2022 ${line.text()}", color = Am.Navy, fontSize = 14.sp, lineHeight = 19.sp)
+                        val problem = heading.id in warnHeadings
+                        Text(heading.text(), Modifier.padding(top = 8.dp), color = if (problem) Am.Accent else Am.Navy, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                        for (line in lines) Text("\u2022 ${line.text()}", color = if (problem) Am.Accent else Am.Navy, fontSize = 14.sp, lineHeight = 19.sp)
                     }
                 }
             }

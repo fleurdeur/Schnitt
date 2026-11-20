@@ -48,7 +48,14 @@ data class ImportReport(
     val sections: List<Pair<UiText, List<UiText>>>,
     val template: Boolean = false,
     val community: CommunityInfo? = null,
-) : Serializable
+) : Serializable {
+    /** Effects or settings the import could not bring over. */
+    val warnings: Boolean
+        get() = sections.any { (heading, lines) ->
+            lines.isNotEmpty() && (heading.id == R.string.library_report_cannot_run ||
+                heading.id == R.string.library_report_dropped || heading.id == R.string.library_report_unknown)
+        }
+}
 
 class CommunityInfo(
     val title: String,

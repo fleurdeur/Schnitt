@@ -92,6 +92,7 @@ import app.absentmotion.ui.home.OutdatedHint
 import app.absentmotion.ui.home.outdatedNow
 import app.absentmotion.library.CrashEntry
 import app.absentmotion.library.CrashLogs
+import app.absentmotion.library.DebugLog
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
@@ -190,6 +191,7 @@ class MainActivity : ComponentActivity() {
         templates = TemplateStore(this)
         recovery = Recovery(File(filesDir, "recovery"))
         CrashLogs.install(this)
+        DebugLog.install(this)
         crashSaver = RecoveryHandler.install(recovery) { editor?.let { it.projectId to it.project.toXml() } }
         val reopen = savedInstanceState?.getString(OPEN_PROJECT)
         lifecycleScope.launch {
@@ -458,6 +460,9 @@ class MainActivity : ComponentActivity() {
                             }.map {
                                 afterImport()
                                 if (!it.template) it else templates.adopt(store, it.id, engine)?.let { id -> it.copy(id = id) } ?: it.copy(template = false)
+                            }.onEach { report ->
+                                DebugLog.write("import", "project \"${report.title}\" (${report.id}) sections: " +
+                                    report.sections.joinToString(" | ") { (heading, lines) -> heading.resolve(this@MainActivity) + ": " + lines.joinToString("; ") { it.resolve(this@MainActivity) } })
                             }
                         } finally {
                             remote?.delete()
@@ -471,6 +476,7 @@ class MainActivity : ComponentActivity() {
                 failure = failure ?: getString(R.string.crash_reason_memory)
             } catch (e: Exception) {
                 Log.w("AMImport", "cannot import", e)
+                DebugLog.write("import", "failed: ${e.javaClass.simpleName}: ${e.message}")
                 failure = failure ?: (e as? ImportFailed)?.text?.resolve(this@MainActivity) ?: getString(R.string.backup_open_failed).takeIf { e is SecurityException } ?: e.message ?: getString(R.string.library_err_unsupported_type)
             } finally {
                 if (overlay) opening = false
@@ -582,12 +588,18 @@ class MainActivity : ComponentActivity() {
             loaded?.let { scene ->
                 withContext(Dispatchers.IO) {
                     ShapeCatalog.load(applicationContext)
-                    migration.migrate(MediaRelink.relink(this@MainActivity, scene)).scene
+                    val migrated = migration.migrate(MediaRelink.relink(this@MainActivity, scene))
+                    if (migrated.dropped.isNotEmpty()) DebugLog.write("import", "project $id could not carry over: ${migrated.dropped.joinToString("; ")}")
+                    migrated.scene
                         .let { if (it.oldAlightImport()) it.withReimportTipShown().also { tip = true } else it }.also {
                         if (it != scene) try { store.save(id, it) } catch (e: java.io.IOException) { Log.e("AMStore", "cannot save the updated project $id", e) }
                     }
                 }
-            }.also { Log.i("AMStart", "project $id loaded in ${SystemClock.elapsedRealtime() - started} ms") }
+            }.also {
+                val ms = SystemClock.elapsedRealtime() - started
+                Log.i("AMStart", "project $id loaded in $ms ms")
+                DebugLog.write("project", "opened $id in $ms ms, ${it?.node?.children?.size ?: 0} root nodes")
+            }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Throwable) {
@@ -621,6 +633,7 @@ class MainActivity : ComponentActivity() {
         } ?: false
         if (finished && failure == null) return true
         engineProblem = failure ?: "engine start timed out"
+        DebugLog.write("engine", "start failed: $engineProblem")
         problemShown = true
         return false
     }

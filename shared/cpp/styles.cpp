@@ -1462,97 +1462,55 @@ void PlayInDevice(SkCanvas* canvas, const SkPicture* picture) {
 
 void DrawShuttered(SkCanvas* canvas, const std::vector<Layer>& siblings, const Layer& l, double timeMs,
                    const MediaPictures& pictures, const Override& ov, const ShutterBlur& shutter) {
-    const double open = 1000.0 / std::max(gScene ? gScene->fps : 30, 1) * shutter.angle / 360;
     Override sample = ov;
     sample.shuttered = true;
-    const Frozen frozen{l.id, timeMs, shutter.position, shutter.scale, shutter.rotation};
-    const bool restricted = !(shutter.position && shutter.scale && shutter.rotation);
-    FrozenScope scope(restricted ? &frozen : gFrozen);
-    SkPaint composite;
+    const double open = 1000.0 / std::max(gScene ? gScene->fps : 30, 1) * shutter.angle / 360;
     const double lead = shutter.trailing ? 0 : open / 2;
-    if (shutter.fast) {
-        const SkPoint middle = ShapePath(l, l.localTime(timeMs)).getBounds().center();
-        const SkVector moved = SiblingMatrix(siblings, l, timeMs + lead).mapPoint(middle) -
-                               SiblingMatrix(siblings, l, timeMs + lead - open).mapPoint(middle);
-        sk_sp<SkImageFilter> smear = SmearFilter(moved);
-        composite.setImageFilter(smear && shutter.trailing ? SkImageFilters::Offset(-moved.fX / 2, -moved.fY / 2, smear) : smear);
-        if (!composite.getImageFilter()) return DrawOne(canvas, siblings, l, timeMs, pictures, sample);
-    }
-    if (ov.blend || !IsNormal(l.blending)) {
-        if (ov.blend) composite.setBlendMode(ov.mode);
-        else SetBlend(&composite, l.blending);
-        sample.blend = true;
-        sample.mode = SkBlendMode::kSrcOver;
-    }
-    if (shutter.fast) {
-        canvas->saveLayer(nullptr, &composite);
-        DrawOne(canvas, siblings, l, timeMs, pictures, sample);
-        canvas->restore();
-        return;
-    }
-    const auto at = [&](double u) { return std::clamp(timeMs + lead - open * (1 - u), (double)l.startTime, (double)l.endTime); };
-    const bool steady = Steady(siblings, l, at(0), at(1));
-    int samples = shutter.samples;
-    if (shutter.adaptive && !steady) samples = std::clamp((int)std::ceil(Reach(siblings, l, timeMs + lead - open / 2, open) / 2), samples, 64);
-    const SkPoint middle = ShapePath(l, l.localTime(timeMs)).getBounds().center();
-    const auto gap = [&](int from, int to) {
-        if (steady) return SkVector{0, 0};
-        return SiblingMatrix(siblings, l, at((double)to / samples)).mapPoint(middle) - SiblingMatrix(siblings, l, at((double)from / samples)).mapPoint(middle);
+    const auto at = [&](double u) {
+        return std::clamp(timeMs + lead - open * (1 - u), (double)l.startTime, (double)l.endTime);
     };
-    struct Taken { Recorded r; float share; SkVector move; double when; };
-    std::vector<Taken> taken;
-    SkRect all = SkRect::MakeEmpty();
-    bool bounded = true;
-    for (int i = 0; i < samples;) {
-        const double when = at((i + 0.5) / samples);
-        int same = 1;
-        while (i + same < samples && (steady || at((i + same + 0.5) / samples) == when)) same++;
-        if (std::abs(when - timeMs) > 0.001) {
-            Recorded r = RecordInDevice(canvas, [&](SkCanvas* c) { DrawOne(c, siblings, l, when, pictures, sample); });
-            bounded = bounded && r.bounded;
-            all.join(r.bounds);
-            taken.push_back({std::move(r), (float)same / samples, gap(i, i + same), when});
-        }
-        i += same;
-    }
-    const SkRect clip = canvas->getLocalClipBounds();
-    SkRect wide = all.makeOutset(0, 0);
-    if (!wide.isEmpty()) {
-        float longest = 0;
-        for (const Taken& k : taken) longest = std::max(longest, k.move.length());
-        wide.outset(longest, longest);
-        if (!clip.isEmpty()) wide.intersect(clip);
-    }
-    if (!taken.empty() && !all.isEmpty() && (wide.isEmpty() || !wide.isFinite())) {
-        // A degenerate clip must never suppress the actual layer.
-        return DrawOne(canvas, siblings, l, timeMs, pictures, sample);
-    }
-    if (!taken.empty()) {
-        canvas->saveLayer(SkCanvas::SaveLayerRec(bounded ? &wide : nullptr, &composite, 0));
-        SkPaint add;
-        add.setBlendMode(SkBlendMode::kSrcOver);
-        for (const auto& [r, share, move, when] : taken) {
-            add.setAlphaf(share);
-            add.setImageFilter(SmearFilter(move));
-            SkRect spread = r.bounds.makeOutset(move.length(), move.length());
-            if (!clip.isEmpty()) spread.intersect(clip);
-            if (spread.isEmpty()) continue;
-            canvas->saveLayer(bounded ? &spread : nullptr, &add);
-            PlayInDevice(canvas, r.picture.get());
-            canvas->restore();
-            if (gBreak) (*gBreak)();
-        }
-        // Keep the layer itself sharp and fully visible on top of the trail.
-        // It is drawn inside the same layer so the layer's blending mode is
-        // applied once, not once to the trail and again to the sharp pose.
-        DrawOne(canvas, siblings, l, timeMs, pictures, sample);
-        canvas->restore();
+    // Do not record poses into SkPictures or send them through saveLayer with
+    // device-space bounds. That path was what turned image and video layers
+    // into flat white/black rectangles on some devices. Drawing each pose
+    // straight onto the canvas keeps the actual layer content, its colour,
+    // its video frame and its alpha intact.
+    // Only placement matters for motion blur. A static video or image needs
+    // one draw even though its pixels change over time.
+    const bool steady = SteadyPlacement(siblings, l, at(0), at(1), 0);
+    if (steady) {
+        Override base = ov;
+        base.shuttered = true;
+        DrawOne(canvas, siblings, l, timeMs, pictures, base);
         return;
+    }
+    int samples = std::clamp(shutter.fast ? 8 : shutter.samples, 2, 24);
+    if (shutter.adaptive) {
+        const float reach = Reach(siblings, l, timeMs + lead - open / 2, open);
+        samples = std::clamp((int)std::ceil(reach / 3), samples, 24);
+    }
+    // A moving layer is drawn once at every shutter pose, then once sharp at
+    // the current time. The trail is translucent, the live pose is not, so the
+    // layer can never disappear behind the blur.
+    const float share = std::clamp(0.55f / samples, 0.012f, 0.30f);
+    for (int i = 0; i < samples; i++) {
+        const double when = at((i + 0.5) / samples);
+        if (std::abs(when - timeMs) < 0.01) continue;
+        Override past = sample;
+        past.alpha = ov.alpha * share;
+        // The trail is plain source-over. Using the layer's own blend mode on
+        // every pose made screen/add layers stack into white and multiply
+        // layers stack into black. The sharp pose below still uses the real
+        // blending mode exactly once.
+        past.blend = true;
+        past.mode = SkBlendMode::kSrcOver;
+        DrawOne(canvas, siblings, l, when, pictures, past);
+        if (gBreak) (*gBreak)();
     }
     Override base = ov;
     base.shuttered = true;
     DrawOne(canvas, siblings, l, timeMs, pictures, base);
 }
+
 
 
 float FadeOpacity(const Layer& l, double timeMs, float t) {

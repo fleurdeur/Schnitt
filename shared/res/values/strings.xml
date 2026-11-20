@@ -120,6 +120,7 @@
     <string name="damaged_explain_no_versions">This project\'s file is damaged, so it cannot be opened, and there is no earlier version to restore. You can delete it.</string>
     <string name="open">Open</string>
     <string name="import_complete">Import complete</string>
+    <string name="import_complete_with_warnings">Imported with warnings</string>
     <string name="choose_file">Choose file</string>
     <string name="import_a_project_file">Import a project file</string>
     <string name="version_history">Version history</string>

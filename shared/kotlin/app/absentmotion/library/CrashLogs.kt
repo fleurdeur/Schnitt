@@ -132,6 +132,7 @@ object CrashLogs {
                 val now = System.currentTimeMillis()
                 val what = failedDuring?.takeIf { (failed, _) -> generateSequence(error) { it.cause }.any { it === failed } }?.second ?: doing
                 folder?.let { writeCrash(it, now, crashReason(error, what), "$about\nKind: Java exception on thread ${thread.name}\nDoing: $what", error.stackTraceToString().take(MaxDetail)) }
+                DebugLog.write("crash", "$what: ${error.javaClass.name}: ${error.message}; " + error.stackTraceToString().lineSequence().take(8).joinToString(" | "))
             }
             previous?.uncaughtException(thread, error)
         }
