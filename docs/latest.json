@@ -1,23 +1,13 @@
 {
-  "tag": "v5.9.5",
-  "name": "Schnitt 5.9.5",
-  "published": "2026-11-19T22:11:37Z",
-  "notes": "# Schnitt 5.9.5\n\nImport and motion-blur fixes.\n\n## Motion Blur\n\n- Motion Blur now keeps the current layer sharp and visible, then draws the moving trail behind it.\n- The trail follows keyframed position, scale, rotation and motion effects. A stationary layer stays sharp instead of turning black or white.\n- The old shutter accumulation no longer replaces the layer with a dark stack of samples.\n\n## Mirror\n\n- Mirror now exposes Blend Mode and Offset, with Blending Mode and Offset imported from Alight Motion.\n- Alpha, angle, style and their keyframes stay editable.\n\n## Imported keyframes and settings\n\n- Converted effects now write their mapped values into the new effect instead of leaving the old property names in place.\n- Animated properties keep every keyframe, easing and value through conversion.\n- Animated rows that have no matching control yet are kept in the project instead of being deleted.\n- Unknown effects are kept whole rather than being discarded.\n\n## Still included\n\n- Fade In and Fade Out work as direct layer opacity.\n- Project opening remains fast, with one file read and a background version snapshot.\n",
+  "tag": "v5.9.6",
+  "name": "Schnitt 5.9.6",
+  "published": "2026-11-20T11:18:48Z",
+  "notes": "# Schnitt 5.9.6\n\nMotion Blur now renders the real layer, plus import and support fixes.\n\n## Motion Blur\n\n- The layer is no longer replaced by an offscreen sample stack that could turn images and videos into flat white or black.\n- Every shutter pose is drawn directly from the layer itself, so the image, video frame, colours and alpha are preserved.\n- The current frame is always drawn sharp and fully visible on top of the trail.\n- The trail follows position, scale and rotation keyframes, Auto-Shake and Oscillate.\n- Still layers draw once. Moving layers draw the shutter poses behind the current frame.\n- Trail poses use plain source-over, so Screen and Add layers no longer stack into white and Multiply layers no longer stack into black.\n\n## Import warnings\n\n- Importing now shows a warning popup when effects or effect settings could not be carried over.\n- The popup lists effects this build cannot run, effects that had to be converted, and settings that could not be mapped.\n- The same warnings are written to the debug log.\n\n## Debug log\n\n- Added Settings > Advanced: debug log.\n- The log is plain text, with timestamps, version, device, project loads, import reports, conversion gaps, engine failures and crashes.\n- Copy the whole log or clear it from the same screen.\n\n## Still included\n\n- Converted effects keep their mapped values, keyframes and easing.\n- Unmapped animated rows and unknown effects stay in the project file.\n- Mirror has Blend Mode and Offset.\n- Project opening stays fast.\n",
   "assets": [
     {
       "name": "app-arm64-v8a.apk",
-      "size": 93329489,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.5/app-arm64-v8a.apk"
-    },
-    {
-      "name": "app-armeabi-v7a.apk",
-      "size": 98940008,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.5/app-armeabi-v7a.apk"
-    },
-    {
-      "name": "app-universal.apk",
-      "size": 137610416,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.5/app-universal.apk"
+      "size": 93337184,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.6/app-arm64-v8a.apk"
     }
   ]
 }
