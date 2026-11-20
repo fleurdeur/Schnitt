@@ -1,28 +1,13 @@
 {
-  "tag": "v5.9.6",
-  "name": "Schnitt 5.9.6",
-  "published": "2026-11-20T11:18:48Z",
-  "notes": "# Schnitt 5.9.6\n\nMotion Blur now renders the real layer, plus import and support fixes.\n\n## Motion Blur\n\n- The layer is no longer replaced by an offscreen sample stack that could turn images and videos into flat white or black.\n- Every shutter pose is drawn directly from the layer itself, so the image, video frame, colours and alpha are preserved.\n- The current frame is always drawn sharp and fully visible on top of the trail.\n- The trail follows position, scale and rotation keyframes, Auto-Shake and Oscillate.\n- Still layers draw once. Moving layers draw the shutter poses behind the current frame.\n- Trail poses use plain source-over, so Screen and Add layers no longer stack into white and Multiply layers no longer stack into black.\n\n## Import warnings\n\n- Importing now shows a warning popup when effects or effect settings could not be carried over.\n- The popup lists effects this build cannot run, effects that had to be converted, and settings that could not be mapped.\n- The same warnings are written to the debug log.\n\n## Debug log\n\n- Added Settings > Advanced: debug log.\n- The log is plain text, with timestamps, version, device, project loads, import reports, conversion gaps, engine failures and crashes.\n- Copy the whole log or clear it from the same screen.\n\n## Still included\n\n- Converted effects keep their mapped values, keyframes and easing.\n- Unmapped animated rows and unknown effects stay in the project file.\n- Mirror has Blend Mode and Offset.\n- Project opening stays fast.\n",
+  "tag": "v5.9.7",
+  "name": "Schnitt 5.9.7",
+  "published": "2026-11-20T13:02:31Z",
+  "notes": "# Schnitt 5.9.7\n\nBackground updates, sharing into Schnitt, linked drives and folders, a real eyedropper, and no timeline clutter from expressions.\n\n## Updates in the background\n\n- Start an update, then go do something else. The download continues in a foreground service with a progress notification.\n- Press Hide to close the update dialog without stopping the download.\n- When the APK is ready, the notification opens the install dialog. If the download stops, the notification says why.\n- The dialog tells you whether you can leave the app or should keep it open when notifications are off.\n\n## Share into Schnitt\n\n- Share a video, picture or sound from another app. It is added on top of the open project.\n- On the home screen choose New project, one of your projects, or Cancel.\n- Shared files are copied so they keep working after the other app closes.\n- Ogg and FLAC shares are accepted even when the sending app uses their application MIME type.\n\n## Drives and folders\n\n- Media and Audio now have Drive or folder. Pick a USB drive, SD card or any folder with the system picker.\n- Its clips appear in Media and Audio under the folder name.\n- Unplugged drives are skipped, duplicate files are hidden, and unlinked folders stop showing without breaking clips already in a project.\n\n## Eyedropper\n\n- Effect colour rows now have an eyedropper button that follows the app theme.\n- Drag over the preview to move the picker. A magnified lens above your finger shows the exact pixels and the colour code.\n- Lift your finger to apply that colour.\n\n## Expressions\n\n- Add an expression and it applies immediately.\n- Generated values stay hidden from the timeline, so they never mix with your own keyframes.\n- The expression source is kept on the property and still exports correctly.\n\n## Imported links and groups\n\n- Downloaded Alight links are read as seekable packages. The first pass no longer decompresses every video just to find the manifest.\n- Repeated media inside a package is stored once, so imported projects are smaller without re-encoding.\n- Group layers keep the complete imported frame, clip to it, and inherit the project size when their inner scene has no canvas.\n\n## Preview and theme\n\n- Added 1/8 and 1/16 preview quality for heavy projects.\n- Resolution, frame-rate, duration and theme menus use the app theme colours.\n- Projects saved by Schnitt skip the effect migration walk when no Alight effect is present; projects without links skip link resolution.\n\n## Still included\n\n- Motion Blur draws the real image or video.\n- Import warnings list effects that could not be carried over.\n- Settings > Advanced: debug log records imports, conversions, project opens and failures.\n",
   "assets": [
     {
       "name": "app-arm64-v8a.apk",
-      "size": 93337184,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.6/app-arm64-v8a.apk"
-    },
-    {
-      "name": "app-armeabi-v7a.apk",
-      "size": 98947523,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.6/app-armeabi-v7a.apk"
-    },
-    {
-      "name": "app-universal.apk",
-      "size": 137611319,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.6/app-universal.apk"
-    },
-    {
-      "name": "aurea-plugin.zip",
-      "size": 63604932,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.6/aurea-plugin.zip"
+      "size": 93413843,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.7/app-arm64-v8a.apk"
     }
   ]
 }
