@@ -18,6 +18,11 @@
       "name": "app-universal.apk",
       "size": 137611319,
       "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.6/app-universal.apk"
+    },
+    {
+      "name": "aurea-plugin.zip",
+      "size": 63604932,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.9.6/aurea-plugin.zip"
     }
   ]
 }
