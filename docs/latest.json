@@ -8,6 +8,11 @@
       "name": "app-arm64-v8a.apk",
       "size": 97280769,
       "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.11.0/app-arm64-v8a.apk"
+    },
+    {
+      "name": "app-armeabi-v7a.apk",
+      "size": 101169543,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.11.0/app-armeabi-v7a.apk"
     }
   ]
 }
