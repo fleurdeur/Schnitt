@@ -99,6 +99,7 @@ struct LayerEffect {
     std::string id;
     bool hidden = false, locallyApplied = false, toChildren = false;
     int64_t owner = 0;
+    int depth = 0;
     std::vector<Property> props;
 
     float value(const char* name, float t, float fallback) const;
@@ -248,6 +249,7 @@ struct ShutterBlur {
 };
 
 bool MotionEffect(const std::string& id);
+bool PartEffect(const std::string& id);
 bool TextEffect(const std::string& id);
 bool DrawingEffect(const std::string& id);
 bool ShutterBlurOf(const Layer& layer, double timeMs, ShutterBlur* blur);

@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import java.io.File
 import java.security.MessageDigest
+import java.util.zip.ZipFile
 import kotlin.math.roundToInt
 import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
@@ -11,21 +12,75 @@ import kotlinx.coroutines.withContext
 
 /**
  * Reads an Alight Motion <effect> definition XML and compiles its fragment
- * shader into SKSL. Effects that need layer matrices, multi-pass buffers or
- * pass indices are rejected rather than replaced by an unrelated shader.
+ * shader into SKSL. Multi-pass effect packs are supported: each <pass> keeps
+ * its target buffer, and acPass branches become separate shader stages.
+ * Effects that are pure JavaScript with no fragment stage still need a native
+ * implementation; they are never silently replaced with an unrelated shader.
  */
 object AmEffectImporter {
     private const val FOLDER = "am-effects"
     private val AutoEffects = setOf("oscillate", "oscillate2", "oscillate3", "spin", "pulsate", "pulsate2",
         "swing", "swing2", "jitter", "randomdisplace", "shake", "shake2", "scaleassist")
     private val OpacityEffects = setOf("fade", "blink", "blink2", "flicker", "flicker2", "pulse-opacity", "pulse_opacity2")
+    /** Script-only effects now implemented by the native scene engine. */
+    private val NativeScriptEffects = setOf(
+        "growparts", "morphpath", "shakeparts", "poseshake", "vshake", "vshakenew",
+        "transform2", "skexnxx15", "facemotion", "perlindisplace",
+    )
 
     suspend fun import(context: Context, uri: Uri): EffectDefinition? = withContext(Dispatchers.IO) {
-        val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return@withContext null
+        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@withContext null
+        if (bytes.size >= 4 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()) {
+            return@withContext importPack(context, bytes)
+        }
+        val text = bytes.toString(Charsets.UTF_8)
         val def = parse(text, globals(context)) ?: return@withContext null
         val folder = File(context.filesDir, FOLDER).apply { mkdirs() }
         File(folder, digest(def.id).take(16) + ".xml").writeText(text)
-        def
+        def.withImages(context)
+    }
+
+    /** Imports a whole community pack: every XML plus the textures it references. */
+    private fun importPack(context: Context, bytes: ByteArray): EffectDefinition? {
+        if (bytes.size > 64 shl 20) return null
+        val folder = File(context.filesDir, FOLDER).apply { mkdirs() }
+        val temp = File.createTempFile("effect-pack", ".zip", context.cacheDir)
+        var first: EffectDefinition? = null
+        try {
+            temp.writeBytes(bytes)
+            ZipFile(temp).use { zip ->
+                var entries = 0
+                for (entry in zip.entries()) {
+                    if (entry.isDirectory) continue
+                    if (++entries > 2_000) break
+                    if (entry.size > 32 shl 20) continue
+                    val original = entry.name.replace('\\', '/')
+                    if (original.startsWith("/") || original.split('/').any { it == ".." }) continue
+                    val relative = when {
+                        "assets/effects/" in original -> original.substringAfter("assets/effects/")
+                        original.startsWith("effects/") -> original.removePrefix("effects/")
+                        else -> original
+                    }
+                    if (relative.endsWith(".xml", true)) {
+                        val text = zip.getInputStream(entry).bufferedReader().use { it.readText() }
+                        val parsed = runCatching { parse(text, globals(context)) }.getOrNull() ?: continue
+                        File(folder, relative.substringAfterLast('/')).writeText(text)
+                        if (first == null) first = parsed
+                    } else if (relative.startsWith("resource/") || relative.startsWith("textures/") ||
+                        relative.endsWith(".png", true) || relative.endsWith(".webp", true) ||
+                        relative.endsWith(".jpg", true) || relative.endsWith(".jpeg", true)) {
+                        File(folder, relative).apply { parentFile?.mkdirs() }.writeBytes(
+                            zip.getInputStream(entry).use { it.readBytes() }
+                        )
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            return null
+        } finally {
+            temp.delete()
+        }
+        return first?.withImages(context)
     }
 
     @Volatile private var bundled: List<EffectDefinition>? = null
@@ -38,7 +93,7 @@ object AmEffectImporter {
         val files = if (folder.isDirectory) folder.listFiles { f -> f.extension == "xml" }.orEmpty() else emptyArray()
         val stamp = files.sumOf { it.lastModified() xor it.length() }
         val custom = if (files.isEmpty()) emptyList() else customCache?.takeIf { it.first == stamp }?.second ?: files.mapNotNull { f ->
-            runCatching { parse(f.readText(), words) }.getOrNull()
+            runCatching { parse(f.readText(), words) }.getOrNull()?.withImages(context)
         }.also { customCache = stamp to it }
         val builtIn = bundled ?: runCatching {
             context.assets.list("am-effects").orEmpty().filter { it.endsWith(".xml") }.mapNotNull { name ->
@@ -67,7 +122,21 @@ object AmEffectImporter {
     private fun EffectDefinition.withImages(context: Context): EffectDefinition {
         if (resourcePaths.isEmpty() || images.isNotEmpty()) return this
         val loaded = resourcePaths.mapNotNull { (name, path) ->
-            runCatching { name to context.assets.open("am-effects/$path").use { it.readBytes() } }.getOrNull()
+            // Community packs refer to textures as resource/foo, textures/foo
+            // and assets/effects/textures/foo. Resolve all three against the
+            // shared am-effects asset folder.
+            val bare = path.substringAfterLast('/')
+            val candidates = listOf(
+                path,
+                path.removePrefix("assets/effects/"),
+                "textures/$bare",
+                "resource/$bare",
+            ).distinct()
+            val bytes = candidates.firstNotNullOfOrNull { candidate ->
+                runCatching { context.assets.open("am-effects/$candidate").use { it.readBytes() } }.getOrNull()
+                    ?: runCatching { File(context.filesDir, "$FOLDER/$candidate").readBytes() }.getOrNull()
+            }
+            bytes?.let { name to it }
         }.toMap()
         return if (loaded.isEmpty()) this else copy(images = loaded)
     }
@@ -85,10 +154,17 @@ object AmEffectImporter {
     internal fun parse(xml: String, shared: Map<String, String> = emptyMap()): EffectDefinition? {
         val effectTag = Regex("""<effect\s([^>]*)>""").find(xml)?.groupValues?.get(1) ?: return null
         fun tagAttr(name: String): String? = Regex("""(?:^|\s)$name="([^"]*)"""").find(effectTag)?.groupValues?.get(1)
-        val id = tagAttr("id") ?: return null
+        val rawId = tagAttr("id") ?: return null
+        val id = decodeEffectId(rawId)
         val strings = shared + strings(xml)
         val params = parseParams(xml, strings)
-        val shader = Regex("""<shader[^>]*>\s*<!\[CDATA\[(.*?)\]\]></shader>""", RegexOption.DOT_MATCHES_ALL).find(xml)?.groupValues?.get(1)
+        val shader = Regex("""<shader([^>]*)>\s*<!\[CDATA\[(.*?)\]\]>\s*</shader>""", RegexOption.DOT_MATCHES_ALL)
+            .findAll(xml).map { it.groupValues[1] to it.groupValues[2] }.toList().let { found ->
+                // Prefer the fragment stage; several packs put a vertex shader first.
+                (found.firstOrNull { it.first.contains("fragment", true) }
+                    ?: found.firstOrNull { !it.first.contains("vertex", true) }
+                    ?: found.firstOrNull())?.second
+            }
         val passes = parsePasses(xml)
         val name = label("name", tagAttr("name"), strings).ifBlank {
             id.substringAfterLast('.').replace('-', ' ').replaceFirstChar { it.uppercase() }
@@ -97,10 +173,11 @@ object AmEffectImporter {
         val category = Regex("""<effect\s+[^>]*category="([^"]+)""" + "\"").find(xml)?.groupValues?.get(1) ?: "other"
         val textures = textureIds(xml)
         val chained = shader?.let { if (passes.size > 1) translatePasses(it, params, passes, textures) else null }
-        val native = shader?.let { if (passes.size > 1) nativePasses(it, params, passes, textures) else null }
+        val native = shader?.let { if (passes.size > 1) nativePasses(id, it, params, passes, textures) else null }
         val stem = id.substringAfterLast('.')
-        val auto = shader == null && stem in AutoEffects
+        val auto = shader == null && (stem in AutoEffects || stem in NativeScriptEffects)
         val alpha = shader == null && stem in OpacityEffects
+        val part = stem == "growparts" || stem == "shakeparts"
         val sksl = if (!native.isNullOrEmpty()) null else chained ?: shader?.let { translate(it, params, textures) } ?: when {
             auto -> null
             alpha -> null
@@ -120,7 +197,18 @@ object AmEffectImporter {
             else -> description
         }
         return EffectDefinition(id, key, name, mapCategory(category), note, params, sksl, native = auto || alpha || !native.isNullOrEmpty(), status = "ok",
-            alsoIn = listOf("external"), page = key, passes = native.orEmpty(), fallback = identityShader(), resourcePaths = resourcePaths)
+            alsoIn = listOf("external"), page = key, passes = native.orEmpty(), fallback = identityShader(), resourcePaths = resourcePaths,
+            applyToChildren = part)
+    }
+
+    /** Some community packs store the effect id as ASCII hex instead of text. */
+    private fun decodeEffectId(raw: String): String {
+        if (raw.length < 16 || raw.length % 2 != 0) return raw
+        if (!raw.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }) return raw
+        val text = runCatching {
+            ByteArray(raw.length / 2) { raw.substring(it * 2, it * 2 + 2).toInt(16).toByte() }.toString(Charsets.UTF_8)
+        }.getOrNull() ?: return raw
+        return text.takeIf { it.startsWith("com.") || it.startsWith("absent.") } ?: raw
     }
 
     private fun strings(xml: String): Map<String, String> = Regex("""<string\s+name="([^"]+)">([^<]*)</string>""")
@@ -273,8 +361,12 @@ object AmEffectImporter {
 
     private data class Pass(val target: String?, val effect: String?)
 
-    private fun parsePasses(xml: String): List<Pass> = Regex("""<pass\b([^>]*)/>""").findAll(xml).map { match ->
+    private fun parsePasses(xml: String): List<Pass> = Regex("""<pass\b([^>]*)>""").findAll(xml).map { match ->
         val attrs = match.groupValues[1]
+        // A pass is either self-closing (<pass target="x"/>) or an explicit
+        // open/close pair (<pass target="x"></pass>).  Alight's own XML uses
+        // both forms; recognising only the first one collapsed every second
+        // and later pass into a single full-screen shader.
         val target = Regex("""\btarget="([^"]*)""").find(attrs)?.groupValues?.get(1)
         val effect = Regex("""\beffect="([^"]*)""").find(attrs)?.groupValues?.get(1)
         Pass(target, effect)
@@ -287,7 +379,7 @@ object AmEffectImporter {
      * their real intermediate data instead of being collapsed into a random
      * generic filter.
      */
-    private fun nativePasses(source: String, params: List<EffectParam>, passes: List<Pass>, textures: Set<String>): List<EffectPass>? {
+    private fun nativePasses(id: String, source: String, params: List<EffectParam>, passes: List<Pass>, textures: Set<String>): List<EffectPass>? {
         val clean = common(expandMacros(source))
         if (clean.contains("acLayerToScreen")) { /* handled by header uniforms */ }
         val allTargets = passes.mapNotNull { it.target?.takeIf { t -> t.isNotBlank() && t != "image" && t != "comp" } }.distinct()
@@ -296,14 +388,17 @@ object AmEffectImporter {
             val targetHeader = buildString { for (t in allTargets) if (t.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) appendLine("uniform shader $t;") }
             val out = ArrayList<EffectPass>(passes.size)
             for (pass in passes) {
-                if (pass.effect != null) {
+                val helper = pass.effect?.let(::decodeEffectId)?.takeIf { it != id }
+                if (helper != null) {
                     val shader = when {
-                        pass.effect.contains("blur", true) -> blurShader()
-                        pass.effect.contains("findedges", true) -> edgeShader()
-                        else -> return null
+                        helper.contains("blur", true) -> blurShader()
+                        helper.contains("findedges", true) -> edgeShader()
+                        else -> null
                     }
-                    out += EffectPass(shader, pass.target?.takeIf { it.isNotBlank() })
-                    continue
+                    if (shader != null) {
+                        out += EffectPass(shader, pass.target?.takeIf { it.isNotBlank() })
+                        continue
+                    }
                 }
                 var stage = clean
                 stage = specializeSampler(stage)
@@ -330,13 +425,12 @@ object AmEffectImporter {
         val targetHeader = buildString { for (t in targets) if (t.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) appendLine("uniform shader $t;") }
         val out = ArrayList<EffectPass>(passes.size)
         for (i in passes.indices) {
-            if (passes[i].effect != null) {
-                if (!passes[i].effect!!.contains("blur", true)) return null
+            val helper = passes[i].effect?.let(::decodeEffectId)?.takeIf { it != id }
+            if (helper != null && helper.contains("blur", true)) {
                 out += EffectPass(blurShader(), passes[i].target?.takeIf { it.isNotBlank() })
                 continue
             }
-            val branch = branches[i] ?: if (i == passes.lastIndex) branches[-1] else null
-            if (branch == null) return null
+            val branch = branches[i] ?: if (i == passes.lastIndex) branches[-1] ?: suffix.takeIf { it.isNotBlank() } else null
             var stage = common(preamble + branch + suffix)
             stage = Regex("""\bacPass\b""").replace(stage, i.toString())
             stage = specializeSampler(stage)
@@ -414,8 +508,7 @@ object AmEffectImporter {
         val images = textures - targets.keys
         val stages = ArrayList<String>(passes.size)
         for (i in passes.indices) {
-            val branch = branches[i] ?: if (i == passes.lastIndex) branches[-1] else null
-            if (branch == null) return null
+            val branch = branches[i] ?: if (i == passes.lastIndex) branches[-1] ?: suffix.takeIf { it.isNotBlank() } else null
             var stage = common(preamble + branch + suffix)
             stage = Regex("""\bacPass\b""").replace(stage, i.toString())
             stage = convertBody(stage, "uv", targets, images, normalized = true)
@@ -446,59 +539,46 @@ object AmEffectImporter {
 
     private fun branches(body: String): Map<Int, String> {
         val out = HashMap<Int, String>()
-        var at = 0
-        var last = -1
-        while (true) {
-            val match = Regex("""if\s*\(\s*acPass\s*==\s*(\d+)(?:\s*\|\|\s*acPass\s*==\s*(\d+))?\s*\)\s*\{""").find(body, at) ?: break
+        val pattern = Regex("""if\s*\(\s*acPass\s*==\s*(\d+)(?:\s*\|\|\s*acPass\s*==\s*(\d+))?\s*\)\s*\{""")
+        val found = pattern.findAll(body).toList()
+        for (match in found) {
             val open = match.range.last
-            val close = matchingBrace(body, open) ?: break
-            val index = match.groupValues[1].toInt()
-            out[index] = body.substring(open + 1, close)
-            if (match.groupValues[2].isNotBlank()) out[match.groupValues[2].toInt()] = body.substring(open + 1, close)
-            last = close
-            at = close + 1
-            val tail = Regex("""^\s*else\s*""").find(body.substring(at))
-            if (tail != null) {
-                val afterElse = at + tail.range.last + 1
-                val nested = Regex("""^\s*if\s*\(\s*acPass\s*==\s*(\d+)(?:\s*\|\|\s*acPass\s*==\s*(\d+))?\s*\)\s*\{""").find(body.substring(afterElse))
-                if (nested != null) {
-                    at = afterElse + nested.range.first
-                    continue
-                }
-                val brace = body.indexOf('{', afterElse)
-                if (brace >= 0) {
-                    val end = matchingBrace(body, brace) ?: break
-                    out[-1] = body.substring(brace + 1, end)
-                    last = end
-                }
+            val close = matchingBrace(body, open) ?: continue
+            val chunk = body.substring(open + 1, close)
+            out[match.groupValues[1].toInt()] = chunk
+            match.groupValues[2].takeIf { it.isNotBlank() }?.toInt()?.let { out[it] = chunk }
+        }
+        // A final plain else is the fallback for any pass index not named above.
+        val last = found.lastOrNull()
+        val close = last?.let { matchingBrace(body, it.range.last) }
+        if (close != null) {
+            val tail = body.substring(close + 1)
+            val otherwise = Regex("""^\s*else\s*\{""").find(tail)
+            if (otherwise != null) {
+                val brace = close + 1 + otherwise.range.last
+                val end = matchingBrace(body, brace)
+                if (end != null) out[-1] = body.substring(brace + 1, end)
             }
-            at = maxOf(at, last + 1)
         }
         return out
     }
 
     private fun branchEnd(body: String): Int {
-        var at = 0
+        val pattern = Regex("""if\s*\(\s*acPass\s*==\s*\d+(?:\s*\|\|\s*acPass\s*==\s*\d+)?\s*\)\s*\{""")
         var end = 0
-        while (true) {
-            val match = Regex("""if\s*\(\s*acPass\s*==\s*\d+\s*\)\s*\{""").find(body, at) ?: break
-            val close = matchingBrace(body, match.range.last) ?: break
-            end = close
-            at = close + 1
-            val tail = Regex("""^\s*else\s*""").find(body.substring(at))
-            if (tail != null) {
-                val afterElse = at + tail.range.last + 1
-                val nested = Regex("""^\s*if\s*\(\s*acPass\s*==\s*\d+\s*\)\s*\{""").find(body.substring(afterElse))
-                if (nested != null) {
-                    at = afterElse + nested.range.first
-                    continue
-                }
-                val brace = body.indexOf('{', afterElse)
-                if (brace >= 0) {
-                    end = matchingBrace(body, brace) ?: break
-                    at = end + 1
-                }
-            }
+        val found = pattern.findAll(body).toList()
+        for (match in found) {
+            val close = matchingBrace(body, match.range.last) ?: continue
+            if (close > end) end = close
+        }
+        val last = found.lastOrNull() ?: return end
+        val close = matchingBrace(body, last.range.last) ?: return end
+        val tail = body.substring(close + 1)
+        val otherwise = Regex("""^\s*else\s*\{""").find(tail)
+        if (otherwise != null) {
+            val brace = close + 1 + otherwise.range.last
+            val finish = matchingBrace(body, brace)
+            if (finish != null && finish > end) end = finish
         }
         return end
     }

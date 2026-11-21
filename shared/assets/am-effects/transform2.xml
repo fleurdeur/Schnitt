@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.transform2" name="Transform" desc="Offsets position, rotation and scale with independent invert switches." category="transform">
+    <params>
+        <texture id="inputImg" srcType="content" />
+<spinner id="posz" label="Z Distance" default="1" min="0.001" max="30" step="0.005" />
+<spinner id="posx" label="Shift X" default="0" min="-8192" max="8192" step="0.5" />
+<spinner id="posy" label="Shift Y" default="0" min="-8192" max="8192" step="0.5" />
+<spinner id="angle" label="Rotate" default="0" min="-3600" max="3600" step="0.5" type="angle" />
+<switch id="zinv" label="Invert Z" default="false" />
+<switch id="xinv" label="Invert X" default="false" />
+<switch id="yinv" label="Invert Y" default="false" />
+<switch id="ainv" label="Invert Angle" default="false" />
+    </params>
+</effect>

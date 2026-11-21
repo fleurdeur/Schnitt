@@ -437,7 +437,8 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
                 else child.copy(attrs = child.attrs + ("name" to target.id) + ("type" to target.type))
             }
         }
-        return effect.copy(children = children)
+        val attrs = if (definition.applyToChildren) effect.attrs + ("applyToChildren" to "true") else effect.attrs
+        return effect.copy(attrs = attrs, children = children)
     }
 
     private fun property(source: XmlNode, name: String, type: String, change: (String, Float) -> String): XmlNode {

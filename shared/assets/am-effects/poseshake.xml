@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.poseshake" name="Pose Shake" desc="Shakes position and rotation with a smooth sine wave." category="transform">
+    <params>
+        <texture id="inputImg" srcType="content" />
+<spinner id="Xmag" label="X Magnitude" default="25" min="0" max="500" step="0.5" />
+<spinner id="Ymag" label="Y Magnitude" default="25" min="0" max="500" step="0.5" />
+<spinner id="rotMag" label="Rotation Magnitude" default="3" min="0" max="180" step="0.1" type="angle" />
+<spinner id="gamma" label="Frequency" default="12" min="0" max="30" step="0.1" />
+<spinner id="beta" label="Intensity" default="1" min="0" max="5" step="0.01" />
+    </params>
+</effect>

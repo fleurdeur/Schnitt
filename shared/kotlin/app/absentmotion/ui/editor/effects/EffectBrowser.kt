@@ -135,7 +135,8 @@ private fun BrowserBody(state: EditorState) {
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             val imported = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                if (uri.lastPathSegment.orEmpty().endsWith(".xml", true)) AmEffectImporter.import(context, uri)
+                val name = uri.lastPathSegment.orEmpty()
+                if (name.endsWith(".xml", true) || name.endsWith(".zip", true)) AmEffectImporter.import(context, uri)
                 else AexImporter.import(context, uri)
             }
             state.engine.relabelEffects(context)

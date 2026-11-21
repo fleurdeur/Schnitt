@@ -1,0 +1,26 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.vshake" name="Manual Shake" desc="Moves, turns and scales the layer with separate X, Y, Z and rotation wave controls." category="transform">
+    <params>
+        <texture id="inputImg" srcType="content" />
+<spinner id="mag" label="Amplitude" default="4" min="0" max="20" step="0.01" />
+<spinner id="freq" label="Frequency" default="2" min="0" max="10" step="0.01" />
+<spinner id="zdist" label="Z Distance" default="1" min="0.001" max="5" step="0.01" />
+<spinner id="rot" label="Rotate" default="0" min="-180" max="180" step="0.5" type="angle" />
+<spinner id="xmag" label="X Amplitude" default="15" min="0" max="100" step="0.05" />
+<spinner id="xfreq" label="X Frequency" default="12" min="0" max="100" step="0.05" />
+<spinner id="xoffset" label="X Offset" default="0" min="-10000" max="10000" step="0.1" />
+<selector id="xtype" label="X Wave" style="radio" default="1"><choice label="Cos" value="0" /><choice label="Sin" value="1" /><choice label="Triangle" value="2" /><choice label="Noise" value="3" /></selector>
+<spinner id="ymag" label="Y Amplitude" default="40" min="0" max="100" step="0.05" />
+<spinner id="yfreq" label="Y Frequency" default="18" min="0" max="100" step="0.05" />
+<spinner id="yoffset" label="Y Offset" default="0" min="-10000" max="10000" step="0.1" />
+<selector id="ytype" label="Y Wave" style="radio" default="1"><choice label="Cos" value="0" /><choice label="Sin" value="1" /><choice label="Triangle" value="2" /><choice label="Noise" value="3" /></selector>
+<spinner id="zmag" label="Z Amplitude" default="1" min="0" max="100" step="0.05" />
+<spinner id="zfreq" label="Z Frequency" default="10" min="0" max="100" step="0.05" />
+<spinner id="zoffset" label="Z Offset" default="0" min="-10000" max="10000" step="0.1" />
+<selector id="ztype" label="Z Wave" style="radio" default="1"><choice label="Cos" value="0" /><choice label="Sin" value="1" /><choice label="Triangle" value="2" /><choice label="Noise" value="3" /></selector>
+<spinner id="tmag" label="Tilt Amplitude" default="0" min="0" max="100" step="0.05" />
+<spinner id="tfreq" label="Tilt Frequency" default="10" min="0" max="100" step="0.05" />
+<spinner id="toffset" label="Tilt Offset" default="0" min="-10000" max="10000" step="0.1" />
+<selector id="ttype" label="Tilt Wave" style="radio" default="1"><choice label="Cos" value="0" /><choice label="Sin" value="1" /><choice label="Triangle" value="2" /><choice label="Noise" value="3" /></selector>
+    </params>
+</effect>

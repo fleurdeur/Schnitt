@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.vshakenew" name="Manual Shake 2" desc="Combines random shake and sine waves for X, Y, Z and tilt." category="transform">
+    <params>
+        <texture id="inputImg" srcType="content" />
+<spinner id="amp" label="Amplitude" default="1" min="0" max="5" step="0.01" />
+<spinner id="freq" label="Frequency" default="8" min="0" max="30" step="0.1" />
+<spinner id="xrandamp" label="X Random Amount" default="192" min="0" max="1000" step="0.5" />
+<spinner id="xrandfreq" label="X Random Frequency" default="1" min="0" max="5" step="0.05" />
+<spinner id="xwaveamp" label="X Wave Amount" default="0" min="0" max="1000" step="0.5" />
+<spinner id="xwavefreq" label="X Wave Frequency" default="0.5" min="0" max="5" step="0.05" />
+<spinner id="xoffset" label="X Offset" default="0" min="-10000" max="10000" step="0.1" />
+<spinner id="yrandamp" label="Y Random Amount" default="96" min="0" max="1000" step="1" />
+<spinner id="yrandfreq" label="Y Random Frequency" default="1" min="0" max="5" step="0.05" />
+<spinner id="ywaveamp" label="Y Wave Amount" default="0" min="0" max="1000" step="1" />
+<spinner id="ywavefreq" label="Y Wave Frequency" default="0.5" min="0" max="5" step="0.05" />
+<spinner id="yoffset" label="Y Offset" default="0" min="-10000" max="10000" step="0.1" />
+<spinner id="zrandamp" label="Z Random Amount" default="0" min="0" max="1000" step="1" />
+<spinner id="zrandfreq" label="Z Random Frequency" default="1" min="0" max="5" step="0.05" />
+<spinner id="zwaveamp" label="Z Wave Amount" default="0" min="0" max="1000" step="1" />
+<spinner id="zwavefreq" label="Z Wave Frequency" default="0.5" min="0" max="5" step="0.05" />
+<spinner id="zoffset" label="Z Offset" default="0" min="-10000" max="10000" step="0.1" />
+<spinner id="trandamp" label="Tilt Random Amount" default="0" min="0" max="1000" step="0.1" />
+<spinner id="trandfreq" label="Tilt Random Frequency" default="1" min="0" max="5" step="0.05" />
+<spinner id="twaveamp" label="Tilt Wave Amount" default="0" min="0" max="1000" step="1" />
+<spinner id="twavefreq" label="Tilt Wave Frequency" default="0.5" min="0" max="5" step="0.05" />
+<spinner id="toffset" label="Tilt Offset" default="0" min="-10000" max="10000" step="0.1" />
+    </params>
+</effect>

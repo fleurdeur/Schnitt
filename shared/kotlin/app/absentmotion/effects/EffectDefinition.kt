@@ -105,6 +105,7 @@ data class EffectDefinition(
     val fallback: String? = null,
     val resourcePaths: Map<String, String> = emptyMap(),
     val images: Map<String, ByteArray> = emptyMap(),
+    val applyToChildren: Boolean = false,
 ) {
     val available: Boolean get() = status == "ok"
     val origin: String get() = when {
@@ -140,7 +141,11 @@ data class EffectDefinition(
         })
     }
 
-    fun instance(): XmlNode = XmlNode("effect", mapOf("id" to id, "hidden" to "false"), params.map {
+    fun instance(): XmlNode = XmlNode("effect", buildMap {
+        put("id", id)
+        put("hidden", "false")
+        if (applyToChildren) put("applyToChildren", "true")
+    }, params.map {
         XmlNode("property", mapOf("name" to it.id, "type" to it.type, "value" to it.default))
     })
 

@@ -23,7 +23,7 @@ data class EffectCatalog(
 
     fun isNew(effect: EffectDefinition): Boolean = effect.since in newest
 
-    private val tiles: List<EffectDefinition> get() = definitions + definitions.flatMap { it.shortcutTiles() }
+    private val tiles: List<EffectDefinition> by lazy { definitions + definitions.flatMap { it.shortcutTiles() } }
 
     fun listed(category: String? = null): List<EffectDefinition> =
         tiles.filter { category == null || it.category == category || category in it.alsoIn || (category == "new" && isNew(it)) }

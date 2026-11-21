@@ -19,6 +19,9 @@ namespace {
 constexpr double kTau = 6.283185307179586;
 
 const char* const kMotionIds[] = {"absent.autoshake", "absent.randomdisplace", "absent.randomjitter", "absent.oscillate",
+                                  "absent.growparts", "absent.morphpath", "absent.shakeparts", "absent.poseshake",
+                                  "absent.vshake", "absent.vshakenew", "absent.transform2", "absent.vtransform",
+                                  "absent.facemotion", "absent.perlindisplace",
                                   "absent.swing", "absent.spin", "absent.pulsesize", "absent.pulseopacity",
                                   "absent.echo", "absent.videofeedback", "absent.timequant", "absent.shutterblur", "absent.motionblur", "absent.movealongpath",
                                   "absent.scaleassist", "absent.parenthelper",
@@ -432,8 +435,20 @@ void Scatter(const Layer& l, const LayerEffect& e, float t, const RepeatSpace& s
 
 }
 
+std::string_view Stem(const std::string& id) {
+    const size_t dot = id.rfind('.');
+    return dot == std::string::npos ? std::string_view(id) : std::string_view(id).substr(dot + 1);
+}
+
 bool MotionEffect(const std::string& id) {
-    return std::any_of(std::begin(kMotionIds), std::end(kMotionIds), [&](const char* m) { return id == m; });
+    return std::any_of(std::begin(kMotionIds), std::end(kMotionIds), [&](const char* m) {
+        return id == m || Stem(id) == std::string_view(m).substr(7);
+    });
+}
+
+bool PartEffect(const std::string& id) {
+    const std::string_view stem = Stem(id);
+    return stem == "growparts" || stem == "shakeparts";
 }
 
 void ApplyMotion(const Layer& l, double timeMs, Placement* p) {
@@ -442,11 +457,113 @@ void ApplyMotion(const Layer& l, double timeMs, Placement* p) {
     const double s = Seconds(l, timeMs);
     bool repeated = false;
     for (const LayerEffect& e : l.effects) {
-        const bool alight = e.id.rfind("com.alightcreative.effects.", 0) == 0;
+        const bool alight = e.id.rfind("com.alightcreative.", 0) == 0;
         if (e.hidden || (!alight && e.id.compare(0, 7, "absent.") != 0)) continue;
-        const std::string_view id = std::string_view(e.id).substr(alight ? 27 : 7);
+        const std::string_view id = Stem(e.id);
         if (RepeatEffect(e.id)) {
             repeated = true;
+            continue;
+        }
+        if (id == "growparts") {
+            const int want = (int)std::lround(Param(e, "depth", t, 1));
+            const int depth = e.depth > 0 ? e.depth : 1;
+            if (want != depth) continue;
+            const float progress = std::clamp(Param(e, "progress", t, 0), 0.0f, 1.0f);
+            const float lo = progress * 1000.0f, hi = (progress + 0.1f) * 1000.0f;
+            const float u = std::clamp((p->location.fY - lo) / std::max(hi - lo, 1e-4f), 0.0f, 1.0f);
+            const float f = u * u * (3.0f - 2.0f * u);
+            p->scale = {p->scale.fX * f, p->scale.fY * f};
+            continue;
+        }
+        if (id == "shakeparts") {
+            const float mag = Param(e, "magnitude", t, 10), ev = Param(e, "evolution", t, 0);
+            const double raw = (double)(l.noiseId ? l.noiseId : l.id);
+            const double seed = raw - std::floor(raw / 10000.0) * 10000.0;
+            const float dx = (float)Noise(p->location.fX + ev + 1.0 + seed, p->location.fY + seed);
+            const float dy = (float)Noise(p->location.fX + ev + 812.3417 + seed, p->location.fY + seed + 137.0);
+            const int depth = e.depth > 0 ? e.depth : 1;
+            p->location += SkPoint{dx * mag, dy * mag * (depth / 10.0f)};
+            continue;
+        }
+        if (id == "poseshake") {
+            const double phase = s * Param(e, "gamma", t, 12) * Param(e, "beta", t, 1);
+            p->location += SkPoint{(float)(std::sin(phase) * Param(e, "Xmag", t, 25)),
+                                   (float)(std::sin(phase + 1.047) * Param(e, "Ymag", t, 25) * 0.7)};
+            p->rotation += (float)(std::sin(phase + 2.094) * Param(e, "rotMag", t, 3));
+            continue;
+        }
+        if (id == "vshake") {
+            const float duration = std::max(0.001f, (l.endTime - l.startTime) / 1000.0f);
+            auto wave = [&](const char* type, const char* freq, const char* offset) {
+                const int kind = (int)std::lround(Param(e, type, t, 1));
+                const float x = (float)s * duration * Param(e, "freq", t, 2) * (Param(e, freq, t, 10) / 10.0f) + Param(e, offset, t, 0);
+                if (kind == 0) return std::cos(x * 3.14159265f);
+                if (kind == 1) return std::sin(x * 3.14159265f);
+                if (kind == 2) return (float)(2.0 * std::abs(2.0 * (x / 2.0 - std::floor(x / 2.0 + 0.5))) - 1.0);
+                return (float)Noise(p->location.fX * (Param(e, "freq", t, 2) * (Param(e, freq, t, 10) / 10.0f)) + 49235.319 + Param(e, offset, t, 0),
+                                    p->location.fY + 137.0);
+            };
+            const float mx = wave("xtype", "xfreq", "xoffset"), my = wave("ytype", "yfreq", "yoffset");
+            const float mz = wave("ztype", "zfreq", "zoffset"), mt = wave("ttype", "tfreq", "toffset");
+            const float mag = Param(e, "mag", t, 4);
+            const float dx = (Param(e, "xmag", t, 15) / 10.0f) * (Param(e, "xmag", t, 15) / 10.0f) * mx * mag;
+            const float dy = (Param(e, "ymag", t, 40) / 10.0f) * (Param(e, "ymag", t, 40) / 10.0f) * my * mag;
+            const float dt = (Param(e, "tmag", t, 0) / 10.0f) * (Param(e, "tmag", t, 0) / 10.0f) * mt * mag;
+            const float dz = (Param(e, "zmag", t, 1) / 50.0f) * (Param(e, "zmag", t, 1) / 50.0f) * mz * mag;
+            p->location += SkPoint{dx, dy};
+            p->rotation += Param(e, "rot", t, 0) + dt;
+            const float scale = Param(e, "zdist", t, 1) + dz - 1.0f;
+            p->scale = {p->scale.fX + scale, p->scale.fY + scale};
+            continue;
+        }
+        if (id == "vshakenew") {
+            const float duration = std::max(0.001f, (l.endTime - l.startTime) / 1000.0f);
+            auto part = [&](const char* randAmp, const char* randFreq, const char* waveAmp, const char* waveFreq, const char* offset, int axis) {
+                const float base = (float)s * duration * Param(e, "freq", t, 8);
+                const float r = (float)Noise(base * (Param(e, randFreq, t, 1) / 5.0f) + axis * 1013.0 + Param(e, offset, t, 0),
+                                             base + 17337.94f + Param(e, offset, t, 0));
+                const float w = (float)std::sin(base * (Param(e, waveFreq, t, 0.5f) / 5.0f) * 3.14159265f + Param(e, offset, t, 0));
+                (void)randAmp;
+                return r + w * (Param(e, waveAmp, t, 0) / 10.0f);
+            };
+            const float mx = part("xrandamp", "xrandfreq", "xwaveamp", "xwavefreq", "xoffset", 1);
+            const float my = part("yrandamp", "yrandfreq", "ywaveamp", "ywavefreq", "yoffset", 2);
+            const float mz = part("zrandamp", "zrandfreq", "zwaveamp", "zwavefreq", "zoffset", 3);
+            const float mt = part("trandamp", "trandfreq", "twaveamp", "twavefreq", "toffset", 4);
+            const float amp = Param(e, "amp", t, 1) * 15.0f;
+            p->location += SkPoint{(Param(e, "xrandamp", t, 192) / 40.0f) * (Param(e, "xrandamp", t, 192) / 40.0f) * mx * amp,
+                                   (Param(e, "yrandamp", t, 96) / 40.0f) * (Param(e, "yrandamp", t, 96) / 40.0f) * my * amp};
+            p->rotation += (Param(e, "trandamp", t, 0) / 40.0f) * (Param(e, "trandamp", t, 0) / 40.0f) * mt * amp;
+            const float ds = (Param(e, "zrandamp", t, 0) / 50.0f) * (Param(e, "zrandamp", t, 0) / 50.0f) * mz * amp;
+            p->scale = {p->scale.fX + ds, p->scale.fY + ds};
+            continue;
+        }
+        if (id == "transform2" || id == "skexnxx15") {
+            const float master = Param(e, "amp", t, 1);
+            const float x = Param(e, "posx", t, 0) * (Param(e, "xinv", t, 0) >= 0.5f ? -1.0f : 1.0f) * master;
+            const float y = Param(e, "posy", t, 0) * (Param(e, "yinv", t, 0) >= 0.5f ? -1.0f : 1.0f) * master;
+            const float a = Param(e, "angle", t, 0) * (Param(e, "ainv", t, 0) >= 0.5f ? -1.0f : 1.0f) * master;
+            float z = std::max(Param(e, "posz", t, 1), 0.0001f);
+            if (Param(e, "zinv", t, 0) >= 0.5f) z = 1.0f / z;
+            const float ds = (z - 1.0f) * master;
+            p->location += SkPoint{x, y};
+            p->rotation += a;
+            p->scale = {p->scale.fX + ds, p->scale.fY + ds};
+            continue;
+        }
+        if (id == "facemotion") {
+            const float dt = 0.001f, next = std::min(1.0f, t + dt);
+            const float dx = l.location.get(0, next, 0) - l.location.get(0, t, 0);
+            const float dy = l.location.get(1, next, 0) - l.location.get(1, t, 0);
+            if (std::fabs(dx) + std::fabs(dy) > 1e-5f) p->rotation += (float)(std::atan2(dy, dx) * 180.0 / 3.141592653589793);
+            continue;
+        }
+        if (id == "perlindisplace") {
+            const float freq = Param(e, "freq", t, 2), mag = Param(e, "mag", t, 25), seed = Param(e, "seed", t, 0);
+            const bool position = Param(e, "basis", t, 0) >= 0.5f;
+            const float x = position ? p->location.fX * freq / 500.0f : (float)s * freq * 4.0f;
+            const float y = position ? p->location.fY * freq / 500.0f : (float)s * freq * 4.0f;
+            p->location += SkPoint{(float)(Noise(x, seed) * mag), (float)(Noise(y, seed + 7468.329) * mag)};
             continue;
         }
         if (alight) {

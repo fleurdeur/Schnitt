@@ -973,6 +973,26 @@
    }
   }
  },
+ "com.alightcreative.effect.movealongpath": {
+  "to": "movealongpath",
+  "params": {
+   "progress": { "to": "progress" },
+   "angle": { "to": "orientation" },
+   "tangent": { "to": "rotate" },
+   "inset": { "to": "inset" },
+   "offset": { "to": "offset" }
+  }
+ },
+ "com.alightcreative.effect.movealongpath2": {
+  "to": "movealongpath",
+  "params": {
+   "progress": { "to": "progress" },
+   "angle": { "to": "orientation" },
+   "tangent": { "to": "rotate" },
+   "inset": { "to": "inset" },
+   "offset": { "to": "offset" }
+  }
+ },
  "com.alightcreative.effect.movealongpath3": {
   "to": "movealongpath",
   "params": {

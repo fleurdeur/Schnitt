@@ -1531,8 +1531,99 @@ float FadeOpacity(const Layer& l, double timeMs, float t) {
     return std::clamp(alpha, 0.0f, 1.0f);
 }
 
-void DrawOne(SkCanvas* canvas, const std::vector<Layer>& siblings, const Layer& l, double timeMs,
+std::vector<SkPoint> PathSamples(const SkPath& path, bool* closed) {
+    std::vector<SkPoint> points;
+    SkPathMeasure measure(path, false);
+    const float length = measure.getLength();
+    if (closed) *closed = measure.isClosed();
+    if (!(length > 0)) return points;
+    points.reserve(301);
+    for (int i = 0; i <= 300; i++) {
+        SkPoint at;
+        if (measure.getPosTan(length * i / 300.0f, &at, nullptr)) points.push_back(at);
+    }
+    return points;
+}
+
+int StartAtMinAngle(const std::vector<SkPoint>& points) {
+    if (points.empty()) return 0;
+    int best = 0;
+    float least = std::atan2(points[0].fX, points[0].fY);
+    for (int i = 1; i < (int)points.size(); i++) {
+        const float angle = std::atan2(points[i].fX, points[i].fY);
+        if (angle < least) { least = angle; best = i; }
+    }
+    return best;
+}
+
+struct MorphCacheEntry {
+    double time = -1;
+    float progress = -1;
+    int64_t below = 0;
+    SkPath path;
+};
+thread_local std::unordered_map<int64_t, MorphCacheEntry> gMorphCache;
+
+bool MorphPath(const std::vector<Layer>& siblings, const Layer& layer, double timeMs, Layer* out) {
+    const LayerEffect* effect = nullptr;
+    for (const LayerEffect& e : layer.effects) {
+        if (!e.hidden && (e.id == "absent.morphpath" || e.id == "com.alightcreative.effect.morphpath")) {
+            effect = &e;
+            break;
+        }
+    }
+    if (!effect || layer.kind != "shape") return false;
+    const int index = (int)(std::find_if(siblings.begin(), siblings.end(), [&](const Layer& s) { return &s == &layer; }) - siblings.begin());
+    if (index <= 0 || index >= (int)siblings.size()) return false;
+    const Layer& below = siblings[index - 1];
+    const float t = layer.localTime(timeMs), tb = below.localTime(timeMs);
+    const float progress = std::clamp(Setting(*effect, "progress", t, 0), 0.0f, 1.0f);
+    auto cached = gMorphCache.find(layer.id);
+    if (cached != gMorphCache.end() && cached->second.time == timeMs &&
+        cached->second.progress == progress && cached->second.below == below.id) {
+        out->outline = cached->second.path;
+        out->shape.clear();
+        out->outlineShape.clear();
+        out->outlineEdited = true;
+        out->keyedPoints = false;
+        out->contours.clear();
+        return true;
+    }
+    const SkPath own = ShapePath(layer, t, false);
+    const SkPath other = ShapePath(below, tb, false);
+    bool ownClosed = false, otherClosed = false;
+    std::vector<SkPoint> a = PathSamples(own, &ownClosed);
+    std::vector<SkPoint> b = PathSamples(other, &otherClosed);
+    if (a.empty() || b.empty()) return false;
+    const int ai = StartAtMinAngle(a), bi = StartAtMinAngle(b);
+    std::rotate(a.begin(), a.begin() + ai, a.end());
+    std::rotate(b.begin(), b.begin() + bi, b.end());
+    const size_t count = std::min(a.size(), b.size());
+    SkPathBuilder builder;
+    for (size_t i = 0; i < count; i++) {
+        const SkPoint p{a[i].fX * (1.0f - progress) + b[i].fX * progress,
+                        a[i].fY * (1.0f - progress) + b[i].fY * progress};
+        if (i == 0) builder.moveTo(p);
+        else builder.lineTo(p);
+    }
+    if (ownClosed && otherClosed) builder.close();
+    out->outline = builder.detach();
+    if (gMorphCache.size() > 64) gMorphCache.clear();
+    gMorphCache[layer.id] = MorphCacheEntry{timeMs, progress, below.id, out->outline};
+    out->shape.clear();
+    out->outlineShape.clear();
+    out->outlineEdited = true;
+    out->keyedPoints = false;
+    out->contours.clear();
+    return true;
+}
+
+void DrawOne(SkCanvas* canvas, const std::vector<Layer>& siblings, const Layer& given, double timeMs,
              const MediaPictures& pictures, const Override& ov) {
+    Layer morphed;
+    const Layer* source = &given;
+    if (MorphPath(siblings, given, timeMs, &morphed)) source = &morphed;
+    const Layer& l = *source;
     if (!l.activeAt(timeMs) || l.kind == "nullobj" || l.kind == "camera" || l.kind == "light") return;
     if (l.fillType == "media" && !pictures(l.mediaUri, l.id)) return;
     if (!ov.feedback) for (const LayerEffect& e : l.effects) {
@@ -2063,7 +2154,7 @@ Placement EffectivePlacement(const std::vector<Layer>& siblings, const Layer& la
 
 namespace {
 
-bool Shared(const LayerEffect& e) { return e.toChildren && !e.hidden && !MotionEffect(e.id) && !RepeatEffect(e.id); }
+bool Shared(const LayerEffect& e) { return e.toChildren && !e.hidden && (!MotionEffect(e.id) || PartEffect(e.id)) && !RepeatEffect(e.id); }
 
 bool InheritEffects(const std::vector<Layer>& layers, std::vector<Layer>* out) {
     if (std::none_of(layers.begin(), layers.end(), [](const Layer& l) { return std::any_of(l.effects.begin(), l.effects.end(), Shared); }))
@@ -2078,6 +2169,7 @@ bool InheritEffects(const std::vector<Layer>& layers, std::vector<Layer>* out) {
                 if (!Shared(e)) continue;
                 l.effects.push_back(e);
                 l.effects.back().owner = parent->id;
+                l.effects.back().depth = depth + 1;
             }
             up = parent->parent;
         }
