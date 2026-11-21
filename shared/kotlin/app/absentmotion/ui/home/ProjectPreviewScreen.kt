@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -57,6 +58,7 @@ import app.absentmotion.R
 import app.absentmotion.engine.EngineThread
 import app.absentmotion.engine.PreviewView
 import app.absentmotion.library.ProjectStore
+import app.absentmotion.library.ImportReport
 import app.absentmotion.media.mediaDeclaration
 import app.absentmotion.model.MediaFillMode
 import app.absentmotion.model.Scene
@@ -84,7 +86,8 @@ import kotlin.math.roundToInt
 fun ProjectPreviewScreen(store: ProjectStore, engine: EngineThread, projectId: String, onOpen: (String) -> Unit, onClose: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val loaded by produceState<Scene?>(null, projectId) { value = withContext(Dispatchers.IO) { store.load(projectId) } }
+    var revision by remember(projectId) { mutableIntStateOf(0) }
+    val loaded by produceState<Scene?>(null, projectId, revision) { value = withContext(Dispatchers.IO) { store.load(projectId) } }
     val template = loaded
     if (template == null) {
         Box(Modifier.fillMaxSize().background(Am.HomeBg))
@@ -104,6 +107,7 @@ fun ProjectPreviewScreen(store: ProjectStore, engine: EngineThread, projectId: S
         value = withContext(Dispatchers.IO) { app.absentmotion.effects.EffectCatalog.read(context) }
     }
     val effectIds = remember(template) { template.layers.flatMap { it.effects }.mapNotNull { it["id"] }.distinct() }
+    var remapping by remember(projectId) { mutableStateOf<ImportReport?>(null) }
 
     BackHandler(true, onClose)
     LaunchedEffect(working) {
@@ -219,6 +223,11 @@ fun ProjectPreviewScreen(store: ProjectStore, engine: EngineThread, projectId: S
             item(key = "effects_header") {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Imported effects", Modifier.weight(1f), color = Am.Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    val known = catalog
+                    val unsupported = effectIds.filter { id -> known != null && known.find(id)?.available != true }
+                    if (unsupported.isNotEmpty()) TextButton({ remapping = ImportReport(projectId, template.title, false, emptyList(), gaps = unsupported.map {
+                        app.absentmotion.compat.EffectMigration.Gap(it, it.substringAfterLast('.').replace('-', ' '), emptyList())
+                    }) }) { Text(stringResource(R.string.effect_remap_title), color = Am.Accent, fontSize = 12.sp) }
                     Text("${effectIds.size} total", color = Am.HomeDim, fontSize = 11.sp)
                 }
             }
@@ -245,6 +254,12 @@ fun ProjectPreviewScreen(store: ProjectStore, engine: EngineThread, projectId: S
             }
         }
     }
+    }
+    remapping?.let { report ->
+        EffectRemapDialog(store, report, onDone = { changed ->
+            remapping = null
+            if (changed > 0) { revision++; Toast.makeText(context, context.getString(R.string.effect_remap_applied), Toast.LENGTH_SHORT).show() }
+        }, onDismiss = { remapping = null })
     }
 }
 

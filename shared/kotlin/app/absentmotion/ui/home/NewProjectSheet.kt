@@ -110,7 +110,7 @@ internal val Resolutions = listOf(
     2160 to "2160p (4k)", 1440 to "1440p (QHD)", 1080 to "1080p (FHD)", 720 to "720p (HD)",
     540 to "540p (SD)", 360 to "360p", 270 to "270p", 180 to "180p",
 )
-internal val FrameRates = listOf(12, 15, 18, 20, 24, 25, 30, 48, 50, 60, 90, 120)
+internal val FrameRates = listOf(12, 15, 18, 20, 24, 25, 30, 48, 50, 60, 90, 120, 144, 165, 240)
 
 internal class BackgroundChoice(@StringRes val name: Int, val argb: Int)
 
@@ -423,10 +423,16 @@ private fun ResolutionField(form: Form) {
 
 @Composable
 private fun FrameRateField(form: Form) {
+    var custom by remember { mutableStateOf(false) }
     DropdownField("${form.fps} fps") { close ->
         FrameRates.forEachIndexed { i, rate ->
-            PickRow("$rate fps", divider = i < FrameRates.lastIndex) { form.fps = rate; close() }
+            PickRow("$rate fps", divider = true) { form.fps = rate; close() }
         }
+        PickRow(stringResource(R.string.menu_custom), divider = false) { close(); custom = true }
+    }
+    if (custom) SizeNameDialog(stringResource(R.string.newproject_frame_rate), "${form.fps}", dark = false, onDismiss = { custom = false }) { value ->
+        custom = false
+        value.trim().toIntOrNull()?.let { form.fps = it.coerceIn(1, 240) }
     }
 }
 

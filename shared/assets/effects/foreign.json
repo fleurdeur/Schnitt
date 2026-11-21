@@ -976,21 +976,41 @@
  "com.alightcreative.effect.movealongpath": {
   "to": "movealongpath",
   "params": {
-   "progress": { "to": "progress" },
-   "angle": { "to": "orientation" },
-   "tangent": { "to": "rotate" },
-   "inset": { "to": "inset" },
-   "offset": { "to": "offset" }
+   "progress": {
+    "to": "progress"
+   },
+   "angle": {
+    "to": "orientation"
+   },
+   "tangent": {
+    "to": "rotate"
+   },
+   "inset": {
+    "to": "inset"
+   },
+   "offset": {
+    "to": "offset"
+   }
   }
  },
  "com.alightcreative.effect.movealongpath2": {
   "to": "movealongpath",
   "params": {
-   "progress": { "to": "progress" },
-   "angle": { "to": "orientation" },
-   "tangent": { "to": "rotate" },
-   "inset": { "to": "inset" },
-   "offset": { "to": "offset" }
+   "progress": {
+    "to": "progress"
+   },
+   "angle": {
+    "to": "orientation"
+   },
+   "tangent": {
+    "to": "rotate"
+   },
+   "inset": {
+    "to": "inset"
+   },
+   "offset": {
+    "to": "offset"
+   }
   }
  },
  "com.alightcreative.effect.movealongpath3": {
@@ -3312,6 +3332,12 @@
    },
    "color2": {
     "to": "paper"
+   },
+   "strength": {
+    "to": "strength"
+   },
+   "phase": {
+    "to": "phase"
    }
   },
   "set": {
@@ -6204,14 +6230,17 @@
   "to": "edgedetect",
   "params": {
    "smoothing": {
-    "neutral": 1
+    "to": "spacing"
    },
    "threshold": {
-    "neutral": 0
+    "to": "threshold"
    },
    "invert": {
-    "neutral": false
+    "to": "invert"
    }
+  },
+  "set": {
+   "style": 1
   }
  },
  "com.alightcreative.effects.polar": {

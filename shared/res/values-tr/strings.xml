@@ -1976,6 +1976,8 @@
     <string name="preview_full_blur">Tam\nBulanık</string>
     <string name="preview_fast_blur">Hızlı\nBulanık</string>
     <string name="settings_preview_copies">Büyük videolar için önizleme kopyaları kullan</string>
+    <string name="settings_ffamp">FFamp media engine</string>
+    <string name="settings_ffamp_note">Experimental, arm64 only. FFamp reads more containers and codecs, with a safe fallback to the platform reader.</string>
     <string name="settings_background_preview">Boştayken önizlemeyi önceden işle</string>
     <string name="settings_clear_preview_copies">Önizleme kopyalarını temizle</string>
     <string name="settings_clear_preview_title">Önizleme kopyaları temizlensin mi?</string>

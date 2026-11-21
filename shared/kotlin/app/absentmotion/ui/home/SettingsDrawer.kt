@@ -210,6 +210,12 @@ internal fun PlaybackSettings(settings: AppSettings) {
     Divider(10.dp)
     SwitchRow(stringResource(R.string.settings_preview_copies), settings.previewCopies, enabled = true) { settings.previewCopies = it }
     PreviewCopiesRow()
+    if (app.absentmotion.media.FfampProbe.available) {
+        Divider(10.dp)
+        SwitchRow(stringResource(R.string.settings_ffamp), settings.ffamp, enabled = true) { settings.ffamp = it }
+        Text(stringResource(R.string.settings_ffamp_note), Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
+            color = Am.HomeMid, fontSize = 12.sp, lineHeight = 16.sp)
+    }
 }
 
 @Composable

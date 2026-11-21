@@ -1952,6 +1952,8 @@
     <string name="preview_full_blur">完整\n模糊</string>
     <string name="preview_fast_blur">快速\n模糊</string>
     <string name="settings_preview_copies">使用大型视频的预览副本</string>
+    <string name="settings_ffamp">FFamp media engine</string>
+    <string name="settings_ffamp_note">Experimental, arm64 only. FFamp reads more containers and codecs, with a safe fallback to the platform reader.</string>
     <string name="settings_background_preview">空闲时预渲染预览</string>
     <string name="settings_clear_preview_copies">清除预览副本</string>
     <string name="settings_clear_preview_title">清除预览副本？</string>

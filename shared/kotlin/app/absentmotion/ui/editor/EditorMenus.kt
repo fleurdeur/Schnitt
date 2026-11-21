@@ -471,6 +471,7 @@ private fun SettingsPanel(state: EditorState, onDismiss: () -> Unit, modifier: M
     val focus = LocalFocusManager.current
     val derived = aspectOf(scene.width, scene.height)
     var custom by remember { mutableStateOf(derived == CUSTOM) }
+    var fpsCustom by remember { mutableStateOf(false) }
     val aspect = if (custom) CUSTOM else derived
     val resolution = minOf(scene.width, scene.height)
     fun change(width: Int = scene.width, height: Int = scene.height, fps: Int = scene.fps, bgColor: Int = scene.bgColor) =
@@ -518,8 +519,9 @@ private fun SettingsPanel(state: EditorState, onDismiss: () -> Unit, modifier: M
         SettingRow(stringResource(R.string.menu_frame_rate)) {
             Dropdown("${scene.fps} fps") { close ->
                 FrameRates.forEachIndexed { i, rate ->
-                    PickRow("$rate fps", divider = i < FrameRates.lastIndex) { change(fps = rate); close() }
+                    PickRow("$rate fps", divider = true) { change(fps = rate); close() }
                 }
+                PickRow(stringResource(R.string.menu_custom), divider = false) { close(); fpsCustom = true }
             }
         }
         Spacer(Modifier.height(10.dp))
@@ -530,6 +532,10 @@ private fun SettingsPanel(state: EditorState, onDismiss: () -> Unit, modifier: M
                     PickRow(stringResource(choice.name), swatch = choice.argb, divider = i < Backgrounds.lastIndex) { change(bgColor = choice.argb); close() }
                 }
             }
+        }
+        if (fpsCustom) app.absentmotion.ui.home.SizeNameDialog(stringResource(R.string.menu_frame_rate), "${scene.fps}", dark = true, onDismiss = { fpsCustom = false }) { value ->
+            fpsCustom = false
+            value.trim().toIntOrNull()?.let { change(fps = it.coerceIn(1, 240)) }
         }
         Spacer(Modifier.height(10.dp))
         SettingRow(stringResource(R.string.version_history)) {

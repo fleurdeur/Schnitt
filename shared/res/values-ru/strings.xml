@@ -2024,6 +2024,8 @@
     <string name="preview_full_blur">Полное\nразмытие</string>
     <string name="preview_fast_blur">Быстрое\nразмытие</string>
     <string name="settings_preview_copies">Использовать копии больших видео для предпросмотра</string>
+    <string name="settings_ffamp">FFamp media engine</string>
+    <string name="settings_ffamp_note">Experimental, arm64 only. FFamp reads more containers and codecs, with a safe fallback to the platform reader.</string>
     <string name="settings_background_preview">Предрендер предпросмотра в простое</string>
     <string name="settings_clear_preview_copies">Очистить копии предпросмотра</string>
     <string name="settings_clear_preview_title">Очистить копии для предпросмотра?</string>

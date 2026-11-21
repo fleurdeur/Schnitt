@@ -1976,6 +1976,8 @@
     <string name="preview_full_blur">بلور\nکامل</string>
     <string name="preview_fast_blur">بلور\nسریع</string>
     <string name="settings_preview_copies">استفاده از نسخه‌های پیش‌نمایش برای ویدیوهای بزرگ</string>
+    <string name="settings_ffamp">FFamp media engine</string>
+    <string name="settings_ffamp_note">Experimental, arm64 only. FFamp reads more containers and codecs, with a safe fallback to the platform reader.</string>
     <string name="settings_background_preview">پیش‌رندر پیش‌نمایش هنگام بیکاری</string>
     <string name="settings_clear_preview_copies">پاک کردن نسخه‌های پیش‌نمایش</string>
     <string name="settings_clear_preview_title">کپی‌های پیش‌نمایش پاک شوند؟</string>

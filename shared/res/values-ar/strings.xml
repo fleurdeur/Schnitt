@@ -2072,6 +2072,8 @@
     <string name="preview_full_blur">ضبابية\nكاملة</string>
     <string name="preview_fast_blur">ضبابية\nسريعة</string>
     <string name="settings_preview_copies">استخدام نسخ معاينة للفيديوهات الكبيرة</string>
+    <string name="settings_ffamp">FFamp media engine</string>
+    <string name="settings_ffamp_note">Experimental, arm64 only. FFamp reads more containers and codecs, with a safe fallback to the platform reader.</string>
     <string name="settings_background_preview">تصيير المعاينة مسبقًا أثناء الخمول</string>
     <string name="settings_clear_preview_copies">مسح نسخ المعاينة</string>
     <string name="settings_clear_preview_title">هل تريد مسح نسخ المعاينة؟</string>

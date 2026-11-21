@@ -74,9 +74,9 @@ data class EffectCatalog(
             // The shipped pack is immutable, so keep one parsed base catalog
             // and only append the dynamic custom/plugin/extension entries.
             val base = synchronized(baseLock) {
-                baseCache?.takeIf { it.first == tag }?.second ?: parse(tag) {
+                baseCache?.takeIf { it.first == tag }?.second ?: TrueEffectLibrary.append(application, parse(tag) {
                     app.absentmotion.i18n.LanguagePacks.open(application, tag, "effects/$it")
-                }.also { baseCache = tag to it }
+                }).also { baseCache = tag to it }
             }
             return base
                 .let { if (it.message != null) it.copy(message = context.getString(R.string.effects_not_loaded)) else app.absentmotion.plugins.FfxPreset.append(context, app.absentmotion.plugins.PluginEffectImporter.append(context, AmEffectImporter.append(context, AexImporter.append(context, it)))) }

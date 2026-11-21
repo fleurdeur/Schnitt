@@ -1,6 +1,7 @@
 package app.absentmotion.library
 
 import app.absentmotion.model.withSlowestSpeeds
+import app.absentmotion.effects.EffectDefinition
 import app.absentmotion.R
 import app.absentmotion.i18n.AppText
 import app.absentmotion.platform.Context
@@ -147,6 +148,29 @@ class ProjectStore(private val root: File) {
     fun linkedBy(id: String): List<String> {
         val link = "link=\"${linkOf(id)}\""
         return list().filter { it.id != id && text(it.id)?.contains(link) == true }.map { it.title }
+    }
+
+    /** Swaps unsupported imported effects for effects the user picked, keeping every property and keyframe. */
+    fun remapEffects(id: String, replacements: Map<String, String>, definitions: Map<String, EffectDefinition>): Int {
+        val current = text(id) ?: return 0
+        val root = runCatching { XmlNode.parse(current, XmlNode.IMPORT_NODES) }.getOrNull() ?: return 0
+        var changed = 0
+        fun visit(node: XmlNode): XmlNode {
+            if (node.name == "effect") {
+                val target = replacements[node["id"]] ?: return node.copy(children = node.children.map(::visit))
+                val definition = definitions[target]
+                val existing = node.children.filter { it.name == "property" }.mapNotNull { it["name"] }.toSet()
+                val additions = definition?.params.orEmpty().filterNot { it.id in existing }.map {
+                    XmlNode("property", mapOf("name" to it.id, "type" to it.type, "value" to it.default))
+                }
+                changed++
+                return node.copy(attrs = node.attrs + ("id" to target), children = node.children.map(::visit) + additions)
+            }
+            return if (node.children.isEmpty()) node else node.copy(children = node.children.map(::visit))
+        }
+        val next = visit(root)
+        if (changed > 0) save(id, next.toXml())
+        return changed
     }
 
     fun save(id: String, scene: Scene) = save(id, scene.toXml())

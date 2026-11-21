@@ -76,9 +76,11 @@ fun previewComplexityDivisor(scene: Scene): Int {
         }
     }
     return when {
-        cost > 400 -> 3
-        cost > 180 -> 2
-        cost > 60 -> 1
+        cost > 900 -> 8
+        cost > 500 -> 6
+        cost > 260 -> 4
+        cost > 120 -> 2
+        cost > 55 -> 1
         else -> 0
     }
 }

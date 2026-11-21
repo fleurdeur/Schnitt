@@ -1976,6 +1976,8 @@
     <string name="preview_full_blur">फ़ुल\nब्लर</string>
     <string name="preview_fast_blur">फ़ास्ट\nब्लर</string>
     <string name="settings_preview_copies">बड़े वीडियो के लिए प्रीव्यू कॉपी इस्तेमाल करें</string>
+    <string name="settings_ffamp">FFamp media engine</string>
+    <string name="settings_ffamp_note">Experimental, arm64 only. FFamp reads more containers and codecs, with a safe fallback to the platform reader.</string>
     <string name="settings_background_preview">रुकने पर प्रीव्यू प्री-रेंडर करें</string>
     <string name="settings_clear_preview_copies">प्रीव्यू कॉपी हटाएँ</string>
     <string name="settings_clear_preview_title">प्रीव्यू कॉपी साफ़ करें?</string>

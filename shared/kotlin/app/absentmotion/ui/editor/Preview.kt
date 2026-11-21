@@ -144,11 +144,11 @@ fun Preview(state: EditorState, modifier: Modifier = Modifier, reserveEnd: Dp = 
     LaunchedEffect(state.playing, state.settings.adaptivePreview) {
         if (!state.playing || !state.settings.adaptivePreview) { adaptiveDivisor = 1; return@LaunchedEffect }
         while (true) {
-            delay(400)
+            delay(300)
             val ms = state.engine.lastRenderMs
             val next = when {
-                ms >= 34.0 -> min(4, adaptiveDivisor + 1)
-                ms in 1.0..18.0 && adaptiveDivisor > 1 -> adaptiveDivisor - 1
+                ms >= 24.0 -> min(8, adaptiveDivisor + 1)
+                ms in 1.0..11.0 && adaptiveDivisor > 1 -> adaptiveDivisor - 1
                 else -> adaptiveDivisor
             }
             if (next != adaptiveDivisor) adaptiveDivisor = next

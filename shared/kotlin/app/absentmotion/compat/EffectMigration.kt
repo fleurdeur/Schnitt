@@ -12,6 +12,7 @@ import app.absentmotion.model.valueAt
 import app.absentmotion.platform.Context
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.Serializable
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.pow
@@ -64,7 +65,10 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
 
     class Rule(val to: String, val params: Map<String, List<Conversion?>>, val set: Map<String, String>, val onlyWith: String? = null, val turn: Turn? = null)
 
-    data class Result(val scene: Scene, val converted: Map<String, Int>, val dropped: Set<String>) {
+    /** One effect or setting group that needs the user's decision after import. */
+    data class Gap(val id: String, val label: String, val properties: List<String>) : Serializable
+
+    data class Result(val scene: Scene, val converted: Map<String, Int>, val dropped: Set<String>, val gaps: List<Gap> = emptyList()) {
         val changed: Boolean get() = converted.isNotEmpty()
     }
 
@@ -77,6 +81,11 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
         }
         val converted = linkedMapOf<String, Int>()
         val dropped = sortedSetOf<String>()
+        val gaps = linkedMapOf<String, MutableSet<String>>()
+        fun noteGap(node: XmlNode, properties: Collection<String>) {
+            val id = node["id"] ?: return
+            gaps.getOrPut(id) { linkedSetOf() }.addAll(properties)
+        }
         var renamed = false
         fun visit(node: XmlNode, dims: FloatArray): XmlNode {
             // Text spacing is read directly by the native text layout, not by
@@ -95,7 +104,10 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
             // keyframes while switching to the known-good native effect.
             if (rule != null && own != null && (!older || node.children.any { c -> c.name == "property" && own.params.none { it.id == c["name"] } })) {
                 if (older) renamed = true else converted.merge("${node["id"]!!.substringAfterLast('.')} → ${own.name}", 1, Int::plus)
-                return convert(node, rule, own, older, dims) { dropped += "${own.name}: $it" }
+                return convert(node, rule, own, older, dims) {
+                    dropped += "${own.name}: $it"
+                    noteGap(node, listOf(it))
+                }
             }
             val nativeAm = if (node.name == "effect") definitionsById[node["id"]]?.takeIf {
                 it.key.startsWith("am-") || it.external
@@ -107,9 +119,11 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
                 if (matched != null) {
                     converted.merge("${node["id"]!!.substringAfterLast('.')} → ${matched.effect.name}", 1, Int::plus)
                     matched.dropped.forEach { dropped += "${matched.effect.name}: $it" }
+                    if (matched.dropped.isNotEmpty()) noteGap(node, matched.dropped)
                     return matched.node
                 }
                 dropped += "Unsupported effect: ${node["id"]}"
+                noteGap(node, node.children.filter { it.name == "property" }.mapNotNull { it["name"] })
             }
             val inner = if (node.name in Scene.LAYER_TAGS) layerDims(node, dims) else dims
             return if (node.children.isEmpty()) node else node.copy(children = node.children.map { visit(it, inner) })
@@ -123,7 +137,8 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
             root = normalizeGroups(root, root["width"]?.toIntOrNull() ?: 1080, root["height"]?.toIntOrNull() ?: 1080)
             root = root.copy(attrs = root.attrs + ("am" to "app.absentmotion"), children = root.children.map(::squaredBlendOpacity))
         }
-        return Result(if (converted.isEmpty() && !renamed && !foreign) scene else Scene(root), converted, dropped)
+        val gapsOut = gaps.map { (id, props) -> Gap(id, id.substringAfterLast('.').replace('-', ' '), props.toList()) }
+        return Result(if (converted.isEmpty() && !renamed && !foreign) scene else Scene(root), converted, dropped, gapsOut)
     }
 
 

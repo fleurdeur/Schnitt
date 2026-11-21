@@ -2000,6 +2000,8 @@
     <string name="preview_full_blur">Flou\ncomplet</string>
     <string name="preview_fast_blur">Flou\nrapide</string>
     <string name="settings_preview_copies">Utiliser des copies d’aperçu des vidéos volumineuses</string>
+    <string name="settings_ffamp">FFamp media engine</string>
+    <string name="settings_ffamp_note">Experimental, arm64 only. FFamp reads more containers and codecs, with a safe fallback to the platform reader.</string>
     <string name="settings_background_preview">Précalculer l’aperçu pendant les pauses</string>
     <string name="settings_clear_preview_copies">Effacer les copies d’aperçu</string>
     <string name="settings_clear_preview_title">Effacer les copies d’aperçu ?</string>

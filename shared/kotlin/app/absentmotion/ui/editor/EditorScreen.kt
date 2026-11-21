@@ -287,6 +287,8 @@ private fun Playback(state: EditorState) {
             var audible = audio?.play(startMs.toDouble()) == true
             var startNanos = withFrameNanos { it }
             var shown = startFrame
+            val complexity = app.absentmotion.editor.previewComplexityDivisor(state.scene)
+            val frameStep = when { complexity >= 8 -> 3; complexity >= 6 -> 2; complexity >= 4 && state.scene.fps > 30 -> 2; else -> 1 }
             val loop = state.settings.loopingPlay || app.absentmotion.extensions.ExtensionRuntime.automationLoops()
             while (state.playing) {
                 val now = withFrameNanos { it }
@@ -316,7 +318,8 @@ private fun Playback(state: EditorState) {
                         state.playing = false
                     }
                 } else {
-                    state.frame = maxOf(frame, startFrame)
+                    val target = maxOf(frame, startFrame)
+                    state.frame = if (target - shown in 1 until frameStep) shown else target
                 }
                 shown = state.frame
                 audio?.frameShown(shown, state.scene.frameStart(shown))

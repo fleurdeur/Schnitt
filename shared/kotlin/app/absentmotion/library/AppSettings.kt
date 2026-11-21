@@ -90,6 +90,10 @@ class AppSettings(private val context: Context) {
         get() = openGlState
         set(value) { openGlState = value; prefs.edit().putBoolean("graphicsOpenGl", value).apply() }
 
+    var ffamp: Boolean
+        get() = prefs.getBoolean("ffamp", false) && app.absentmotion.media.FfampProbe.available
+        set(value) { prefs.edit().putBoolean("ffamp", value && app.absentmotion.media.FfampProbe.available).apply() }
+
     /** Drops preview detail while playing, then returns to the chosen quality when paused. */
     var adaptivePreview: Boolean
         get() = adaptivePreviewState

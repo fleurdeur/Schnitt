@@ -188,6 +188,7 @@ fun HomeScreen(
     var page by rememberSaveable { mutableIntStateOf(lastPage) }
     SideEffect { lastTab = tab; lastPage = page }
     var creating by remember { mutableStateOf(false) }
+    var remapping by remember { mutableStateOf<ImportReport?>(null) }
     var opening by remember { mutableIntStateOf(0) }
     var initialElement by remember { mutableStateOf(false) }
     val newProject = { initialElement = newProjectIsAsset(page, tab); opening++; creating = true }
@@ -248,7 +249,15 @@ fun HomeScreen(
                 Spacer(Modifier.height(BarHeight + navInset))
             }
             BottomBar(onNew = newProject, page, { page = it; if (it >= 2) search = null }, Modifier.align(Alignment.BottomCenter), navInset, wide, settings.vibration)
-            if (toReport.isNotEmpty()) ImportDialog(toReport, onDismiss = onImportShown, onOpen = { onImportShown(); toReport.first().let { if (it.template) onTemplate(it.id) else onOpen(it.id) } })
+            if (toReport.isNotEmpty()) ImportDialog(toReport, onDismiss = onImportShown, onRemap = { remapping = it }, onOpen = { onImportShown(); toReport.first().let { if (it.template) onTemplate(it.id) else onOpen(it.id) } })
+            remapping?.let { report ->
+                EffectRemapDialog(store, report, onDone = { changed ->
+                    remapping = null
+                    onImportShown()
+                    version++
+                    if (changed > 0) android.widget.Toast.makeText(context, context.getString(app.absentmotion.R.string.effect_remap_applied), android.widget.Toast.LENGTH_SHORT).show()
+                }, onDismiss = { remapping = null })
+            }
             Presence(creating) {
                 NewProjectSheet(
                     store, settings, projects.map { it.title }, initialElement, opening, onClose = { creating = false },
@@ -420,7 +429,7 @@ internal fun UploadCard(onUpload: () -> Unit) {
 }
 
 @Composable
-private fun ImportDialog(reports: List<ImportReport>, onDismiss: () -> Unit, onOpen: () -> Unit) {
+private fun ImportDialog(reports: List<ImportReport>, onDismiss: () -> Unit, onRemap: (ImportReport) -> Unit, onOpen: () -> Unit) {
     val warning = reports.any { it.warnings }
     val warnHeadings = setOf(R.string.library_report_cannot_run, R.string.library_report_dropped, R.string.library_report_unknown)
     AlertDialog(
@@ -444,7 +453,13 @@ private fun ImportDialog(reports: List<ImportReport>, onDismiss: () -> Unit, onO
             }
         },
         dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.ok), color = Am.Navy) } },
-        confirmButton = { TextButton(onOpen) { Text(stringResource(R.string.open), color = Am.Navy) } },
+        confirmButton = {
+            Row {
+                val gaps = reports.firstOrNull { it.gaps.isNotEmpty() }
+                if (gaps != null) TextButton({ onRemap(gaps) }) { Text(stringResource(R.string.effect_remap_title), color = Am.Accent) }
+                TextButton(onOpen) { Text(stringResource(R.string.open), color = Am.Navy) }
+            }
+        },
         containerColor = Am.Card,
     )
 }

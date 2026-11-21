@@ -48,10 +48,11 @@ data class ImportReport(
     val sections: List<Pair<UiText, List<UiText>>>,
     val template: Boolean = false,
     val community: CommunityInfo? = null,
+    val gaps: List<EffectMigration.Gap> = emptyList(),
 ) : Serializable {
     /** Effects or settings the import could not bring over. */
     val warnings: Boolean
-        get() = sections.any { (heading, lines) ->
+        get() = gaps.isNotEmpty() || sections.any { (heading, lines) ->
             lines.isNotEmpty() && (heading.id == R.string.library_report_cannot_run ||
                 heading.id == R.string.library_report_dropped || heading.id == R.string.library_report_unknown)
         }
@@ -334,7 +335,7 @@ class Importer(
             val missing = scene.node.mediaUris().filterNot { access.allows(it) && exists(it) }
             for (uri in missing) scene = scene.withMedia(MediaDeclaration(XmlNode("media", mapOf("uri" to uri))))
             scene = Scene(scene.node.copy(children = scene.node.children.map { if (it.name == "media" && it["uri"] in missing) it.with("missing", "true") else it }))
-            val result = ImportReport(id, scene.title, scene.node["type"] == "element", sections + report(scene, missing, migrated))
+            val result = ImportReport(id, scene.title, scene.node["type"] == "element", sections + report(scene, missing, migrated), gaps = migrated?.gaps.orEmpty())
             store.save(id, scene)
             return result
         } catch (t: Throwable) {

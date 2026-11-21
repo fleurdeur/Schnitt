@@ -29,23 +29,23 @@ import app.absentmotion.R
 
 @Composable
 fun DoneScreen(kind: ExportKind, result: ExportResult, onClose: () -> Unit, onShare: () -> Unit) {
-    app.absentmotion.platform.ExportBars(dark = true, running = false)
-    Column(Modifier.fillMaxSize().presence().enterFade(10.dp).windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.captionBar)).navigationBarsPadding()) {
+    app.absentmotion.platform.ExportBars(dark = false, running = false)
+    Column(Modifier.fillMaxSize().background(Am.HomeBg).presence().enterFade(10.dp).windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.captionBar)).navigationBarsPadding()) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(stringResource(R.string.saved_to_storage), color = Am.OnNavy, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.saved_to_storage), color = Am.HomeInk, fontSize = 17.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
-            Text(result.where, color = Am.OnNavy.copy(alpha = 0.7f), fontSize = 13.sp, textAlign = TextAlign.Center)
+            Text(result.where, color = Am.HomeDim, fontSize = 13.sp, textAlign = TextAlign.Center)
             result.verification?.takeUnless { it.ok }?.let { v ->
                 Text(
                     verificationLine(v, still = kind == ExportKind.Frame || kind == ExportKind.FrameAs).text(), Modifier.padding(top = 2.dp),
-                    color = Am.OnNavyAccent,
+                    color = Am.HomeAccent,
                     fontSize = 13.sp, textAlign = TextAlign.Center, maxLines = 3,
                 )
             }
             result.verification?.takeIf { it.ok && it.unchecked }?.let {
                 Text(
                     stringResource(R.string.export_checked_unavailable), Modifier.padding(top = 2.dp),
-                    color = Am.OnNavy.copy(alpha = 0.7f),
+                    color = Am.HomeDim,
                     fontSize = 13.sp, textAlign = TextAlign.Center, maxLines = 3,
                 )
             }
@@ -74,10 +74,10 @@ internal fun shareLabel(kind: ExportKind) = when (kind) {
 
 @Composable
 private fun BottomButton(label: String, icon: ImageVector?, pill: Boolean, primary: Boolean, onClick: () -> Unit) {
-    val content = if (pill && primary) Am.OnAccent else Am.OnNavy
+    val content = if (primary) Am.OnNavy else Am.HomeInk
     Row(
-        (if (!pill) Modifier.fillMaxWidth().height(57.dp).clip(RoundedCornerShape(5.dp)).background(Am.NavyHi)
-        else Modifier.fillMaxWidth().height(48.dp).clip(androidx.compose.foundation.shape.CircleShape).then(if (primary) Modifier.background(Am.Accent) else Modifier.border(1.dp, Am.OnNavy.copy(alpha = 0.4f), androidx.compose.foundation.shape.CircleShape)))
+        (if (!pill) Modifier.fillMaxWidth().height(57.dp).clip(RoundedCornerShape(5.dp)).background(if (primary) Am.Navy else Am.Card).then(if (!primary) Modifier.border(1.dp, Am.HomeLine, RoundedCornerShape(5.dp)) else Modifier)
+        else Modifier.fillMaxWidth().height(48.dp).clip(androidx.compose.foundation.shape.CircleShape).then(if (primary) Modifier.background(Am.Navy) else Modifier.border(1.dp, Am.HomeLine, androidx.compose.foundation.shape.CircleShape)))
             .clickable(onClick = onClick),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
     ) {

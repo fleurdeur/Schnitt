@@ -2024,6 +2024,8 @@
     <string name="preview_full_blur">Повне\nрозмиття</string>
     <string name="preview_fast_blur">Швидке\nрозмиття</string>
     <string name="settings_preview_copies">Використовувати копії великих відео для перегляду</string>
+    <string name="settings_ffamp">FFamp media engine</string>
+    <string name="settings_ffamp_note">Experimental, arm64 only. FFamp reads more containers and codecs, with a safe fallback to the platform reader.</string>
     <string name="settings_background_preview">Рендерити попередній перегляд у фоні</string>
     <string name="settings_clear_preview_copies">Очистити копії для перегляду</string>
     <string name="settings_clear_preview_title">Очистити копії для перегляду?</string>
