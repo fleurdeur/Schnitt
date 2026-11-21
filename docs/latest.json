@@ -1,28 +1,13 @@
 {
-  "tag": "v5.10.0",
-  "name": "Schnitt 5.10.0",
-  "published": "2026-11-21T04:23:52Z",
-  "notes": "# Schnitt 5.10.0\n\nReal support for community effect packs, native scene effects, and a faster editor.\n\n## Effect packs that work\n\n- Imported Alight effect packs now keep every pass. Horizontal and vertical blur chains, bloom, halation, edge glow, VHS suites and other multi-stage effects render as separate stages instead of one wrong shader.\n- Open and self-closing pass tags both work. Effects are no longer lost when a pack writes a pass as an open and close pair.\n- Effects that store their id as hexadecimal are decoded correctly.\n- Shaders with whitespace after their CDATA block are found.\n- A pack with a vertex shader before its fragment shader now uses the fragment stage.\n- Feed-back passes that name their own effect no longer discard the whole effect.\n- Texture paths from resource, textures and assets folders all resolve.\n\n## ZIP packs\n\n- Import a whole community ZIP from the effects browser. Every XML and every texture is unpacked and the effects appear in the library.\n- A single XML still imports as before.\n- Pack entries are bounded and paths outside the pack are rejected.\n\n## Native scene effects\n\n- Grow Parts scales parts by their depth and progress.\n- Shake Parts moves parts with smooth noise and keeps deeper parts steadier.\n- Morph Path blends the layer outline into the outline of the layer below it.\n- Manual Shake, Manual Shake 2, Pose Shake, Transform, V Transform, Face Motion and Perlin Displace are now implemented natively with their real controls.\n- Move Along Path versions 1 and 2 now use the same native path engine as version 3.\n- Stroke Color recolours drawing strokes natively.\n- Text Spacing applies letter spacing and line spacing to text.\n- The pack Pose Shake variant uses the same native pose-shake engine.\n- Readme-only entries in a pack are ignored instead of being given a fake shader.\n\n## Faster\n\n- The effect catalog no longer rebuilds its tile list for every browser redraw.\n- Imported custom effects keep their decoded textures instead of reloading them on every catalog refresh.\n- Morph Path caches its sampled outline for repeated draws in one frame, including motion blur and echo passes.\n- Existing fast paths for saved Schnitt projects, link-free projects and seekable package imports are kept.\n\n## Still included\n\n- Motion Blur draws the real image or video.\n- Import warnings list effects that could not be carried over.\n- Settings > Advanced: debug log records imports, conversions, project opens and failures.\n",
+  "tag": "v5.11.0",
+  "name": "Schnitt 5.11.0",
+  "published": "2026-11-21T13:01:43Z",
+  "notes": "# Schnitt 5.11.0\n\nBetter imports, smoother playback, and a theme that matches the editor.\n\n## Replace missing effects\n\n- When an imported project uses an effect that is not available, the import warning now offers Replace effects.\n- Every missing effect is listed with its old name and properties.\n- Pick a replacement from the whole effect library, ranked by the closest name and controls.\n- The layer, its timing, its properties and every keyframe stay in place.\n- Effects that were imported but only partly matched are listed too, so nothing is silently dropped.\n- The same repair button appears on the import preview screen.\n\n## Frame rate\n\n- Added 144, 165 and 240 fps to project settings.\n- Choose Custom in the frame rate list to type any rate from 1 to 240 fps.\n\n## Export result\n\n- The export result screen now follows the app theme instead of forcing a dark panel.\n- Buttons, text and icons use the same colours as the rest of the editor.\n- The finished file name, location, size and preview remain visible.\n\n## Smoother projects\n\n- Preview resolution now drops further on heavy scenes with many effect layers, keeping the timeline responsive on low and mid range phones.\n- Adaptation reacts sooner and steps back up when frames are fast again.\n- Complex projects draw preview frames at a lower cadence while audio keeps its full timing, so playback no longer fights the effects.\n- Light projects keep full frame rate and full preview quality.\n\n## 291 more shader effects\n\n- Added missing Alight-compatible shader effects from the reference library, without duplicating effects that were already present.\n- Duplicate names and duplicate source effects were removed.\n- Staged and native reference entries that could not run on our engine were left out instead of adding dead buttons.\n- The extra effects are parsed once and their thumbnails are stored as normal static previews, so opening the browser stays fast.\n\n## FFamp media engine, opt-in\n\n- Added the FFamp native reader for arm64 devices.\n- It is off by default and can be switched on or off in Settings > Playback.\n- It reads additional containers and track headers, with a safe fallback to the platform reader.\n- The FFamp library is included in the universal APK as well as the arm64 APK.\n\n## Launcher category\n\n- The launcher activity now declares the video app category as well as the application video category, so launchers such as Smart Launcher place Schnitt under video or media instead of tools.\n\n## Effect fixes\n\n- Edge Detect now exposes style, spacing, threshold and invert controls, including a two colour ink mode.\n- Halftone gains strength and phase controls.\n- Hue and Saturation gains Classic, Keep Brightness and Video styles.\n- Checker uses the newer pattern shader.\n\n## Still included\n\n- Motion Blur draws the real image or video.\n- Debug log records imports, conversions, project opens and failures.\n- Every imported effect keeps its editable properties.\n",
   "assets": [
     {
       "name": "app-arm64-v8a.apk",
-      "size": 93440681,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.10.0/app-arm64-v8a.apk"
-    },
-    {
-      "name": "app-armeabi-v7a.apk",
-      "size": 99050844,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.10.0/app-armeabi-v7a.apk"
-    },
-    {
-      "name": "app-universal.apk",
-      "size": 137730992,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.10.0/app-universal.apk"
-    },
-    {
-      "name": "aurea-plugin.zip",
-      "size": 63604932,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.10.0/aurea-plugin.zip"
+      "size": 97280769,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.11.0/app-arm64-v8a.apk"
     }
   ]
 }
