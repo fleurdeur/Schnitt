@@ -12,7 +12,7 @@
 **A focused Android video editor with a native GPU engine, a real timeline, and no paywalls.**
 
 
-> This project is just for fun, yet it is taking most of my time fixing, improving, and adding more features into to the app. Sooner or later this project wil no longer be maintained.
+> This project is just for fun, yet it is taking most of my time fixing, improving, and adding more features into the app. Sooner or later this project wil no longer be maintained.
 
 <br/>
 
