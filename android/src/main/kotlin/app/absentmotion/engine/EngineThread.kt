@@ -15,7 +15,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -84,6 +86,9 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
     @Volatile private var playing = false
     private val effectCatalog = MutableStateFlow(EffectCatalog(message = AppText.get(R.string.engine_loading_effects)))
     val effects = effectCatalog.asStateFlow()
+    private val catalogLoaded = CompletableDeferred<EffectCatalog>()
+    private var catalogWaitJob: Job? = null
+    private val loadedEffects = HashSet<String>()
 
     fun relabelEffects(context: Context) {
         effectLabelsJob?.cancel()
@@ -91,10 +96,7 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
         effectLabelsJob = mediaScope.launch {
             effectJob?.join()
             val labels = EffectCatalog.read(local)
-            val loaded = withContext(dispatcher) {
-                if (closed) labels else labels.loadInto { runCatching { engine().loadEffect(it) }.getOrElse { e -> "shader error: ${e.message}" } }
-            }
-            withContext(dispatcher) { if (!closed) effectCatalog.value = loaded.withRuntimeStatusFrom(effectCatalog.value) }
+            if (!closed) effectCatalog.value = labels.withRuntimeStatusFrom(effectCatalog.value)
         }
     }
 
@@ -116,6 +118,7 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
         withContext(dispatcher) {
             if (closed) return@withContext false
             applyPending()
+            loadEffect(engine(), def)
             val shown = scene
             val xml = "<scene title=\"effectcheck\" width=\"256\" height=\"256\" fps=\"30\" totalTime=\"1000\" bgcolor=\"#00000000\">" +
                 "<shape id=\"1\" label=\"t\" startTime=\"0\" endTime=\"999\" fillType=\"color\" s=\".rect\"><transform><location value=\"128,128,0\"/></transform>" +
@@ -175,12 +178,12 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
                 pendingScene.fontsChanged(); pictureRevision.update { it + 1 }; requestRender()
             }
         } }
+        if (context == null) catalogLoaded.complete(EffectCatalog())
     }
     private val effectJob = context?.let { app -> mediaScope.launch {
         val catalog = EffectCatalog.read(app)
-        effectCatalog.value = withContext(dispatcher) {
-            if (closed) catalog else catalog.loadInto { runCatching { engine().loadEffect(it) }.getOrElse { e -> "shader error: ${e.message}" } }
-        }
+        if (!closed) effectCatalog.value = catalog
+        catalogLoaded.complete(catalog)
         withContext(dispatcher) { renderNow() }
     } }
 
@@ -197,8 +200,11 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
         }
         return engine ?: startEngine().also { next ->
             engine = next
-            scene?.let { next.setScene(fonts?.prepareText(it, textTime) ?: it) }
-            effects.value.loadInto(next::loadEffect)
+            loadedEffects.clear()
+            scene?.let { xml ->
+                loadSceneEffects(next, xml)
+                next.setScene(fonts?.prepareText(xml, textTime) ?: xml)
+            }
             if (lost) {
                 lost = false
                 generation++
@@ -489,14 +495,46 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
     private var installed: String? = null
 
     fun loadEffectAsync(def: EffectDefinition) {
-        handler.post { if (!closed) runCatching { engine().loadEffect(def.runtimeXml()) } }
+        handler.post { if (!closed) loadEffect(engine(), def) }
+    }
+
+    private fun loadEffect(native: NativeEngine, def: EffectDefinition) {
+        if (!loadedEffects.add(def.id)) return
+        val status = runCatching { native.loadEffect(def.runtimeXml()) }
+            .getOrElse { e -> "shader error: ${e.message}" }.substringBefore('\n')
+        if (status != "ok") {
+            loadedEffects.remove(def.id)
+            Log.w("AMEngine", "effect ${def.id} did not load: $status")
+        }
     }
 
     private fun loadSceneEffects(native: NativeEngine, xml: String) {
         val used = Regex("<effect[^>]*id=\"([^\"]+)\"").findAll(xml).map { it.groupValues[1] }.toSet()
         if (used.isEmpty()) return
-        for (def in effectCatalog.value.definitions) {
-            if (def.key.startsWith("am-") && def.id in used) runCatching { native.loadEffect(def.runtimeXml()) }
+        val definitions = effectCatalog.value.definitions
+        if (definitions.isNotEmpty()) {
+            for (def in definitions) if (def.id in used) loadEffect(native, def)
+            return
+        }
+        // The effect catalogue is parsed off the engine thread.  Never make the
+        // first frame wait for it: show the scene immediately, then compile the
+        // used shaders as soon as the catalogue is ready and refresh the scene.
+        if (catalogWaitJob?.isActive == true) return
+        catalogWaitJob = mediaScope.launch {
+            val catalog = withTimeoutOrNull(30_000) { catalogLoaded.await() } ?: return@launch
+            withContext(dispatcher) {
+                if (closed || engine !== native) return@withContext
+                val latest = scene ?: xml
+                val ids = Regex("<effect[^>]*id=\"([^\"]+)\"").findAll(latest).map { it.groupValues[1] }.toSet()
+                for (def in catalog.definitions) if (def.id in ids) loadEffect(native, def)
+                val prepared = fonts?.prepareText(latest, view?.timeMs ?: 0) ?: latest
+                if (prepared !== installed) {
+                    native.setScene(prepared)
+                    installed = prepared
+                    rememberScene(latest, view?.timeMs ?: 0)
+                    requestRender()
+                }
+            }
         }
     }
 

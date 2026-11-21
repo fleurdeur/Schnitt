@@ -22,6 +22,20 @@ class McpServerTest {
         assertTrue("scene.xml" in names)
         assertTrue("layer.set" in names)
         assertTrue("keyframe.add" in names)
+        assertTrue("media.add" in names)
+        assertTrue("effect.add" in names)
+        assertTrue("media.replace" in names)
+    }
+
+    @Test fun everyToolHasUniqueNameAndObjectSchema() {
+        val tools = McpServer.toolDefinitions()
+        val names = HashSet<String>()
+        for (i in 0 until tools.length()) {
+            val tool = tools.getJSONObject(i)
+            assertTrue(tool.getString("name"), names.add(tool.getString("name")))
+            assertTrue(tool.getString("description").isNotBlank())
+            assertEquals("object", tool.getJSONObject("inputSchema").getString("type"))
+        }
     }
 
     @Test fun notificationsHaveNoResponseAndUnknownMethodsFail() {

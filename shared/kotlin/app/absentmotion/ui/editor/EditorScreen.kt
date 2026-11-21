@@ -54,7 +54,6 @@ import app.absentmotion.ui.theme.presence
 import app.absentmotion.editor.FullColor
 import androidx.compose.runtime.remember
 import androidx.compose.ui.res.stringResource
-import app.absentmotion.BuildConfig
 import app.absentmotion.R
 import app.absentmotion.ui.tutorial.tutorialGuard
 import app.absentmotion.ui.tutorial.tutorialTarget
@@ -69,8 +68,9 @@ internal val LocalEditorScope = staticCompositionLocalOf<CoroutineScope> { error
 
 @Composable
 fun EditorScreen(state: EditorState, onExit: () -> Unit) {
-    DisposableEffect(state) {
-        app.absentmotion.ai.McpBridge.attach(state)
+    val agentContext = LocalContext.current.applicationContext
+    DisposableEffect(state, agentContext) {
+        app.absentmotion.ai.McpBridge.attach(state, agentContext)
         onDispose { app.absentmotion.ai.McpBridge.detach(state) }
     }
     val scope = rememberCoroutineScope()
@@ -87,7 +87,7 @@ fun EditorScreen(state: EditorState, onExit: () -> Unit) {
             val color = remember { arrayOfNulls<FullColor>(1) }.also { if (state.fullColor != null) it[0] = state.fullColor }[0]
             Presence(state.fullColor != null) { color?.let { PhoneScreen(onDismiss = { state.endGesture(); state.fullColor = null }, title = stringResource(R.string.color), onConfirm = { state.endGesture(); state.fullColor = null }) { Box(Modifier.fillMaxSize().presence(rise = 16.dp)) { FullColorPicker(state, it) } } } }
             if (state.cameraOpen) EditorCamera(state, scope)
-            if (BuildConfig.EXPERIMENTAL && state.mcpOpen) McpPanel(state)
+            if (state.mcpOpen) McpPanel(state)
         }
     }
 }
@@ -288,7 +288,6 @@ private fun Playback(state: EditorState) {
             var startNanos = withFrameNanos { it }
             var shown = startFrame
             val complexity = app.absentmotion.editor.previewComplexityDivisor(state.scene)
-            val frameStep = when { complexity >= 8 -> 3; complexity >= 6 -> 2; complexity >= 4 && state.scene.fps > 30 -> 2; else -> 1 }
             val loop = state.settings.loopingPlay || app.absentmotion.extensions.ExtensionRuntime.automationLoops()
             while (state.playing) {
                 val now = withFrameNanos { it }
@@ -319,6 +318,16 @@ private fun Playback(state: EditorState) {
                     }
                 } else {
                     val target = maxOf(frame, startFrame)
+                    val renderMs = state.engine.lastRenderMs
+                    val frameStep = when {
+                        renderMs >= 40.0 -> 4
+                        renderMs >= 28.0 -> 3
+                        renderMs >= 18.0 -> 2
+                        complexity >= 8 -> 3
+                        complexity >= 6 -> 2
+                        complexity >= 4 && state.scene.fps > 30 -> 2
+                        else -> 1
+                    }
                     state.frame = if (target - shown in 1 until frameStep) shown else target
                 }
                 shown = state.frame

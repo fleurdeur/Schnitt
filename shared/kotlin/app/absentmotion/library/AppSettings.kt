@@ -35,6 +35,7 @@ class AppSettings(private val context: Context) {
     private var mcpEnabledState by mutableStateOf(prefs.getBoolean("mcpEnabled", false))
     private var mcpPortState by mutableIntStateOf(prefs.getInt("mcpPort", 8765))
     private var mcpTokenState by mutableStateOf(prefs.getString("mcpToken", "").orEmpty())
+    private var geminiModelState by mutableStateOf(prefs.getString("geminiModel", app.absentmotion.ai.GeminiClient.DEFAULT_MODEL).orEmpty())
 
     private var themeState by mutableStateOf(Themes.firstChoice(prefs.getString("theme", null), prefs.getInt("onboarding", 0), prefs.getBoolean("lookChosen", false)))
     private var systemDarkState by mutableStateOf(app.absentmotion.platform.systemDark(context))
@@ -92,7 +93,11 @@ class AppSettings(private val context: Context) {
 
     var ffamp: Boolean
         get() = prefs.getBoolean("ffamp", false) && app.absentmotion.media.FfampProbe.available
-        set(value) { prefs.edit().putBoolean("ffamp", value && app.absentmotion.media.FfampProbe.available).apply() }
+        set(value) {
+            val on = value && app.absentmotion.media.FfampProbe.available
+            prefs.edit().putBoolean("ffamp", on).apply()
+            app.absentmotion.media.MediaBackend.enabled = on
+        }
 
     /** Drops preview detail while playing, then returns to the chosen quality when paused. */
     var adaptivePreview: Boolean
@@ -110,6 +115,18 @@ class AppSettings(private val context: Context) {
     var mcpToken: String
         get() = mcpTokenState
         set(value) { mcpTokenState = value.trim(); prefs.edit().putString("mcpToken", mcpTokenState).apply() }
+
+    /** The key is kept encrypted by Android Keystore, never in this preference file. */
+    var geminiKey: String
+        get() = app.absentmotion.ai.AgentSecrets.read(context)
+        set(value) { app.absentmotion.ai.AgentSecrets.write(context, value) }
+
+    var geminiModel: String
+        get() = geminiModelState
+        set(value) {
+            geminiModelState = value.trim().ifBlank { app.absentmotion.ai.GeminiClient.DEFAULT_MODEL }
+            prefs.edit().putString("geminiModel", geminiModelState).apply()
+        }
 
     fun previewDivisor(playing: Boolean): Int =
         if (adaptivePreview && playing) maxOf(previewQuality.divisor, PreviewQuality.Half.divisor) else previewQuality.divisor
