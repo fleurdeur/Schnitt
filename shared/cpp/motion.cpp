@@ -20,7 +20,7 @@ constexpr double kTau = 6.283185307179586;
 
 const char* const kMotionIds[] = {"absent.autoshake", "absent.randomdisplace", "absent.randomjitter", "absent.oscillate",
                                   "absent.growparts", "absent.morphpath", "absent.shakeparts", "absent.poseshake",
-                                  "absent.vshake", "absent.vshakenew", "absent.transform2", "absent.vtransform",
+                                  "absent.vshake", "absent.vshakenew", "absent.transform2", "absent.vtransform", "absent.skexnxxposeshake",
                                   "absent.facemotion", "absent.perlindisplace",
                                   "absent.swing", "absent.spin", "absent.pulsesize", "absent.pulseopacity",
                                   "absent.echo", "absent.videofeedback", "absent.timequant", "absent.shutterblur", "absent.motionblur", "absent.movealongpath",
@@ -485,7 +485,7 @@ void ApplyMotion(const Layer& l, double timeMs, Placement* p) {
             p->location += SkPoint{dx * mag, dy * mag * (depth / 10.0f)};
             continue;
         }
-        if (id == "poseshake") {
+        if (id == "poseshake" || id == "skexnxxposeshake") {
             const double phase = s * Param(e, "gamma", t, 12) * Param(e, "beta", t, 1);
             p->location += SkPoint{(float)(std::sin(phase) * Param(e, "Xmag", t, 25)),
                                    (float)(std::sin(phase + 1.047) * Param(e, "Ymag", t, 25) * 0.7)};

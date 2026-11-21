@@ -24,8 +24,9 @@ object AmEffectImporter {
     private val OpacityEffects = setOf("fade", "blink", "blink2", "flicker", "flicker2", "pulse-opacity", "pulse_opacity2")
     /** Script-only effects now implemented by the native scene engine. */
     private val NativeScriptEffects = setOf(
-        "growparts", "morphpath", "shakeparts", "poseshake", "vshake", "vshakenew",
+        "growparts", "morphpath", "shakeparts", "poseshake", "skexnxxposeshake", "vshake", "vshakenew",
         "transform2", "skexnxx15", "facemotion", "perlindisplace",
+        "strokecolor", "textspacing", "freepalette",
     )
 
     suspend fun import(context: Context, uri: Uri): EffectDefinition? = withContext(Dispatchers.IO) {
@@ -166,6 +167,9 @@ object AmEffectImporter {
                     ?: found.firstOrNull())?.second
             }
         val passes = parsePasses(xml)
+        // A pack readme can carry an <effect> tag with no shader, pass, script or
+        // controls. It is metadata, not something that can be applied to a layer.
+        if (shader == null && passes.isEmpty() && params.isEmpty() && !xml.contains("<script")) return null
         val name = label("name", tagAttr("name"), strings).ifBlank {
             id.substringAfterLast('.').replace('-', ' ').replaceFirstChar { it.uppercase() }
         }

@@ -81,7 +81,11 @@ void BuildGeometry(FreehandStroke* s, const std::vector<SkPoint>& pts, const std
 
 }
 
-bool DrawingEffect(const std::string& id) { return id == "absent.drawingprogress" || id == "absent.stroketaper"; }
+bool DrawingEffect(const std::string& id) {
+    return id == "absent.drawingprogress" || id == "absent.stroketaper" || id == "absent.strokecolor" ||
+           id == "absent.freepalette" || id == "com.alightcreative.effects.drawing.strokecolor" ||
+           id == "com.alightcreative.effects.freepalette";
+}
 
 void ParseStrokes(const XmlNode& drawing, Layer* layer) {
     for (const auto& n : drawing.children) {
@@ -275,6 +279,9 @@ SkPath TaperedStroke(const Layer& layer, const SkPath& path, float width, float 
 void DrawDrawing(SkCanvas* canvas, const Layer& layer, float opacity, float t) {
     bool erases = false;
     for (const FreehandStroke& s : layer.strokes) erases |= s.tool == kEraser;
+    const LayerEffect* recolour = layer.effect("absent.strokecolor");
+    if (!recolour) recolour = layer.effect("com.alightcreative.effects.drawing.strokecolor");
+    const Property* paintColor = recolour ? recolour->prop("color") : nullptr;
     if (erases) canvas->saveLayer(nullptr, nullptr);
     EachPiece(layer, t, [&](const FreehandStroke& s, const SkPath& geometry, bool filled) {
         SkPaint paint;
@@ -282,7 +289,10 @@ void DrawDrawing(SkCanvas* canvas, const Layer& layer, float opacity, float t) {
         if (s.tool == kEraser) {
             paint.setBlendMode(SkBlendMode::kClear);
         } else {
-            paint.setColor4f({s.color[1], s.color[2], s.color[3], std::clamp(s.color[0] * opacity, 0.0f, 1.0f)});
+            const float r = paintColor ? paintColor->anim.get(0, t, s.color[1]) : s.color[1];
+            const float g = paintColor ? paintColor->anim.get(1, t, s.color[2]) : s.color[2];
+            const float b = paintColor ? paintColor->anim.get(2, t, s.color[3]) : s.color[3];
+            paint.setColor4f({r, g, b, std::clamp(s.color[0] * opacity, 0.0f, 1.0f)});
         }
         if (!filled) {
             paint.setStyle(SkPaint::kStroke_Style);

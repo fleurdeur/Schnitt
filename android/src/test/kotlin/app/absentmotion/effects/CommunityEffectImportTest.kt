@@ -48,6 +48,22 @@ class CommunityEffectImportTest {
         assertTrue(AmEffectImporter.parse(File(root, "perlindisplace.xml").readText())!!.native)
     }
 
+    @Test fun scriptlessPackEffectsUseTheirNativeImplementation() {
+        listOf(
+            "com.alightcreative.effects.skexnxxposeshake" to """<spinner id="Xmag" default="25" />""",
+            "com.alightcreative.effects.drawing.strokecolor" to """<color id="color" default="#FF2D1EF6" />""",
+            "com.alightcreative.effects.textspacing" to """<spinner id="letterspacing" default="0" />""",
+            "com.alightcreative.effects.freepalette" to """<color id="color1" default="#FF1E2239" />""",
+        ).forEach { (id, param) ->
+            val parsed = AmEffectImporter.parse(
+                """<effect id="$id" name="Test" category="transform"><params>$param</params></effect>"""
+            )
+            assertNotNull(id, parsed)
+            assertTrue("$id should be native", parsed!!.native)
+            assertEquals("$id should not get a fallback shader", null, parsed.sksl)
+        }
+    }
+
     @Test fun openAndSelfClosingPassTagsKeepEveryStage() {
         val xml = effect(
             "com.alightcreative.effects.testpasses",
