@@ -2,27 +2,12 @@
   "tag": "v5.10.0",
   "name": "Schnitt 5.10.0",
   "published": "2026-11-21T04:23:52Z",
-  "notes": "# Schnitt 5.10.0\n\nReal support for community effect packs, native scene effects, and a faster editor.\n\n## Effect packs that work\n\n- Imported Alight effect packs now keep every pass. Horizontal and vertical blur chains, bloom, halation, edge glow, VHS suites and other multi-stage effects render as separate stages instead of one wrong shader.\n- Open and self-closing pass tags both work. Effects are no longer lost when a pack writes a pass as an open and close pair.\n- Effects that store their id as hexadecimal are decoded correctly.\n- Shaders with whitespace after their CDATA block are found.\n- A pack with a vertex shader before its fragment shader now uses the fragment stage.\n- Feed-back passes that name their own effect no longer discard the whole effect.\n- Texture paths from resource, textures and assets folders all resolve.\n\n## ZIP packs\n\n- Import a whole community ZIP from the effects browser. Every XML and every texture is unpacked and the effects appear in the library.\n- A single XML still imports as before.\n- Pack entries are bounded and paths outside the pack are rejected.\n\n## Native scene effects\n\n- Grow Parts scales parts by their depth and progress.\n- Shake Parts moves parts with smooth noise and keeps deeper parts steadier.\n- Morph Path blends the layer outline into the outline of the layer below it.\n- Manual Shake, Manual Shake 2, Pose Shake, Transform, V Transform, Face Motion and Perlin Displace are now implemented natively with their real controls.\n- Move Along Path versions 1 and 2 now use the same native path engine as version 3.\n\n## Faster\n\n- The effect catalog no longer rebuilds its tile list for every browser redraw.\n- Imported custom effects keep their decoded textures instead of reloading them on every catalog refresh.\n- Morph Path caches its sampled outline for repeated draws in one frame, including motion blur and echo passes.\n- Existing fast paths for saved Schnitt projects, link-free projects and seekable package imports are kept.\n\n## Still included\n\n- Motion Blur draws the real image or video.\n- Import warnings list effects that could not be carried over.\n- Settings > Advanced: debug log records imports, conversions, project opens and failures.\n",
+  "notes": "# Schnitt 5.10.0\n\nReal support for community effect packs, native scene effects, and a faster editor.\n\n## Effect packs that work\n\n- Imported Alight effect packs now keep every pass. Horizontal and vertical blur chains, bloom, halation, edge glow, VHS suites and other multi-stage effects render as separate stages instead of one wrong shader.\n- Open and self-closing pass tags both work. Effects are no longer lost when a pack writes a pass as an open and close pair.\n- Effects that store their id as hexadecimal are decoded correctly.\n- Shaders with whitespace after their CDATA block are found.\n- A pack with a vertex shader before its fragment shader now uses the fragment stage.\n- Feed-back passes that name their own effect no longer discard the whole effect.\n- Texture paths from resource, textures and assets folders all resolve.\n\n## ZIP packs\n\n- Import a whole community ZIP from the effects browser. Every XML and every texture is unpacked and the effects appear in the library.\n- A single XML still imports as before.\n- Pack entries are bounded and paths outside the pack are rejected.\n\n## Native scene effects\n\n- Grow Parts scales parts by their depth and progress.\n- Shake Parts moves parts with smooth noise and keeps deeper parts steadier.\n- Morph Path blends the layer outline into the outline of the layer below it.\n- Manual Shake, Manual Shake 2, Pose Shake, Transform, V Transform, Face Motion and Perlin Displace are now implemented natively with their real controls.\n- Move Along Path versions 1 and 2 now use the same native path engine as version 3.\n- Stroke Color recolours drawing strokes natively.\n- Text Spacing applies letter spacing and line spacing to text.\n- The pack Pose Shake variant uses the same native pose-shake engine.\n- Readme-only entries in a pack are ignored instead of being given a fake shader.\n\n## Faster\n\n- The effect catalog no longer rebuilds its tile list for every browser redraw.\n- Imported custom effects keep their decoded textures instead of reloading them on every catalog refresh.\n- Morph Path caches its sampled outline for repeated draws in one frame, including motion blur and echo passes.\n- Existing fast paths for saved Schnitt projects, link-free projects and seekable package imports are kept.\n\n## Still included\n\n- Motion Blur draws the real image or video.\n- Import warnings list effects that could not be carried over.\n- Settings > Advanced: debug log records imports, conversions, project opens and failures.\n",
   "assets": [
     {
       "name": "app-arm64-v8a.apk",
-      "size": 93439777,
+      "size": 93440681,
       "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.10.0/app-arm64-v8a.apk"
-    },
-    {
-      "name": "app-armeabi-v7a.apk",
-      "size": 99049904,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.10.0/app-armeabi-v7a.apk"
-    },
-    {
-      "name": "app-universal.apk",
-      "size": 137729304,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.10.0/app-universal.apk"
-    },
-    {
-      "name": "aurea-plugin.zip",
-      "size": 63604932,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.10.0/aurea-plugin.zip"
     }
   ]
 }
