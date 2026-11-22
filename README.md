@@ -20,7 +20,7 @@
 
 <br/>
 
-[**Download**](#download) · [**Features**](#features) · [**Presets**](#presets) · [**Community**](#community) · [**Plugins**](#plugins) · [**Extensions**](#extensions) · [**Build**](#build) · [**Credits**](#credits)
+[**Download**](#download) · [**Features**](#features) · [**AI**](#ai) · [**Performance**](#performance) · [**Presets**](#presets) · [**Community**](#community) · [**Plugins**](#plugins) · [**Extensions**](#extensions) · [**Build**](#build) · [**Credits**](#credits)
 
 <br/>
 
@@ -47,7 +47,9 @@
 - **Transform recording** — press record and move the layer while playback writes keys.
 - **Puppet mesh** — Pin, Mesh and Sway sections for real mesh bending.
 - **Auto Sway** — one tap adds procedural sway to puppet pins without keyframes.
-- **Speed, time remap, reverse, smoothing, captions and motion tracking.**
+- **Speed, time remap, reverse, Twixtor-style frame interpolation, dead-frame removal, captions and motion tracking.**
+- **Reverse export** that preserves the source frame size or scales the whole picture uniformly when the encoder cannot.
+- **3D camera and perspective layers** with editable camera, depth and perspective controls.
 - **Templates and presets** that open straight into an editable project.
 
 #### Effects and shaders
@@ -56,6 +58,10 @@
 - **Real Depth Anything V2** depth maps for video layers with on-device ONNX inference.
 - **Effect JSON import** and an AEX metadata/porting path.
 - **Global shader effects** shared by preview, timeline and export.
+- **600+ native and ported effect shaders**, including lens blur, zoom blur, motion blur, particles, 3D shapes, text effects, RGB split, glow and hundreds of Alight-compatible effects.
+- **202 Gold effects** ported with their original XML controls and fragment shaders, including GM Beauty, GM Color Link, GM Circle Mosaic and the GM 3D packs.
+- **Eye Blink** and **Hair Flow** character effects with movable eye or hair guides, blink and sway animation, strand, curl and lid controls.
+- **Effect quality scales in preview** while export and stills always render at full quality.
 - **Native plug-in effects** — AEX, CEP, JSXBIN and .ffx packages expose editable properties and a real effect in the normal Effects library.
 - **Plugin controls** — every imported plug-in has its own property panel with sliders, switches, choices and colours.
 
@@ -72,9 +78,11 @@
 - **High-quality preview playback** through Media3 ExoPlayer and OkHttp.
 
 #### Export and compatibility
-- **Video, audio, GIF and project export** with encoder fallbacks.
+- **Video, audio, GIF and project export** with encoder and frame-size fallbacks.
+- **Reversed clips keep their exact source size** when any H.264 encoder supports it; otherwise the full frame is scaled instead of cropped.
 - **Universal APK** for ARMv7, ARM64 and x86_64.
 - **Vulkan, Ganesh and OpenGL fallback** instead of device blacklists.
+- **Opt-in FFamp media reader** on arm64 for extra containers and codecs, with automatic fallback to the platform reader.
 - **AMOLED green and green Daylight themes**, high-contrast text, and theme-aware preview.
 - **No feature paywalls.** All included presets and effects are free to use.
 - **Updates on open** — check the latest GitHub release on launch, from the Home sidebar, and choose whether to skip a version.
@@ -89,6 +97,66 @@
 
 <div align="center">
 
+<h1><a id="ai"></a>AI</h1>
+
+</div>
+
+Schnitt runs its editing AI on the phone. A project, its media and its keyframes never need to leave the device.
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+
+#### On-device editing agent
+
+- **Gemini agent** with a tool surface shared by the in-app chat and external MCP clients.
+- **29 editing tools** for projects, layers, keyframes, effects, media and export.
+- **MCP server** with HTTPS, bearer tokens, OAuth protected-resource discovery, dynamic client registration, PKCE and refresh tokens.
+- **Approval page** for client authorization and clear 401 recovery hints.
+- **Cloud backup excluded** — the Gemini key is AES-GCM encrypted in the Android Keystore and is never written to projects, logs or MCP responses.
+
+    </td>
+    <td width="50%" valign="top">
+
+#### Media and computer vision
+
+- **Direct media import** from a content picker, a file URI or an HTTPS file link. HTML sharing pages are rejected with a clear message.
+- **Audio-only import** from a video with `kind=audio`.
+- **Real Depth Anything V2** depth maps with on-device ONNX inference.
+- **Background removal**, noise reduction, face-aware sharpening, reverse and frame interpolation.
+- **GM Anime X4** and **GM Soul X4** neural upscales using the bundled GM models.
+- **Dead-frame removal** that keeps timing and sound while skipping repeated frames.
+- **Home → Tools → AI video** puts Twixtor, Dead frame remover, GM Anime and GM Soul on their own cards with a full picker, options, progress, cancel, preview, save and share screen.
+
+    </td>
+  </tr>
+</table>
+
+The agent is optional. Schnitt works fully offline with no account; the agent only calls the Gemini API when you add a key and send a message.
+
+---
+
+<div align="center">
+
+<h1><a id="performance"></a>Performance</h1>
+
+</div>
+
+- **Vulkan / Graphite by default** with automatic Ganesh and OpenGL fallback instead of device blacklists.
+- **Adaptive preview** builds a genuinely smaller offscreen surface and upscales once, instead of drawing the full scene and shrinking it.
+- **One preview divisor per playback run** so the picture never changes resolution or jumps mid-play.
+- **Paused preview and stills stay at full resolution.**
+- **Motion blur, lens blur and zoom blur reduce sample counts only during playback**; export and stills keep the full sample count.
+- **Frame pacing** drops display frames only when measured draw time cannot keep up.
+- **Smoothed render timing** and nested-group cost accounting drive preview quality without guessing from layer count.
+- **Fast project open** through a cheap migration check, so native projects skip effect migration entirely.
+- **Picture disk cache** for thumbnails and still frames.
+- **Effect packs load once, then stay cached** for the rest of the session.
+
+---
+
+<div align="center">
+
 <h1><a id="download"></a>Download</h1>
 
 <a href="https://github.com/fleurdeur/Schnitt/releases" target="_blank" rel="noopener noreferrer"><img src="https://cdn.jsdelivr.net/gh/JMcrafter26/badges@main/src/assets/supported/android/cozy.svg" alt="Download for Android" height="55"/></a>
@@ -97,9 +165,9 @@ Grab the latest signed APK from **[Releases](https://github.com/fleurdeur/Schnit
 
 | Package | Best for | Size |
 | :--- | :--- | ---: |
-| **Schnitt Universal** | Any supported phone, one APK | ~108 MB |
-| **Schnitt ARM64** | Modern 64-bit phones | ~71 MB |
-| **Schnitt ARMv7** | Older 32-bit phones | ~70 MB |
+| **Schnitt Universal** | Any supported phone, one APK | ~147 MB |
+| **Schnitt ARM64** | Modern 64-bit phones | ~102 MB |
+| **Schnitt ARMv7** | Older 32-bit phones | ~105 MB |
 
 **Requirements:** Android 13 or newer, a 64-bit or 32-bit ARM device / x86_64 emulator, and Vulkan 1.1 or OpenGL ES 3.0.
 
@@ -248,6 +316,8 @@ The complete reference — every manifest field, property type, category mapping
 - JDK 21+
 - CMake 3.31.6 and Ninja
 - Skia and native third-party sources for a full native build
+- TensorFlow Lite for the bundled GM Anime and GM Soul upscale models
+- ONNX Runtime for Depth Anything V2
 
 </div>
 
@@ -264,10 +334,11 @@ android/            Android app, Gradle module and platform layers
 shared/kotlin/      Compose UI, editor model, engine bridge
 shared/cpp/         Native drawing, media and export engine
 shared/res/         Translations and Android resources
-shared/assets/      Effects, shapes, preset metadata, fonts
+shared/assets/      Effects, Gold effect packs, GM models, shapes, preset metadata, fonts
 tools/              Build, verification and quality checks
+experimental/       Opt-in experiments kept out of the main build
 testdata/           Test scenes and media samples
-docs/               Repository artwork
+docs/               Repository artwork and the public site
 ```
 
 The repository intentionally excludes generated native libraries, downloaded AI models, keystores, local SDK paths and APKs. Native binaries and signed APKs are attached to releases, and the Depth Anything V2 model downloads on demand inside the app.
@@ -278,7 +349,7 @@ The repository intentionally excludes generated native libraries, downloaded AI 
 
 <h1><a id="credits"></a>Credits</h1>
 
-**Schnitt** is built on the open-source AbsentMotion engine and UI, then extended with a new identity, theme, presets, audio library, plugin host, AEX importer, real Depth Anything V2 inference, transform recording and puppet workflow.
+**Schnitt** is built on the open-source AbsentMotion engine and UI, then extended with a new identity, theme, presets, audio library, plugin host, AEX importer, the Gold effect pack, real Depth Anything V2 inference, GM neural upscales, reverse export, Twixtor-style interpolation, dead-frame removal, transform recording and puppet workflow.
 
 Special thanks to the upstream projects and libraries that make this possible:
 
@@ -288,6 +359,7 @@ Special thanks to the upstream projects and libraries that make this possible:
 - **RNNoise** — noise reduction
 - **LAME** — MP3 encoding
 - **ONNX Runtime** — Depth Anything V2
+- **TensorFlow Lite** — GM Anime and GM Soul upscale models
 - **Media3 / ExoPlayer** — preview playback
 - **OkHttp** — streaming audio transport
 - **Kotlin, Jetpack Compose and AndroidX**
