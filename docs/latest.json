@@ -5,6 +5,21 @@
   "notes": "# Schnitt 5.16.0\n\nThis release fixes reversed exports, adds the Gold AI tools and effects, and brings two new character effects.\n\n## Reversed export\n\n- A reversed clip now keeps the exact source frame size whenever any H.264 encoder supports it.\n- If the device truly cannot encode that size, the whole picture is scaled uniformly instead of keeping only the top-left corner.\n- A dropped frame now stops the job with a clear error instead of silently cutting motion out of the reversed clip.\n\n## AI Tools from Gold\n\n- GM Anime X4 and GM Soul X4 now use the real GM neural models, tiled at 128 pixels and stitched into a 4x result.\n- Twixtor is the frame-interpolation tool in the AI shelf.\n- Remove dead frames is a new tool. It samples the clip, drops duplicate frames and reports how many were removed.\n- The original AI tools, model choices and project data stay compatible.\n\n## New effects\n\n- Eye Blink draws a movable pair of eyes with adjustable spacing, size, tilt, blink speed, phase, lid colour and crease.\n- Hair Flow bends hair along a root-to-tip guide with width, sway, speed, strand density, anchor and curl controls.\n- Both effects are editable in the Effects Library and keep their keyframes.\n\n## Gold effect pack\n\n- More than two hundred Gold effects now load with their original controls and shaders, including GM Beauty, GM Color Link, GM Circle Mosaic and the GM 3D packs.\n- Effects that already have a native Schnitt version are not listed twice.\n\n## Preview\n\n- The preview chooses one detail level when playback starts instead of changing resolution mid-play, so the picture no longer jumps while it plays.\n- Paused preview and still frames stay at full resolution.\n\n## Export and projects\n\n- Existing projects, XML files, keyframes, presets and export quality are unchanged.\n",
   "assets": [
     {
+      "name": "app-arm64-v8a.apk",
+      "size": 106821533,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.16.0/app-arm64-v8a.apk"
+    },
+    {
+      "name": "app-armeabi-v7a.apk",
+      "size": 110520837,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.16.0/app-armeabi-v7a.apk"
+    },
+    {
+      "name": "app-universal.apk",
+      "size": 154109179,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.16.0/app-universal.apk"
+    },
+    {
       "name": "schnitt-5.16.0-arm64-v8a.apk",
       "size": 106821533,
       "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.16.0/schnitt-5.16.0-arm64-v8a.apk"
@@ -18,16 +33,6 @@
       "name": "schnitt-5.16.0-universal.apk",
       "size": 154109179,
       "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.16.0/schnitt-5.16.0-universal.apk"
-    },
-    {
-      "name": "app-arm64-v8a.apk",
-      "size": 106821533,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.16.0/app-arm64-v8a.apk"
-    },
-    {
-      "name": "app-armeabi-v7a.apk",
-      "size": 110520837,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.16.0/app-armeabi-v7a.apk"
     }
   ]
 }
