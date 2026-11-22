@@ -16,6 +16,10 @@ namespace am {
 
 struct Palette;
 
+/** Preview-only effect detail, 0.1 (fastest) to 1.0 (full quality). */
+void SetEffectQuality(float quality);
+float EffectQuality();
+
 using Grab = std::function<bool(int, int, const std::function<void(SkCanvas*)>&, std::vector<uint8_t>*)>;
 using Upload = std::function<sk_sp<SkImage>(const sk_sp<SkImage>&)>;
 

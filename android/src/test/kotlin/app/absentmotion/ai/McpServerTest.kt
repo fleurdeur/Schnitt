@@ -11,7 +11,7 @@ class McpServerTest {
         val reply = McpServer.handle("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}""")!!
         assertEquals("2.0", reply.getString("jsonrpc"))
         assertEquals(1, reply.getInt("id"))
-        assertEquals("2024-11-05", reply.getJSONObject("result").getString("protocolVersion"))
+        assertEquals("2025-06-18", reply.getJSONObject("result").getString("protocolVersion"))
         assertTrue(reply.getJSONObject("result").getJSONObject("capabilities").has("tools"))
     }
 
@@ -59,7 +59,7 @@ class McpHttpTest {
             connection.outputStream.use { it.write("""{"jsonrpc":"2.0","id":7,"method":"initialize"}""".toByteArray()) }
             assertEquals(200, connection.responseCode)
             val body = connection.inputStream.bufferedReader().use { it.readText() }
-            assertEquals("2024-11-05", JSONObject(body).getJSONObject("result").getString("protocolVersion"))
+            assertEquals("2025-06-18", JSONObject(body).getJSONObject("result").getString("protocolVersion"))
 
             val health = java.net.URL("http://127.0.0.1:$port/health").openConnection() as java.net.HttpURLConnection
             assertEquals(200, health.responseCode)

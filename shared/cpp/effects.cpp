@@ -40,6 +40,11 @@
 #include <vector>
 
 namespace am {
+
+float gEffectQuality = 1.0f;
+
+void SetEffectQuality(float quality) { gEffectQuality = std::clamp(quality, 0.08f, 1.0f); }
+float EffectQuality() { return gEffectQuality; }
 namespace {
 
 const char* const kLift = "absent.backdrop";
@@ -1240,6 +1245,7 @@ sk_sp<SkImageFilter> EffectRuntime::chain(const Scene& scene, const Layer& layer
                     else if (automatic && name == "acVelocity") v = {0.0f, 0.0f};
                     else if (automatic && name == "acScaleVelocity") v = {0.0f};
                     else if (automatic && name == "acAngularVelocity") v = {0.0f};
+                    else if (automatic && name == "acQuality") v = {gEffectQuality};
                     else if (automatic && name == "acProjectSize") v = {(float)scene.width, (float)scene.height};
                     else if (automatic && name == "acShowGuides") v = {0.0f};
                     else if (automatic && n == 2 && name.size() > 4 && name.compare(name.size() - 4, 4, "Size") == 0) {

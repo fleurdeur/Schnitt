@@ -42,6 +42,12 @@ class AppSettings(private val context: Context) {
     private var customThemeState by mutableStateOf(Themes.custom(context)?.let { it.name ?: "" })
 
     init {
+        // Older builds could leave a stale explicit OpenGL choice behind. Automatic now starts
+        // Vulkan where available, which is dramatically faster with heavy effect stacks.
+        if (!prefs.getBoolean("graphicsAutoV2", false)) {
+            prefs.edit().putBoolean("graphicsAutoV2", true).putBoolean("graphicsOpenGl", false).apply()
+            openGlState = false
+        }
         app.absentmotion.extensions.ExtensionRuntime.attach(context)
         if (!prefs.contains("theme")) prefs.edit().putString("theme", themeState).apply()
         Am.palette = app.absentmotion.extensions.ExtensionRuntime.theme(Themes.palette(context, themeState, systemDarkState))
@@ -129,7 +135,7 @@ class AppSettings(private val context: Context) {
         }
 
     fun previewDivisor(playing: Boolean): Int =
-        if (adaptivePreview && playing) maxOf(previewQuality.divisor, PreviewQuality.Half.divisor) else previewQuality.divisor
+        if (playing) maxOf(previewQuality.divisor, PreviewQuality.Half.divisor) else previewQuality.divisor
 
     var vibration: Boolean
         get() = vibrationState

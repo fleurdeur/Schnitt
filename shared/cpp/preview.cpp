@@ -200,6 +200,7 @@ void RenderPreview(SkCanvas* canvas, int width, int height, const Scene& scene, 
         };
         const int divisor = std::max(view.pixelDivisor, 1);
         const int bufferW = (int)lroundf(width / scale / divisor), bufferH = (int)lroundf(height / scale / divisor);
+        const bool lowRes = divisor > 1 && bufferW > 0 && bufferH > 0 && (bufferW < width || bufferH < height);
         const bool pixelArt = view.pixels && bufferW > 0 && bufferH > 0 && (bufferW < width || bufferH < height);
         if ((scene.bgColor >> 24) != 0xff) {
             const SkRect area = world ? SkRect::MakeIWH(width, height) : SkRect::MakeXYWH(dx, dy, scene.width * scale, scene.height * scale);
@@ -227,7 +228,7 @@ void RenderPreview(SkCanvas* canvas, int width, int height, const Scene& scene, 
         }
         const LayerEffects& fx = effects;
         sk_sp<SkSurface> buffer;
-        if (pixelArt) {
+        if (pixelArt || lowRes) {
             buffer = canvas->makeSurface(canvas->imageInfo().makeWH(bufferW, bufferH));
         }
         if (buffer) {
@@ -238,7 +239,7 @@ void RenderPreview(SkCanvas* canvas, int width, int height, const Scene& scene, 
             small->scale(scale * kx, scale * ky);
             drawScene(small, &fx);
             canvas->drawImageRect(buffer->makeImageSnapshot(), SkRect::MakeWH((float)width, (float)height),
-                                  SkSamplingOptions(SkFilterMode::kNearest));
+                                  SkSamplingOptions(pixelArt ? SkFilterMode::kNearest : SkFilterMode::kLinear));
         } else {
             canvas->save();
             canvas->translate(dx, dy);

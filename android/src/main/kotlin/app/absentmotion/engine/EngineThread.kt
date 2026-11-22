@@ -79,6 +79,7 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
         private set
     /** Latest preview surface render time; drives adaptive preview quality. */
     @Volatile var lastRenderMs = 0.0
+    @Volatile var smoothedRenderMs = 0.0
         private set
 
     fun updateBackground(color: Int) { background = color; requestRender() }
@@ -120,14 +121,27 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
             applyPending()
             loadEffect(engine(), def)
             val shown = scene
-            val xml = "<scene title=\"effectcheck\" width=\"256\" height=\"256\" fps=\"30\" totalTime=\"1000\" bgcolor=\"#00000000\">" +
-                "<shape id=\"1\" label=\"t\" startTime=\"0\" endTime=\"999\" fillType=\"color\" s=\".rect\"><transform><location value=\"128,128,0\"/></transform>" +
-                "<fillColor value=\"#ffc8503c\"/><property name=\"size\" type=\"vec2\" value=\"160,160\"/>" +
-                def.instance().toXml().substringAfter("?>") + "</shape></scene>"
+            val backdrop = "<shape id=\"2\" label=\"a\" startTime=\"0\" endTime=\"999\" fillType=\"color\" s=\".rect\"><transform><location value=\"64,64,0\"/></transform><fillColor value=\"#ffc03030\"/><property name=\"size\" type=\"vec2\" value=\"128,128\"/></shape>" +
+                "<shape id=\"3\" label=\"b\" startTime=\"0\" endTime=\"999\" fillType=\"color\" s=\".rect\"><transform><location value=\"192,64,0\"/></transform><fillColor value=\"#ff30a050\"/><property name=\"size\" type=\"vec2\" value=\"128,128\"/></shape>" +
+                "<shape id=\"4\" label=\"c\" startTime=\"0\" endTime=\"999\" fillType=\"color\" s=\".rect\"><transform><location value=\"64,192,0\"/></transform><fillColor value=\"#ff3050c0\"/><property name=\"size\" type=\"vec2\" value=\"128,128\"/></shape>" +
+                "<shape id=\"5\" label=\"d\" startTime=\"0\" endTime=\"999\" fillType=\"color\" s=\".rect\"><transform><location value=\"192,192,0\"/></transform><fillColor value=\"#ffd0b030\"/><property name=\"size\" type=\"vec2\" value=\"128,128\"/></shape>"
+            val subject = "<shape id=\"1\" label=\"t\" startTime=\"0\" endTime=\"999\" fillType=\"color\" s=\".rect\"><transform><location value=\"128,128,0\"/></transform>" +
+                "<fillColor value=\"#ffc8503c\"/><property name=\"size\" type=\"vec2\" value=\"160,160\"/>"
+            val body = "<scene title=\"effectcheck\" width=\"256\" height=\"256\" fps=\"30\" totalTime=\"1000\" bgcolor=\"#ff101418\">" + backdrop +
+                subject + "</shape></scene>"
+            val withEffect = "<scene title=\"effectcheck\" width=\"256\" height=\"256\" fps=\"30\" totalTime=\"1000\" bgcolor=\"#ff101418\">" + backdrop +
+                subject + def.instance().toXml().substringAfter("?>") + "</shape></scene>"
             try {
-                setEngineScene(xml)
-                val pixels = engine().still(100.0, 128, 128)
-                pixels != null && (3 until pixels.size step 4).any { pixels[it].toInt() != 0 }
+                setEngineScene(body)
+                val before = engine().still(100.0, 128, 128)
+                setEngineScene(withEffect)
+                val after = engine().still(100.0, 128, 128)
+                if (before == null || after == null) false
+                else (before.indices step 4).count { i ->
+                    kotlin.math.abs(before[i].toInt() - after[i].toInt()) +
+                        kotlin.math.abs(before[i + 1].toInt() - after[i + 1].toInt()) +
+                        kotlin.math.abs(before[i + 2].toInt() - after[i + 2].toInt()) > 6
+                } >= 24
             } finally { shown?.let { setEngineScene(it) } }
         }
     }
@@ -583,6 +597,7 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
                     gpuCheck?.survived()
                 }
                 lastRenderMs = (System.nanoTime() - started) / 1e6
+                smoothedRenderMs = if (smoothedRenderMs <= 0.0) lastRenderMs else smoothedRenderMs * 0.75 + lastRenderMs * 0.25
                 if (RenderStats.recording) RenderStats.add(lastRenderMs, v.timeMs)
                 renders++
                 if (exact) renderedView.value = RenderedView(shownSerial, v.timeMs)

@@ -73,13 +73,15 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
         val changed: Boolean get() = converted.isNotEmpty()
     }
 
+    /** Cheap check that avoids building the whole effect catalog for native projects. */
+    fun needsMigration(scene: Scene): Boolean =
+        scene.node["am"] != "app.absentmotion" || hasAlightEffect(scene.node)
+
     fun migrate(scene: Scene): Result {
         // Projects already written by Schnitt, with no Alight effect left,
         // cannot be changed by this pass. Returning before walking every
         // property and keyframe is the main reason large projects open faster.
-        if (scene.node["am"] == "app.absentmotion" && !hasAlightEffect(scene.node)) {
-            return Result(scene, emptyMap(), emptySet())
-        }
+        if (!needsMigration(scene)) return Result(scene, emptyMap(), emptySet())
         val converted = linkedMapOf<String, Int>()
         val dropped = sortedSetOf<String>()
         val gaps = linkedMapOf<String, MutableSet<String>>()
@@ -571,6 +573,14 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
     companion object {
         const val ASSET = "effects/foreign.json"
         private const val LIFT = "com.alightcreative.effects.lift"
+
+        /** Cheap check that avoids building the whole effect catalog for native projects. */
+        fun needsMigration(scene: Scene): Boolean =
+            scene.node["am"] != "app.absentmotion" || hasAlightEffect(scene.node)
+
+        private fun hasAlightEffect(node: XmlNode): Boolean =
+            node.name == "effect" && node["id"]?.startsWith("com.alightcreative.") == true ||
+                node.children.any(::hasAlightEffect)
 
         fun read(context: Context, catalog: EffectCatalog = EffectCatalog.read(context)): EffectMigration =
             parse(context.assets.open(ASSET).bufferedReader().use { it.readText() }, catalog)

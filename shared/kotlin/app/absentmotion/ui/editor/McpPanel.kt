@@ -317,11 +317,16 @@ private fun ServerTab(
         Value(token.ifBlank { "Enable MCP to create a token" }, mono = true) { onCopy(token) }
         if (on) {
             Label("HTTPS certificate")
-            Value("Self-signed · tap to copy PEM", mono = true) { McpServer.certificate()?.let(onCopy) }
+            Value("Self-signed - tap to copy PEM", mono = true) { McpServer.certificate()?.let(onCopy) }
         }
         Text(
             "Point an external MCP client at the HTTPS endpoint and send the token as Authorization: Bearer. Trust the copied certificate once in the client. The server is only reachable while this editor is open. The in-app Gemini agent works without this server and never sees this token.",
             Modifier.padding(top = 10.dp, bottom = 8.dp), color = Am.OnDarkDim, fontSize = 10.sp, lineHeight = 14.sp,
+        )
+        Label("Claude custom connector")
+        Text(
+            "Claude's mobile and web connectors connect from Anthropic's cloud, not from this phone, so they cannot use the LAN address above. Expose this port through a public HTTPS tunnel on port 443 that can reach this HTTPS origin without certificate verification (for example cloudflared with --no-tls-verify), then add the tunnel's /mcp URL as a custom connector in Claude. This server advertises OAuth discovery, dynamic registration and PKCE; when Claude opens the approval page, paste the bearer token above. Keep the editor open while Claude is connected.",
+            Modifier.padding(top = 4.dp, bottom = 8.dp), color = Am.OnDarkDim, fontSize = 10.sp, lineHeight = 14.sp,
         )
         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("TOOLS", Modifier.weight(1f), color = Am.Caption, fontSize = 10.sp, fontWeight = FontWeight.Bold)

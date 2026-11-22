@@ -23,6 +23,7 @@ import app.absentmotion.Tier
 import app.absentmotion.engine.EngineThread
 import app.absentmotion.export.Smoothing
 import app.absentmotion.model.Scene
+import app.absentmotion.model.XmlNode
 import app.absentmotion.model.effects
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
@@ -64,23 +65,35 @@ fun storeBudget(budget: Long, width: Int, height: Int): Long = maxOf(budget / 4,
 
 /** Extra preview reduction for scenes that are expensive to draw. */
 fun previewComplexityDivisor(scene: Scene): Int {
-    val layers = scene.layers
-    var cost = layers.size
-    for (layer in layers) {
-        cost += layer.effects.size * 3
-        cost += when (layer.kind) {
-            "model" -> 12
-            "camera" -> 4
-            "light" -> 2
-            else -> 0
+    // Groups can hide most of a project below the top level. Count the whole
+    // tree, not only scene.layers, or a busy composition looks cheap.
+    fun costOf(node: XmlNode): Int {
+        var cost = 0
+        for (child in node.children) {
+            when (child.name) {
+                "shape", "text", "embedScene", "nullobj", "camera", "light", "model", "audio" -> {
+                    cost += 1
+                    cost += child.children.count { it.name == "effect" } * 3
+                    cost += when (child.name) {
+                        "model" -> 12
+                        "camera" -> 4
+                        "light" -> 2
+                        else -> 0
+                    }
+                    cost += costOf(child)
+                }
+                "scene" -> cost += costOf(child)
+            }
         }
+        return cost
     }
+    val cost = costOf(scene.node)
     return when {
-        cost > 900 -> 8
-        cost > 500 -> 6
-        cost > 260 -> 4
-        cost > 120 -> 2
-        cost > 55 -> 1
+        cost > 600 -> 8
+        cost > 350 -> 6
+        cost > 180 -> 4
+        cost > 80 -> 2
+        cost > 35 -> 1
         else -> 0
     }
 }

@@ -142,25 +142,24 @@ fun Preview(state: EditorState, modifier: Modifier = Modifier, reserveEnd: Dp = 
     val (scale, dx, dy) = previewFrame(size.width.toFloat(), size.height.toFloat(), with(LocalDensity.current) { reserveEnd.toPx() }, scene.width.toFloat(), scene.height.toFloat(), viewZoom, viewPan)
     var adaptiveDivisor by remember { mutableIntStateOf(1) }
     LaunchedEffect(state.playing, state.settings.adaptivePreview, scene) {
-        if (!state.settings.adaptivePreview) { adaptiveDivisor = 1; return@LaunchedEffect }
-        adaptiveDivisor = maxOf(1, minOf(if (state.playing) 8 else 2, app.absentmotion.editor.previewComplexityDivisor(scene)))
+        if (!state.settings.adaptivePreview || !state.playing) { adaptiveDivisor = 1; return@LaunchedEffect }
+        adaptiveDivisor = maxOf(1, minOf(12, app.absentmotion.editor.previewComplexityDivisor(scene)))
         var fast = 0
         while (true) {
             delay(180)
             val ms = state.engine.lastRenderMs
-            val floor = minOf(if (state.playing) 8 else 2, app.absentmotion.editor.previewComplexityDivisor(scene))
+            val floor = minOf(if (state.playing) 12 else 2, app.absentmotion.editor.previewComplexityDivisor(scene))
             val next = when {
-                ms >= 26.0 -> min(10, adaptiveDivisor + 1)
-                ms >= 17.0 && adaptiveDivisor < floor -> floor
-                ms in 1.0..7.0 && adaptiveDivisor > maxOf(1, floor) -> { fast++; if (fast >= 3) adaptiveDivisor - 1 else adaptiveDivisor }
+                ms >= 22.0 -> min(12, adaptiveDivisor + 1)
+                ms >= 15.0 && adaptiveDivisor < floor -> floor
+                ms in 1.0..8.0 && adaptiveDivisor > maxOf(1, floor) -> { fast++; if (fast >= 3) adaptiveDivisor - 1 else adaptiveDivisor }
                 else -> { fast = 0; adaptiveDivisor }
             }
             if (next != adaptiveDivisor) { adaptiveDivisor = next; fast = 0 }
         }
     }
-    val complexityDivisor = if (state.settings.adaptivePreview) {
-        minOf(if (state.playing) 8 else 2, app.absentmotion.editor.previewComplexityDivisor(scene))
-    } else 0
+    // A heavy scene must still be watchable when the automatic-quality toggle is off.
+    val complexityDivisor = if (state.playing) minOf(12, app.absentmotion.editor.previewComplexityDivisor(scene)) else 0
     val divisor = maxOf(state.settings.previewDivisor(state.playing), complexityDivisor, adaptiveDivisor)
     val quality = 1f / divisor
     val selection = if (MultiSelect.ids.isNotEmpty()) MultiSelect.ids.toList() else listOfNotNull(state.selectedId)

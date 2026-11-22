@@ -1,4 +1,5 @@
 #include "scene.h"
+#include "effects.h"
 #include "include/core/SkSamplingOptions.h"
 #include "include/effects/SkImageFilters.h"
 
@@ -837,7 +838,8 @@ bool ShutterBlurOf(const Layer& l, double timeMs, ShutterBlur* blur) {
         }
         const float tune = std::clamp(Param(e, "tune", t, 1), 0.0f, 4.0f);
         blur->angle = 360 * tune;
-        blur->samples = std::clamp((int)std::lround(8 * tune), 8, 32);
+        // Preview renders with fewer poses; export and stills keep the full 8..32.
+        blur->samples = std::clamp((int)std::lround(8 * tune * EffectQuality()), 2, 32);
         blur->adaptive = true;
         blur->trailing = true;
         blur->position = Param(e, "position", t, 1) >= 0.5f;

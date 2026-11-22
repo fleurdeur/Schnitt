@@ -1,4 +1,5 @@
 #include "platform_log.h"
+#include "effects.h"
 
 #include <algorithm>
 #include <cmath>
@@ -593,12 +594,20 @@ void DrawGroup(SkCanvas* canvas, const Layer& l, double timeMs, const MediaPictu
         ~Context() { gScene = previous; }
     } context(l);
     if (l.fixedPrecompose && l.innerWidth > 0 && l.innerHeight > 0) {
-        if (auto surface = canvas->makeSurface(SkImageInfo::MakeN32Premul(l.innerWidth, l.innerHeight))) {
-            surface->getCanvas()->drawColor((SkColor)l.innerBackground);
-            DrawList(surface->getCanvas(), l.inner(), l.innerWidth, l.innerHeight, false, inner, pictures);
-            canvas->drawImage(surface->makeImageSnapshot(), 0, 0, SkSamplingOptions(SkFilterMode::kLinear));
-            return;
+        // A group-sized surface ignored the preview divisor and forced every
+        // precomposed group to full project resolution. saveLayer isolates the
+        // group at the target's device resolution instead, so preview scales
+        // and export stays pixel-exact.
+        const SkRect innerBounds = SkRect::MakeIWH((float)l.innerWidth, (float)l.innerHeight);
+        canvas->saveLayer(innerBounds, nullptr);
+        if (l.innerBackground >> 24) {
+            SkPaint background;
+            background.setColor((SkColor)l.innerBackground);
+            canvas->drawRect(innerBounds, background);
         }
+        DrawList(canvas, l.inner(), l.innerWidth, l.innerHeight, false, inner, pictures);
+        canvas->restore();
+        return;
     }
     // Every group has the bounds of its inner composition. Fixed precompose
     // renders to that exact surface; dynamic precompose still clips to the same
@@ -1489,7 +1498,8 @@ void DrawShuttered(SkCanvas* canvas, const std::vector<Layer>& siblings, const L
     int samples = std::clamp(shutter.fast ? 8 : shutter.samples, 2, 24);
     if (shutter.adaptive) {
         const float reach = Reach(siblings, l, timeMs + lead - open / 2, open);
-        samples = std::clamp((int)std::ceil(reach / 3), samples, 24);
+        const int cheap = std::max(samples, (int)std::lround(24 * EffectQuality()));
+        samples = std::clamp((int)std::ceil(reach / 3), samples, std::clamp(cheap, 2, 24));
     }
     // A moving layer is drawn once at every shutter pose, then once sharp at
     // the current time. The trail is translucent, the live pose is not, so the

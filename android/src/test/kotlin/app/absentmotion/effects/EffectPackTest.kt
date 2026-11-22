@@ -49,7 +49,7 @@ class EffectPackTest {
                 listOf("glyphCount", "glyphColumns").filter { it in uniforms }.associateWith { "float" to false } +
                 (if ("glyphCell" in uniforms) mapOf("glyphCell" to ("float2" to false)) else emptyMap()) +
                 listOf("paletteSize", "paletteSpread").filter { it in uniforms }.associateWith { "float" to false } +
-                listOf("beat", "beatTime", "beatIndex").filter { it in uniforms }.associateWith { "float" to false } +
+                listOf("beat", "beatTime", "beatIndex", "acQuality").filter { it in uniforms }.associateWith { "float" to false } +
                 effect.params.filter { it.kind != "text" }.associate { p ->
                     p.id to when (p.kind) { "point" -> "float2" to false; "color" -> "half4" to true; else -> "float" to false }
                 }

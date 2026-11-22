@@ -630,7 +630,9 @@ class MainActivity : ComponentActivity() {
             loaded?.let { scene ->
                 withContext(Dispatchers.IO) {
                     ShapeCatalog.load(applicationContext)
-                    val migrated = migration.migrate(MediaRelink.relink(this@MainActivity, scene))
+                    val relinked = MediaRelink.relink(this@MainActivity, scene)
+                    val migrated = if (EffectMigration.needsMigration(relinked)) migration.migrate(relinked)
+                        else EffectMigration.Result(relinked, emptyMap(), emptySet())
                     if (migrated.dropped.isNotEmpty()) DebugLog.write("import", "project $id could not carry over: ${migrated.dropped.joinToString("; ")}")
                     migrated.scene
                         .let { if (it.oldAlightImport()) it.withReimportTipShown().also { tip = true } else it }.also {

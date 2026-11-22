@@ -51,7 +51,3 @@ Thumbs.db
 /docs/THEMES.md
 /third_party/gn-src/
 docs/REAL_3D.md
-
-# Cloudflare worker local cache
-worker/.wrangler/
-worker/node_modules/

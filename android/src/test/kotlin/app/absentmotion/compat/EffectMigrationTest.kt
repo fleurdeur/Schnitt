@@ -388,6 +388,17 @@ class EffectMigrationTest {
         assertFalse(dropped.toString(), dropped.any { it.contains("(3)") })
     }
 
+    @Test fun nativeProjectsSkipTheEffectCatalogButNestedAlightEffectsDoNot() {
+        val native = Scene.parse("""<scene width="100" height="100" fps="30" totalTime="1000" am="app.absentmotion">
+            <shape id="1" startTime="0" endTime="1000" s=".rect"><effect id="absent.blur" /></shape></scene>""")
+        assertFalse(EffectMigration.needsMigration(native))
+        val imported = Scene.parse("""<scene width="100" height="100" fps="30" totalTime="1000" am="app.absentmotion">
+            <embedScene id="2"><scene width="100" height="100" fps="30" totalTime="1000" am="com.alightcreative.motion/5.0">
+              <shape id="3" startTime="0" endTime="1000" s=".rect"><effect id="com.alightcreative.effects.blur" /></shape>
+            </scene></embedScene></scene>""")
+        assertTrue(EffectMigration.needsMigration(imported))
+    }
+
     @Test fun aSecondMigrationChangesNothing() {
         val once = migration.migrate(Scene.parse(scene))
         val twice = migration.migrate(once.scene)

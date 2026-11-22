@@ -22,7 +22,7 @@ object GeminiClient {
 
     data class Reply(val content: JSONObject?, val text: String, val calls: List<Call>, val thoughts: String = "")
 
-    data class Call(val name: String, val args: JSONObject)
+    data class Call(val name: String, val args: JSONObject, val signature: String? = null)
 
     /**
      * Streams the answer instead of waiting for one huge response.  Besides
@@ -68,7 +68,15 @@ object GeminiClient {
             part.optJSONObject("functionCall")?.let { call ->
                 val name = call.optString("name")
                 val args = call.optJSONObject("args") ?: JSONObject()
-                if (name.isNotBlank() && calls.none { it.name == name && it.args.toString() == args.toString() }) calls += Call(name, args)
+                // Gemini 2.5/3 attach an opaque thought signature to every function call.
+                // It must be echoed back in the same part on the next request or the API
+                // rejects the turn with "function call missing a thought signature".
+                val signature = part.optString("thoughtSignature").ifBlank { call.optString("thoughtSignature") }.takeIf { it.isNotBlank() }
+                if (name.isNotBlank()) {
+                    val at = calls.indexOfFirst { it.name == name && it.args.toString() == args.toString() }
+                    if (at < 0) calls += Call(name, args, signature)
+                    else if (calls[at].signature == null && signature != null) calls[at] = calls[at].copy(signature = signature)
+                }
             }
         }
         if (pushed > 0L || thoughtPushed > 0L) {
@@ -122,7 +130,11 @@ object GeminiClient {
         if (text.isBlank() && calls.isEmpty()) return null
         val parts = JSONArray()
         if (text.isNotBlank()) parts.put(JSONObject().put("text", text))
-        for (call in calls) parts.put(JSONObject().put("functionCall", JSONObject().put("name", call.name).put("args", call.args)))
+        for (call in calls) {
+            val part = JSONObject().put("functionCall", JSONObject().put("name", call.name).put("args", call.args))
+            if (call.signature != null) part.put("thoughtSignature", call.signature)
+            parts.put(part)
+        }
         return JSONObject().put("role", "model").put("parts", parts)
     }
 

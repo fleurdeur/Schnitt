@@ -121,7 +121,7 @@ object McpServer {
         this.port = port
         this.token = token
         secure = false
-        runCatching { ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(port)) } }
+        runCatching { ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress("127.0.0.1", port)) } }
             .getOrNull()?.let { socket ->
                 server = socket
                 thread(isDaemon = true, name = "Schnitt MCP test") { acceptLoop(socket) }
@@ -155,7 +155,17 @@ object McpServer {
         worker = null
     }
 
+    private data class OAuthClient(val id: String, val secret: String, val redirects: Set<String>)
+    private data class OAuthCode(val clientId: String, val redirect: String, val challenge: String, val expires: Long)
+    private val oauthClients = java.util.concurrent.ConcurrentHashMap<String, OAuthClient>()
+    private val oauthCodes = java.util.concurrent.ConcurrentHashMap<String, OAuthCode>()
+
     private fun serve(client: Socket) {
+        // A client that connects and stalls must never take the editor down.
+        runCatching { serveRequest(client) }.onFailure { runCatching { client.close() } }
+    }
+
+    private fun serveRequest(client: Socket) {
         client.use { socket ->
             if (socket is SSLSocket) {
                 socket.soTimeout = 15_000
@@ -167,31 +177,158 @@ object McpServer {
             val lines = head.split("\r\n")
             val request = lines.firstOrNull()?.split(' ') ?: return
             val method = request.getOrNull(0) ?: return
-            val path = request.getOrNull(1)?.substringBefore('?') ?: "/"
+            val target = request.getOrNull(1) ?: return
+            val path = target.substringBefore('?')
+            val query = target.substringAfter('?', "")
+            val base = baseUrl(lines)
             if (method == "OPTIONS") return reply(socket, 204, null)
             if (method == "GET" && path == "/health") return reply(socket, 200, JSONObject().put("ok", true).put("name", "schnitt-mcp"))
             if (method == "GET" && path == "/certificate") {
                 val pem = certificate() ?: return reply(socket, 404, JSONObject().put("error", "no certificate"))
                 return replyText(socket, 200, "application/x-pem-file", pem)
             }
+            if (method == "GET" && path.startsWith("/.well-known/oauth-protected-resource")) {
+                return reply(socket, 200, JSONObject()
+                    .put("resource", "$base/mcp")
+                    .put("authorization_servers", JSONArray().put(base))
+                    .put("bearer_methods_supported", JSONArray().put("header")))
+            }
+            if (method == "GET" && (path == "/.well-known/oauth-authorization-server" || path == "/.well-known/openid-configuration")) {
+                return reply(socket, 200, JSONObject()
+                    .put("issuer", base)
+                    .put("authorization_endpoint", "$base/authorize")
+                    .put("token_endpoint", "$base/token")
+                    .put("registration_endpoint", "$base/register")
+                    .put("response_types_supported", JSONArray().put("code"))
+                    .put("grant_types_supported", JSONArray().put("authorization_code").put("refresh_token"))
+                    .put("code_challenge_methods_supported", JSONArray().put("S256"))
+                    .put("token_endpoint_auth_methods_supported", JSONArray().put("none").put("client_secret_post")))
+            }
+            if (method == "POST" && path == "/register") {
+                val body = readBody(input, lines) ?: return reply(socket, 411, JSONObject().put("error", "content length required"))
+                val json = runCatching { JSONObject(body) }.getOrElse { return reply(socket, 400, JSONObject().put("error", "invalid client metadata")) }
+                val redirects = LinkedHashSet<String>()
+                json.optJSONArray("redirect_uris")?.let { array ->
+                    for (i in 0 until array.length()) array.optString(i).takeIf { it.startsWith("https://") || it.startsWith("http://127.0.0.1") || it.startsWith("http://localhost") }?.let(redirects::add)
+                }
+                if (redirects.isEmpty()) return reply(socket, 400, JSONObject().put("error", "redirect_uri required"))
+                val client = OAuthClient(newToken().take(24), newToken(), redirects)
+                oauthClients[client.id] = client
+                return reply(socket, 201, JSONObject()
+                    .put("client_id", client.id).put("client_secret", client.secret)
+                    .put("client_id_issued_at", System.currentTimeMillis() / 1000)
+                    .put("redirect_uris", JSONArray(client.redirects.toList()))
+                    .put("token_endpoint_auth_method", "client_secret_post")
+                    .put("grant_types", JSONArray().put("authorization_code").put("refresh_token"))
+                    .put("response_types", JSONArray().put("code")))
+            }
+            if (method == "GET" && path == "/authorize") return authorizePage(socket, query, null, base)
+            if (method == "POST" && path == "/authorize") {
+                val body = readBody(input, lines) ?: return reply(socket, 411, JSONObject().put("error", "content length required"))
+                val values = form(body)
+                val client = oauthClients[values["client_id"]]
+                val redirectTo = values["redirect_uri"].orEmpty()
+                if (client == null || redirectTo !in client.redirects) return replyText(socket, 400, "text/plain; charset=utf-8", "Unknown client or redirect URI.")
+                if (values["access_token"] != token) return authorizePage(socket, encodeForm(values), "That token does not match this editor.", base)
+                val code = newToken()
+                oauthCodes[code] = OAuthCode(client.id, redirectTo, values["code_challenge"].orEmpty(), System.currentTimeMillis() + 300_000)
+                val sep = if ('?' in redirectTo) '&' else '?'
+                val state = values["state"].orEmpty().let { if (it.isBlank()) "" else "&state=" + java.net.URLEncoder.encode(it, "UTF-8") }
+                return redirect(socket, "$redirectTo${sep}code=$code$state")
+            }
+            if (method == "POST" && path == "/token") {
+                val body = readBody(input, lines) ?: return reply(socket, 411, JSONObject().put("error", "content length required"))
+                val values = form(body)
+                if (values["grant_type"] == "refresh_token") return tokenReply(socket)
+                val code = values["code"].orEmpty()
+                val saved = oauthCodes.remove(code) ?: return reply(socket, 400, JSONObject().put("error", "invalid_grant"))
+                if (saved.expires < System.currentTimeMillis()) return reply(socket, 400, JSONObject().put("error", "invalid_grant"))
+                val client = oauthClients[values["client_id"]] ?: return reply(socket, 400, JSONObject().put("error", "invalid_client"))
+                if (saved.clientId != client.id) return reply(socket, 400, JSONObject().put("error", "invalid_client"))
+                if (saved.challenge.isNotBlank() && challenge(values["code_verifier"].orEmpty()) != saved.challenge) {
+                    return reply(socket, 400, JSONObject().put("error", "invalid_grant").put("error_description", "PKCE verification failed"))
+                }
+                return tokenReply(socket)
+            }
             if (method != "POST" || (path != "/mcp" && path != "/")) return reply(socket, 404, JSONObject().put("error", "not found"))
             val auth = lines.firstOrNull { it.startsWith("Authorization:", true) }?.substringAfter(':')?.trim()
-            if (token.isNotBlank() && auth != "Bearer $token") return reply(socket, 401, JSONObject().put("error", "unauthorized"))
-            val length = lines.firstOrNull { it.startsWith("Content-Length:", true) }?.substringAfter(':')?.trim()?.toIntOrNull() ?: 0
-            if (length < 0 || length > MAX_BODY) return reply(socket, 413, JSONObject().put("error", "body too large"))
-            val body = ByteArray(length)
-            var read = 0
-            while (read < length) {
-                val n = input.read(body, read, length - read)
-                if (n < 0) break
-                read += n
+            if (token.isNotBlank() && auth != "Bearer $token") {
+                return reply(socket, 401, JSONObject().put("error", "unauthorized"),
+                    "WWW-Authenticate: Bearer resource_metadata=\"$base/.well-known/oauth-protected-resource\"\r\n")
             }
-            val text = String(body, 0, read, Charsets.UTF_8)
+            val text = readBody(input, lines) ?: return reply(socket, 411, JSONObject().put("error", "content length required"))
             val response = runCatching { handle(text) }.getOrElse { error ->
                 JSONObject().put("jsonrpc", "2.0").put("id", JSONObject.NULL).put("error", JSONObject().put("code", -32603).put("message", error.message ?: "internal error"))
             }
             if (response == null) reply(socket, 202, null) else reply(socket, 200, response)
         }
+    }
+
+    private fun baseUrl(lines: List<String>): String {
+        fun header(name: String) = lines.firstOrNull { it.startsWith("$name:", true) }?.substringAfter(':')?.trim()?.ifBlank { null }
+        val host = header("Host") ?: "127.0.0.1:$port"
+        val proto = header("X-Forwarded-Proto") ?: header("X-Forwarded-Scheme") ?: if (secure) "https" else "http"
+        return "$proto://$host"
+    }
+
+    private fun readBody(input: InputStream, lines: List<String>): String? {
+        val length = lines.firstOrNull { it.startsWith("Content-Length:", true) }?.substringAfter(':')?.trim()?.toIntOrNull() ?: return null
+        if (length < 0 || length > MAX_BODY) return ""
+        val body = ByteArray(length)
+        var read = 0
+        while (read < length) {
+            val n = input.read(body, read, length - read)
+            if (n < 0) break
+            read += n
+        }
+        return String(body, 0, read, Charsets.UTF_8)
+    }
+
+    private fun form(body: String): Map<String, String> = body.split('&').mapNotNull { part ->
+        if (part.isBlank()) null else {
+            val key = java.net.URLDecoder.decode(part.substringBefore('='), "UTF-8")
+            val value = java.net.URLDecoder.decode(part.substringAfter('=', ""), "UTF-8")
+            key to value
+        }
+    }.toMap()
+
+    private fun encodeForm(values: Map<String, String>): String = values.entries.joinToString("&") { (k, v) ->
+        java.net.URLEncoder.encode(k, "UTF-8") + "=" + java.net.URLEncoder.encode(v, "UTF-8")
+    }
+
+    private fun challenge(verifier: String): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.UTF_8))
+        return android.util.Base64.encodeToString(digest, android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP)
+    }
+
+    private fun tokenReply(socket: Socket) = reply(socket, 200, JSONObject()
+        .put("access_token", token).put("token_type", "Bearer").put("expires_in", 31_536_000)
+        .put("refresh_token", token).put("scope", "mcp"))
+
+    private fun authorizePage(socket: Socket, query: String, error: String?, base: String) {
+        val values = form(query)
+        val client = oauthClients[values["client_id"]]
+        val redirectTo = values["redirect_uri"].orEmpty()
+        if (client == null || redirectTo !in client.redirects) return replyText(socket, 400, "text/plain; charset=utf-8", "Unknown OAuth client. Add the connector again.")
+        fun hidden(field: String) = "<input type=\"hidden\" name=\"$field\" value=\"" + values[field].orEmpty().replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;") + "\">"
+        val message = if (error != null) "<div class=\"err\">" + error.replace("<", "&lt;") + "</div>" else ""
+        val html = "<!doctype html><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
+            "<title>Connect Schnitt</title>" +
+            "<style>body{background:#101418;color:#e8eef5;font:16px system-ui;margin:0;padding:28px}main{max-width:420px;margin:auto}h1{font-size:22px}label{display:block;margin:18px 0 6px;color:#9fb0c2}input[type=password]{width:100%;box-sizing:border-box;background:#1b2229;border:1px solid #33414e;color:#fff;border-radius:10px;padding:12px;font:15px monospace}button{margin-top:18px;width:100%;background:#5fe3a1;color:#08120c;border:0;border-radius:10px;padding:13px;font-weight:700}small{color:#9fb0c2;line-height:1.45;display:block;margin-top:14px}.err{color:#ff9c9c;margin-top:12px}</style>" +
+            "<main><h1>Connect Schnitt to Claude</h1>" +
+            "<small>Paste the bearer token shown in Schnitt's server panel. Claude will only be able to read and edit the project while this editor is open.</small>" +
+            message +
+            "<form method=\"post\" action=\"/authorize\">" +
+            hidden("client_id") + hidden("redirect_uri") + hidden("state") + hidden("code_challenge") + hidden("code_challenge_method") + hidden("response_type") +
+            "<label for=\"t\">Bearer token</label>" +
+            "<input id=\"t\" type=\"password\" name=\"access_token\" autocomplete=\"off\" required autofocus>" +
+            "<button type=\"submit\">Connect</button></form></main>"
+        replyText(socket, 200, "text/html; charset=utf-8", html)
+    }
+
+    private fun redirect(socket: Socket, location: String) {
+        val head = "HTTP/1.1 302 Found\r\nLocation: $location\r\nContent-Length: 0\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n"
+        BufferedOutputStream(socket.getOutputStream()).use { it.write(head.toByteArray(Charsets.US_ASCII)); it.flush() }
     }
 
     private fun readHead(input: InputStream): String? {
@@ -205,12 +342,13 @@ object McpServer {
         return null
     }
 
-    private fun replyText(socket: Socket, code: Int, type: String, body: String) {
-        val status = when (code) { 200 -> "OK"; 401 -> "Unauthorized"; 404 -> "Not Found"; else -> "Response" }
+    private fun replyText(socket: Socket, code: Int, type: String, body: String, extra: String = "") {
+        val status = when (code) { 200 -> "OK"; 400 -> "Bad Request"; 401 -> "Unauthorized"; 404 -> "Not Found"; 411 -> "Length Required"; 413 -> "Payload Too Large"; else -> "Response" }
         val bytes = body.toByteArray(Charsets.UTF_8)
         val head = buildString {
             append("HTTP/1.1 $code $status\r\n")
             append("Content-Type: $type\r\n")
+            append(extra)
             append("Content-Length: ${bytes.size}\r\n")
             append("Access-Control-Allow-Origin: *\r\n")
             append("Strict-Transport-Security: max-age=86400\r\n")
@@ -219,11 +357,12 @@ object McpServer {
         BufferedOutputStream(socket.getOutputStream()).use { out -> out.write(head); out.write(bytes); out.flush() }
     }
 
-    private fun reply(socket: Socket, code: Int, body: JSONObject?) {
+    private fun reply(socket: Socket, code: Int, body: JSONObject?, extra: String = "") {
         val bytes = body?.toString()?.toByteArray(Charsets.UTF_8)
         val head = buildString {
-            append("HTTP/1.1 $code ").append(if (code == 200) "OK" else if (code == 202) "Accepted" else if (code == 401) "Unauthorized" else "OK").append("\r\n")
+            append("HTTP/1.1 $code ").append(when (code) { 200 -> "OK"; 201 -> "Created"; 202 -> "Accepted"; 204 -> "No Content"; 302 -> "Found"; 400 -> "Bad Request"; 401 -> "Unauthorized"; 404 -> "Not Found"; 411 -> "Length Required"; 413 -> "Payload Too Large"; else -> "OK" }).append("\r\n")
             append("Content-Type: application/json; charset=utf-8\r\n")
+            append(extra)
             append("Access-Control-Allow-Origin: *\r\n")
             append("Access-Control-Allow-Headers: authorization, content-type, mcp-session-id\r\n")
             append("Access-Control-Allow-Methods: POST, GET, OPTIONS\r\n")
@@ -249,7 +388,7 @@ object McpServer {
         return try {
             when (method) {
                 "initialize" -> ok(JSONObject()
-                    .put("protocolVersion", "2024-11-05")
+                    .put("protocolVersion", "2025-06-18")
                     .put("capabilities", JSONObject().put("tools", JSONObject().put("listChanged", false)))
                     .put("serverInfo", JSONObject().put("name", "schnitt-editor").put("version", "1.0.0")))
                 "ping" -> ok(JSONObject())

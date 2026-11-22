@@ -1246,8 +1246,10 @@ int EngineImpl::renderScene(Target* target, double timeMs, float scale, float dx
     return this->frame(target, 0, false, [&](SkCanvas* canvas) {
         const LayerEffects fx = this->layerEffects();
         SetFastShutterBlur(!fAccurateBlur);
+        SetEffectQuality(1.0f / std::max(view.pixelDivisor, 1));
         RenderPreview(canvas, target->width, target->height, fScene, timeMs, scale, dx, dy, background,
                       selectedId, handles, view, fCameraView, this->pictures(), fx);
+        SetEffectQuality(1.0f);
         SetFastShutterBlur(false);
     });
 }
@@ -1259,6 +1261,7 @@ int EngineImpl::renderFrame(Target* target, double timeMs, uint32_t background, 
         canvas->clear(background);
         canvas->scale((float)target->width / fScene.width, (float)target->height / fScene.height);
         const LayerEffects fx = this->layerEffects();
+        SetEffectQuality(1.0f);
         DrawScene(canvas, fScene, timeMs, this->pictures(), &fx);
     });
 }
@@ -1449,7 +1452,9 @@ bool EngineImpl::still(double timeMs, int width, int height, std::vector<uint8_t
     return this->offscreen(width, height, false, [&](SkCanvas* canvas) {
         canvas->scale((float)width / fScene.width, (float)height / fScene.height);
         const LayerEffects fx = this->layerEffects();
+        SetEffectQuality(1.0f);
         DrawScene(canvas, fScene, timeMs, this->pictures(), &fx);
+        SetEffectQuality(1.0f);
     }, rgba);
 }
 
@@ -1460,7 +1465,9 @@ bool EngineImpl::previewStill(double timeMs, int width, int height, bool accurat
         canvas->scale((float)width / fScene.width, (float)height / fScene.height);
         const LayerEffects fx = this->layerEffects();
         SetFastShutterBlur(!accurateBlur);
+        SetEffectQuality(std::clamp((float)width / std::max(1, fScene.width), 0.1f, 1.0f));
         DrawScene(canvas, fScene, timeMs, this->pictures(), &fx);
+        SetEffectQuality(1.0f);
         SetFastShutterBlur(false);
     }, rgba);
     SetFastShutterBlur(false);

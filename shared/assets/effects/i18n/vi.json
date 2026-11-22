@@ -3102,6 +3102,13 @@
     },
     "sweep": {
      "label": "Góc"
+    },
+    "blur": {
+     "label": "Blur",
+     "options": [
+      "Spin",
+      "Zoom"
+     ]
     }
    }
   },
@@ -4472,6 +4479,13 @@
     },
     "center": {
      "label": "Tâm"
+    },
+    "streak": {
+     "label": "Length",
+     "options": [
+      "By Distance",
+      "Even"
+     ]
     }
    }
   },

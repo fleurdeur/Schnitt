@@ -11,9 +11,6 @@
 
 **A focused Android video editor with a native GPU engine, a real timeline, and no paywalls.**
 
-
-> This project is just for fun, yet it is taking most of my time fixing, improving, and adding more features into the app. Sooner or later this project wil no longer be maintained.
-
 <br/>
 
 [![Latest release](https://img.shields.io/github/v/release/fleurdeur/Schnitt?style=for-the-badge&labelColor=0d1117)](https://github.com/fleurdeur/Schnitt/releases)
@@ -178,7 +175,7 @@ Schnitt extensions are portable **`.sc`** bundles that customize the app without
 
 ### Auto Scroll
 
-The first extension is bundled and enabled by default. While the timeline plays, it eases the vertical scroll to the layer under the playhead. It never changes the playhead, the clock or playback speed. Its properties control the follow mode, snap-to-centre, speed and smoothing time.
+The first extension is bundled and enabled by default. While the timeline plays, it eases the vertical scroll to the layer under the playhead. **Scroll through layers** starts at the bottom row and gradually rises to the top, so a full-length layer at the top no longer hides the rows below it. It never changes the playhead, the clock or playback speed. Its properties control the follow mode, start row, top-layer skipping, hidden rows, snap-to-centre, speed and smoothing time. Bundled Auto Scroll is upgraded in place to 1.1.0 while keeping matching property values.
 
 ### Make an extension
 
