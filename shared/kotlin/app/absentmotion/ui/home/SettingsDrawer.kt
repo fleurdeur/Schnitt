@@ -230,6 +230,18 @@ internal fun ProjectsSettings(settings: AppSettings, onDemoMode: (Boolean) -> Un
     DownloaderRow()
     AiGpuRow()
     McpRow(settings)
+    TelegramRow()
+}
+
+@Composable
+private fun TelegramRow() {
+    val context = LocalContext.current
+    Divider(10.dp)
+    ActionRow(stringResource(R.string.settings_telegram), "@schnitts", chevron = true) {
+        runCatching {
+            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse("https://t.me/schnitts")))
+        }.onFailure { Toast.makeText(context, context.getString(R.string.settings_telegram_failed), Toast.LENGTH_SHORT).show() }
+    }
 }
 
 @Composable

@@ -2,11 +2,13 @@
   "schema": 1,
   "id": "auto-scroll",
   "name": "Auto Scroll",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "author": "fleurdeur",
-  "description": "Keeps the timeline on the layer that is playing. It scrolls vertically only, never changes the playhead or playback speed, and eases between layers.",
+  "description": "Keeps the timeline on the layer that is playing. Follow the bottom layer first, reveal layers from bottom to top, skip pinned top layers, and ease between rows without changing playback.",
   "category": "behavior",
-  "capabilities": ["timeline.follow"],
+  "capabilities": [
+    "timeline.follow"
+  ],
   "properties": [
     {
       "id": "enabled",
@@ -18,9 +20,46 @@
       "id": "mode",
       "label": "Follow",
       "type": "choice",
-      "options": ["Playing layer", "Selected layer"],
-      "values": ["playing", "selected"],
+      "options": [
+        "Playing layer",
+        "Selected layer",
+        "Scroll through layers"
+      ],
+      "values": [
+        "playing",
+        "selected",
+        "sweep"
+      ],
       "default": "playing"
+    },
+    {
+      "id": "start",
+      "label": "Start from",
+      "type": "choice",
+      "options": [
+        "Bottom layer",
+        "Top layer"
+      ],
+      "values": [
+        "bottom",
+        "top"
+      ],
+      "default": "bottom"
+    },
+    {
+      "id": "skipTop",
+      "label": "Skip layers at top",
+      "type": "slider",
+      "default": "1",
+      "min": 0,
+      "max": 100,
+      "step": 1
+    },
+    {
+      "id": "includeHidden",
+      "label": "Include hidden layers",
+      "type": "toggle",
+      "default": false
     },
     {
       "id": "snap",

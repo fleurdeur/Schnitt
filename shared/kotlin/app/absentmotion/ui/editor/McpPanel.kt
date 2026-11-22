@@ -315,8 +315,12 @@ private fun ServerTab(
         Value(endpoint, mono = true) { onCopy(if (on) McpServer.address() else "") }
         Label("Bearer token")
         Value(token.ifBlank { "Enable MCP to create a token" }, mono = true) { onCopy(token) }
+        if (on) {
+            Label("HTTPS certificate")
+            Value("Self-signed · tap to copy PEM", mono = true) { McpServer.certificate()?.let(onCopy) }
+        }
         Text(
-            "Point an external MCP client at the endpoint and send the token as Authorization: Bearer. The server is only reachable while this editor is open. The in-app Gemini agent works without this server and never sees this token.",
+            "Point an external MCP client at the HTTPS endpoint and send the token as Authorization: Bearer. Trust the copied certificate once in the client. The server is only reachable while this editor is open. The in-app Gemini agent works without this server and never sees this token.",
             Modifier.padding(top = 10.dp, bottom = 8.dp), color = Am.OnDarkDim, fontSize = 10.sp, lineHeight = 14.sp,
         )
         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {

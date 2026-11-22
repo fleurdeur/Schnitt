@@ -2643,4 +2643,6 @@
     <string name="effect_remap_hint">Choose a similar effect. Every property and keyframe is kept.</string>
     <string name="effect_remap_choose">Choose an effect</string>
     <string name="effect_remap_applied">Effects updated</string>
+    <string name="settings_telegram">Telegram community</string>
+    <string name="settings_telegram_failed">No app can open Telegram</string>
 </resources>

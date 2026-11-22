@@ -141,20 +141,27 @@ fun Preview(state: EditorState, modifier: Modifier = Modifier, reserveEnd: Dp = 
     val viewPan = if (fixedView) Offset.Zero else state.canvasPan
     val (scale, dx, dy) = previewFrame(size.width.toFloat(), size.height.toFloat(), with(LocalDensity.current) { reserveEnd.toPx() }, scene.width.toFloat(), scene.height.toFloat(), viewZoom, viewPan)
     var adaptiveDivisor by remember { mutableIntStateOf(1) }
-    LaunchedEffect(state.playing, state.settings.adaptivePreview) {
-        if (!state.playing || !state.settings.adaptivePreview) { adaptiveDivisor = 1; return@LaunchedEffect }
+    LaunchedEffect(state.playing, state.settings.adaptivePreview, scene) {
+        if (!state.settings.adaptivePreview) { adaptiveDivisor = 1; return@LaunchedEffect }
+        adaptiveDivisor = maxOf(1, minOf(if (state.playing) 8 else 2, app.absentmotion.editor.previewComplexityDivisor(scene)))
+        var fast = 0
         while (true) {
-            delay(300)
+            delay(180)
             val ms = state.engine.lastRenderMs
+            val floor = minOf(if (state.playing) 8 else 2, app.absentmotion.editor.previewComplexityDivisor(scene))
             val next = when {
-                ms >= 24.0 -> min(8, adaptiveDivisor + 1)
-                ms in 1.0..11.0 && adaptiveDivisor > 1 -> adaptiveDivisor - 1
-                else -> adaptiveDivisor
+                ms >= 26.0 -> min(10, adaptiveDivisor + 1)
+                ms >= 17.0 && adaptiveDivisor < floor -> floor
+                ms in 1.0..7.0 && adaptiveDivisor > maxOf(1, floor) -> { fast++; if (fast >= 3) adaptiveDivisor - 1 else adaptiveDivisor }
+                else -> { fast = 0; adaptiveDivisor }
             }
-            if (next != adaptiveDivisor) adaptiveDivisor = next
+            if (next != adaptiveDivisor) { adaptiveDivisor = next; fast = 0 }
         }
     }
-    val divisor = maxOf(state.settings.previewDivisor(state.playing), adaptiveDivisor)
+    val complexityDivisor = if (state.settings.adaptivePreview) {
+        minOf(if (state.playing) 8 else 2, app.absentmotion.editor.previewComplexityDivisor(scene))
+    } else 0
+    val divisor = maxOf(state.settings.previewDivisor(state.playing), complexityDivisor, adaptiveDivisor)
     val quality = 1f / divisor
     val selection = if (MultiSelect.ids.isNotEmpty()) MultiSelect.ids.toList() else listOfNotNull(state.selectedId)
     val refPx = if (LocalWide.current) LocalDensity.current.density * PhoneWidth.value / 1080f else 0f

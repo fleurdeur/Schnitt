@@ -54,7 +54,7 @@ object DepthAnything {
         val cores = Runtime.getRuntime().availableProcessors()
         return when (backend) {
             Backend.Nnapi -> 2
-            else -> minOf(4, maxOf(2, cores / 2))
+            else -> minOf(4, maxOf(2, cores / 2 + 1))
         }
     }
 
@@ -108,7 +108,6 @@ object DepthAnything {
             env = environment
             val path = file(context).path
             val cores = max(1, Runtime.getRuntime().availableProcessors())
-            val parallel = minOf(4, maxOf(2, cores / 2))
             val attempts = listOf(Backend.Nnapi, Backend.Xnnpack, Backend.Cpu)
             var last: Throwable? = null
             for (choice in attempts) {
@@ -122,23 +121,17 @@ object DepthAnything {
                             options.addNnapi(EnumSet.of(NNAPIFlags.USE_FP16))
                         }
                         Backend.Xnnpack -> {
-                            val threads = maxOf(1, cores / parallel)
+                            val threads = minOf(4, maxOf(2, cores - 1))
                             options.setIntraOpNumThreads(threads)
                             options.setInterOpNumThreads(1)
                             options.addXnnpack(mapOf("intra_op_num_threads" to "$threads", "execution_mode" to "1"))
                         }
                         Backend.Cpu -> {
-                            options.setIntraOpNumThreads(maxOf(1, cores / parallel))
+                            options.setIntraOpNumThreads(minOf(4, maxOf(2, cores - 1)))
                             options.setInterOpNumThreads(1)
                         }
                     }
                     val next = environment.createSession(path, options)
-                    if (choice != Backend.Cpu && !probe(environment, next)) {
-                        runCatching { next.close() }
-                        runCatching { options.close() }
-                        last = IllegalStateException("${choice.name} could not run the depth model")
-                        continue
-                    }
                     session = next
                     backend = choice
                     return next
@@ -152,12 +145,8 @@ object DepthAnything {
         }
     }
 
-    private fun probe(environment: OrtEnvironment, active: OrtSession): Boolean = runCatching {
-        val data = FloatArray(3 * SIDE * SIDE)
-        OnnxTensor.createTensor(environment, FloatBuffer.wrap(data), longArrayOf(1, 3, SIDE.toLong(), SIDE.toLong())).use { input ->
-            active.run(mapOf(active.inputNames.first() to input)).use { result -> result.get(0).value != null }
-        }
-    }.getOrDefault(false)
+    private val pixelScratch = ThreadLocal.withInitial { IntArray(SIDE * SIDE) }
+    private val dataScratch = ThreadLocal.withInitial { FloatArray(3 * SIDE * SIDE) }
 
     /** Returns inverted normalized depth: near subject dark, far background white. */
     suspend fun depthGray(context: Context, bitmap: Bitmap, width: Int, height: Int): ByteArray = withContext(Dispatchers.Default) {
@@ -165,10 +154,10 @@ object DepthAnything {
         val environment = env ?: OrtEnvironment.getEnvironment()
         val scaled = if (bitmap.width == SIDE && bitmap.height == SIDE) bitmap else Bitmap.createScaledBitmap(bitmap, SIDE, SIDE, true)
         try {
-            val pixels = IntArray(SIDE * SIDE)
+            val pixels = pixelScratch.get()!!
             scaled.getPixels(pixels, 0, SIDE, 0, 0, SIDE, SIDE)
             val plane = SIDE * SIDE
-            val data = FloatArray(3 * plane)
+            val data = dataScratch.get()!!
             for (i in pixels.indices) {
                 val p = pixels[i]
                 val r = ((p shr 16) and 0xFF) / 255f

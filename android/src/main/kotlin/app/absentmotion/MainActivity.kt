@@ -188,6 +188,11 @@ class MainActivity : ComponentActivity() {
         followScreenSize(resources.configuration)
         store = ProjectStore(this)
         settings = AppSettings(this)
+        if (app.absentmotion.media.FfampProbe.available) {
+            runCatching { app.absentmotion.media.MediaBackend.ffampReaders = app.absentmotion.ffamp.FfampMedia }
+                .onFailure { Log.w("AMMedia", "FFamp is not available on this build", it) }
+        }
+        app.absentmotion.media.MediaBackend.enabled = settings.ffamp
         runCatching { app.absentmotion.ai.McpServer.sync(applicationContext, settings) }
         lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             runCatching { app.absentmotion.compat.AureaBackend.ensure(applicationContext) }

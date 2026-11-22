@@ -7,6 +7,7 @@ import app.absentmotion.effects.EffectParam
 import app.absentmotion.model.Scene
 import app.absentmotion.model.XmlNode
 import app.absentmotion.model.formatFloats
+import app.absentmotion.model.formatColor
 import app.absentmotion.model.keyframes
 import app.absentmotion.model.valueAt
 import app.absentmotion.platform.Context
@@ -315,11 +316,68 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
                 val numbers = text.split(',').mapNotNull { it.trim().finiteFloat() }
                 if (numbers.size >= 2) formatFloats(floatArrayOf(numbers[0], numbers[1])) else target.default
             }
-            "color" -> if (text.startsWith("#")) text else target.default
+            "color" -> importedColor(text) ?: target.default
             "switch" -> when (text) { "true", "1" -> "true"; "false", "0" -> "false"; else -> if ((first ?: 0f) != 0f) "true" else "false" }
             "choice" -> first?.let { n -> formatFloats(floatArrayOf(n.roundToInt().coerceIn(target.min.toInt(), target.max.toInt()).toFloat())) } ?: target.default
             else -> text.ifBlank { target.default }
         }
+    }
+
+    /** Alight stores colours in several shapes: #aarrggbb, #rgb, 0xRRGGBBAA,
+     *  packed ARGB integers, or 0..1 / 0..255 component lists.  Importing the
+     *  packed or component form must not silently reset a colour control. */
+    private fun importedColor(raw: String): String? {
+        val text = raw.trim()
+        if (text.isEmpty()) return null
+        if (text.startsWith("#")) {
+            val hex = text.substring(1)
+            return when (hex.length) {
+                3 -> {
+                    val r = hex[0].digitToIntOrNull(16) ?: return null
+                    val g = hex[1].digitToIntOrNull(16) ?: return null
+                    val b = hex[2].digitToIntOrNull(16) ?: return null
+                    formatColor(0xFF000000.toInt() or (r * 17 shl 16) or (g * 17 shl 8) or (b * 17))
+                }
+                4 -> {
+                    val a = hex[0].digitToIntOrNull(16) ?: return null
+                    val r = hex[1].digitToIntOrNull(16) ?: return null
+                    val g = hex[2].digitToIntOrNull(16) ?: return null
+                    val b = hex[3].digitToIntOrNull(16) ?: return null
+                    formatColor((a * 17 shl 24) or (r * 17 shl 16) or (g * 17 shl 8) or (b * 17))
+                }
+                6 -> "#ff$hex"
+                8 -> text
+                else -> null
+            }
+        }
+        if (text.startsWith("0x", true)) {
+            val n = text.substring(2).toLongOrNull(16) ?: return null
+            return formatColor(n.toInt())
+        }
+        val parts = text.split(',', ' ', ';', '|').mapNotNull { it.trim().finiteFloat() }
+        if (parts.size >= 3) {
+            val normalized = parts.take(3).all { it in -0.001f..1.001f }
+            fun channel(v: Float) = if (normalized) (v.coerceIn(0f, 1f) * 255f).roundToInt() else v.roundToInt().coerceIn(0, 255)
+            val r = channel(parts[0]); val g = channel(parts[1]); val b = channel(parts[2])
+            val rawAlpha = parts.getOrNull(3)
+            val a = when {
+                rawAlpha == null -> 255
+                rawAlpha <= 1.001f -> (rawAlpha.coerceIn(0f, 1f) * 255f).roundToInt()
+                else -> rawAlpha.roundToInt().coerceIn(0, 255)
+            }
+            return formatColor((a shl 24) or (r shl 16) or (g shl 8) or b)
+        }
+        val packed = text.toLongOrNull()
+        if (packed != null && packed in Int.MIN_VALUE..0xFFFFFFFFL) return formatColor(packed.toInt())
+        return null
+    }
+
+    private fun colorize(node: XmlNode): XmlNode {
+        val attrs = node.attrs.mapValues { (key, value) -> if (key == "value") importedColor(value) ?: value else value }
+        return node.copy(attrs = attrs, children = node.children.map { kf ->
+            val v = kf["v"]
+            if (kf.name == "kf" && v != null) kf.copy(attrs = kf.attrs + ("v" to (importedColor(v) ?: v))) else kf
+        })
     }
 
     private fun sameParam(a: String, b: String): Boolean = normalizeParam(a) == normalizeParam(b)
@@ -406,6 +464,9 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
                     val off = c.gate?.let { gate -> effect.children.firstOrNull { it.name == "property" && it["name"] == gate }?.valueAt(0f)?.trim() != "true" } ?: false
                     val reference = c.vector?.let { name -> effect.children.firstOrNull { it.name == "property" && it["name"] == name } }
                     made[param.id] = if (off) XmlNode("property", mapOf("name" to param.id, "type" to param.type, "value" to "#00000000"))
+                        else if (param.kind == "color") property(child, param.id, param.type) { text, _ ->
+                            importedColor(text) ?: param.default
+                        }
                         else property(child, param.id, param.type) { text, at ->
                             convertValue(text, c, if (c.component >= 0) c.component else if (split && c.take == 0) i else -1, shift, dims,
                                 reference?.valueAt(at)?.finiteFloat())
@@ -448,8 +509,9 @@ class EffectMigration(private val rules: Map<String, Rule>, private val catalog:
             if (target == null) child
             else {
                 used += target.id
-                if (target.id == name) child.copy(attrs = child.attrs + ("type" to target.type))
+                val renamed = if (target.id == name) child.copy(attrs = child.attrs + ("type" to target.type))
                 else child.copy(attrs = child.attrs + ("name" to target.id) + ("type" to target.type))
+                if (target.kind == "color") colorize(renamed) else renamed
             }
         }
         val attrs = if (definition.applyToChildren) effect.attrs + ("applyToChildren" to "true") else effect.attrs

@@ -323,13 +323,25 @@ fun Timeline(state: EditorState, modifier: Modifier = Modifier) {
     val appear = remember(state.selectedId) { Animatable(if (state.selectedId == null) 1f else 0f) }
     LaunchedEffect(appear) { appear.animateTo(1f, Motion.enter()) }
     LaunchedEffect(view, state.playing) { if (state.playing) view.followPlayback() }
+    LaunchedEffect(view, state.playing) {
+        view.setDrawFrame(state.frame)
+        if (!state.playing) return@LaunchedEffect
+        var last = 0L
+        snapshotFlow { state.frame }.collect { frame ->
+            val now = System.nanoTime()
+            if (now - last >= 32_000_000L) {
+                last = now
+                view.setDrawFrame(frame)
+            }
+        }
+    }
     val extensionRevision = ExtensionRuntime.revision
     val autoScroll = remember(extensionRevision) { ExtensionRuntime.autoScroll() }
     LaunchedEffect(view, state.playing, autoScroll, extensionRevision) {
         if (!state.playing || autoScroll == null) return@LaunchedEffect
         snapshotFlow {
             if (autoScroll.mode == "selected") state.selectedId
-            else AutoScroll.activeLayerId(state.scene, state.frame, view.fps)
+            else AutoScroll.targetLayerId(state.scene, state.frame, view.fps, autoScroll)
         }.filterNotNull().distinctUntilChanged().collect { id ->
             view.rowOf(id)?.let { row -> view.followLayer(row, autoScroll) }
         }
@@ -761,8 +773,15 @@ private class TimelineView(val state: EditorState, density: Density, private val
     val layers: List<Layer> get() = layersState.value
     val fps: Int get() = state.scene.fps.coerceAtLeast(1)
 
+    private var drawFrameState by mutableIntStateOf(0)
+
+    /** Draw at 30 fps while playing.  The preview stays at display rate, but
+     *  the timeline no longer redraws every clip and label at 60-120 fps. */
+    fun setDrawFrame(frame: Int) { if (drawFrameState != frame) drawFrameState = frame }
+    val frameForDraw: Int get() = if (state.playing) drawFrameState else state.frame
+
     private val nowMs: Float
-        get() = scrubMs?.takeIf { state.frame == scrubFrame } ?: TimelineMath.frameTimeMs(state.frame, fps)
+        get() = scrubMs?.takeIf { state.frame == scrubFrame } ?: TimelineMath.frameTimeMs(frameForDraw, fps)
 
     fun timeScale(): TimeScale {
         val pxPerMs = dpPerSecond * scale / 1000f
@@ -1818,6 +1837,7 @@ private suspend fun PointerInputScope.timelineGestures(view: TimelineView, onLon
 private fun DrawScope.drawTimeline(view: TimelineView, measurer: TextMeasurer, styles: TimelineStyles, eye: Painter, eyeOff: Painter, outline: Path, pictures: Map<Long, StripPicture>, proxies: Map<String, Float>, appear: Float = 1f) {
     val state = view.state
     val fps = view.fps
+    val frame = view.frameForDraw
     val time = view.timeScale()
     val step = TimelineMath.tickStep(fps, view.dpPerSecond)
     val desktop = PlatformFeatures.desktop
@@ -1830,7 +1850,7 @@ private fun DrawScope.drawTimeline(view: TimelineView, measurer: TextMeasurer, s
     val stripe = TimelineMath.frameTimeMs(2 * step, fps) * time.pxPerMs
     fun paint(row: Int, layer: Layer) {
         val rowTime = view.timeFor(layer.id, time)
-        drawRow(layer, layer.id == state.selectedId, view.shownTop(row, layer.id), rowTime, stripe, measurer, styles, if (layer.hidden) eyeOff else eye, outline, state.scene, state.frame, pictures[layer.id], view.keyFrames(layer), appear, view.keyFrame.takeIf { layer.id == view.keyId }, view.limits[layer.id], view.headerWidth, layer.id == view.hoveredId, view.hoveredKey?.takeIf { it.first == layer.id }?.second)
+        drawRow(layer, layer.id == state.selectedId, view.shownTop(row, layer.id), rowTime, stripe, measurer, styles, if (layer.hidden) eyeOff else eye, outline, state.scene, frame, pictures[layer.id], view.keyFrames(layer), appear, view.keyFrame.takeIf { layer.id == view.keyId }, view.limits[layer.id], view.headerWidth, layer.id == view.hoveredId, view.hoveredKey?.takeIf { it.first == layer.id }?.second)
         layer.mediaFill?.takeIf { it.video }?.let { proxies[it.uri] }?.let { done ->
             drawProxyProgress(rowTime.x(layer.startTime.toFloat()), rowTime.x(layer.endTime + 1f), view.shownTop(row, layer.id), done)
         }
@@ -1864,13 +1884,13 @@ private fun DrawScope.drawTimeline(view: TimelineView, measurer: TextMeasurer, s
         }
     }
     val marks = state.scene.bookmarks
-    val onBookmark = marks.any { state.scene.frameAt(it) == state.frame }
+    val onBookmark = marks.any { state.scene.frameAt(it) == frame }
     if (desktop) {
         clipRect(left = view.headerWidth) { for (ms in marks) drawBookmark(time.x(ms.toFloat()), outline) }
-        if (time.originX in view.headerWidth..size.width) drawPlayhead(time.originX, TimelineMath.playbackTimecode(state.frame, fps), measurer, styles, outline, onBookmark, view.headerWidth + PillInset.toPx())
+        if (time.originX in view.headerWidth..size.width) drawPlayhead(time.originX, TimelineMath.playbackTimecode(frame, fps), measurer, styles, outline, onBookmark, view.headerWidth + PillInset.toPx())
     } else {
         for (ms in marks) drawBookmark(time.x(ms.toFloat()), outline)
-        drawPlayhead(time.originX, TimelineMath.playbackTimecode(state.frame, fps), measurer, styles, outline, onBookmark)
+        drawPlayhead(time.originX, TimelineMath.playbackTimecode(frame, fps), measurer, styles, outline, onBookmark)
     }
 }
 
@@ -1952,7 +1972,7 @@ private fun DrawScope.drawLifted(view: TimelineView, measurer: TextMeasurer, sty
             val step = LiftShadowStep.toPx()
             for (i in 1..4) drawRect(Color.Black, Offset(-i * step, top - i * step + step), Size(size.width + 2 * i * step, rowH + 2 * i * step), alpha = LIFT_SHADOW_ALPHA * amount)
             drawRect(Am.TimelineBg, Offset(0f, top), Size(size.width, rowH), alpha = amount)
-            drawRow(layer, id == state.selectedId, top, view.timeFor(id, time), stripe, measurer, styles, if (layer.hidden) eyeOff else eye, outline, state.scene, state.frame, pictures[id], view.keyFrames(layer), appear, headerWidth = view.headerWidth, hovered = id == view.hoveredId)
+            drawRow(layer, id == state.selectedId, top, view.timeFor(id, time), stripe, measurer, styles, if (layer.hidden) eyeOff else eye, outline, state.scene, view.frameForDraw, pictures[id], view.keyFrames(layer), appear, headerWidth = view.headerWidth, hovered = id == view.hoveredId)
         }
     }
 }

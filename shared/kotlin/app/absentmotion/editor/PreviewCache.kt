@@ -442,7 +442,7 @@ object PreviewCache {
                 if (encoder == null) continue
                 val elapsed = System.nanoTime() - started
                 if (elapsed > 80_000_000L) { slowUntilNs = System.nanoTime() + 10_000_000_000L; return }
-                delay(maxOf(30L, elapsed / 1_000_000))
+                delay(maxOf(10L, elapsed / 1_000_000))
             }
             revise(force = true)
         } catch (e: CancellationException) {
@@ -548,7 +548,7 @@ object PreviewCache {
             flattenOnChecker(pixels, width, height, cell)
             bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(pixels))
             out.reset()
-            return if (bitmap.compress(if (lossless) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG, QUALITY, out)) out.toByteArray() else null
+            return if (bitmap.compress(if (lossless) Bitmap.CompressFormat.WEBP_LOSSLESS else Bitmap.CompressFormat.JPEG, QUALITY, out)) out.toByteArray() else null
         }
     }
 

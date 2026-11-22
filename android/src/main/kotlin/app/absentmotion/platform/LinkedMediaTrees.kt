@@ -15,6 +15,7 @@ import app.absentmotion.R
 import app.absentmotion.audio.DeviceAudio
 import app.absentmotion.media.DeviceMedia
 import app.absentmotion.media.MediaLibrarySource
+import app.absentmotion.media.openDemuxer
 import kotlinx.coroutines.CancellationException
 import java.util.concurrent.ConcurrentHashMap
 
@@ -348,6 +349,19 @@ internal object LinkedMediaTrees {
         } catch (_: Exception) {
         } finally {
             runCatching { retriever.release() }
+        }
+        if (duration <= 0L) {
+            duration = runCatching {
+                val extractor = openDemuxer(context, uri, "audio/")
+                try {
+                    (0 until extractor.trackCount).map { extractor.getTrackFormat(it) }
+                        .firstOrNull { it.getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true }
+                        ?.let { if (it.containsKey(MediaFormat.KEY_DURATION)) (it.getLong(MediaFormat.KEY_DURATION) / 1000L).coerceAtLeast(0L) else 0L }
+                        ?: 0L
+                } finally {
+                    extractor.release()
+                }
+            }.getOrDefault(0L)
         }
         if (audioMetaCache.size >= MAX_CACHE_ENTRIES) audioMetaCache.clear()
         return AudioMeta(stamp, duration, title, album, artist).also { audioMetaCache[key] = it }

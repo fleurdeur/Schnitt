@@ -14,6 +14,9 @@ import android.util.Log
 import java.io.Closeable
 import java.util.concurrent.TimeUnit
 import app.absentmotion.library.openableUri
+import app.absentmotion.R
+import app.absentmotion.export.ExportError
+import app.absentmotion.i18n.txt
 
 internal fun MediaCodec.configureFitting(format: MediaFormat, surface: android.view.Surface?, flags: Int = 0) {
     try {
@@ -26,7 +29,7 @@ internal fun MediaCodec.configureFitting(format: MediaFormat, surface: android.v
     }
 }
 
-internal fun openDecoder(format: MediaFormat, surface: android.view.Surface?): MediaCodec {
+internal fun decoderNames(format: MediaFormat, anySize: Boolean = false): List<String> {
     val mime = format.getString(MediaFormat.KEY_MIME).orEmpty()
     val list = MediaCodecList(MediaCodecList.REGULAR_CODECS)
     val width = format.intOr(MediaFormat.KEY_WIDTH, 0)
@@ -35,10 +38,17 @@ internal fun openDecoder(format: MediaFormat, surface: android.view.Surface?): M
         !info.isEncoder && !info.alias && mime in info.supportedTypes && info.getCapabilitiesForType(mime).let { caps ->
             !caps.isFeatureRequired(MediaCodecInfo.CodecCapabilities.FEATURE_SecurePlayback) &&
                 !caps.isFeatureRequired(MediaCodecInfo.CodecCapabilities.FEATURE_TunneledPlayback) &&
-                caps.videoCapabilities?.isSizeSupported(width, height) != false
+                (anySize || caps.videoCapabilities?.isSizeSupported(width, height) != false)
         }
     }.sortedByDescending { it.hardware }.map { it.name }
-    val names = (listOfNotNull(list.findDecoderForFormat(format)) + others).distinct()
+    return (listOfNotNull(list.findDecoderForFormat(format)) + others).distinct()
+}
+
+internal fun openDecoder(format: MediaFormat, surface: android.view.Surface?): MediaCodec {
+    val mime = format.getString(MediaFormat.KEY_MIME).orEmpty()
+    val width = format.intOr(MediaFormat.KEY_WIDTH, 0)
+    val height = format.intOr(MediaFormat.KEY_HEIGHT, 0)
+    val names = decoderNames(format).ifEmpty { decoderNames(format, anySize = true) }
     var last: Exception? = null
     for (attempt in 0..DECODER_WAITS) {
         if (attempt > 0) Thread.sleep(DECODER_WAIT_MS)
@@ -63,7 +73,7 @@ internal fun openDecoder(format: MediaFormat, surface: android.view.Surface?): M
         }
         if (!busy) break
     }
-    throw last ?: IllegalArgumentException("no decoder for $mime")
+    throw last ?: ExportError(txt(R.string.media_error_no_decoder))
 }
 
 private const val MAX_IMAGES = 3
@@ -74,7 +84,9 @@ internal fun codecBusy(e: Throwable): Boolean = e is MediaCodec.CodecException &
     (e.isTransient || e.errorCode == MediaCodec.CodecException.ERROR_INSUFFICIENT_RESOURCE || e.errorCode == MediaCodec.CodecException.ERROR_RECLAIMED)
 
 internal class VideoDecoder(private val context: Context, private val uri: String) : Closeable {
-    private val extractor = MediaExtractor()
+    private val extractor = openDemuxer(context, Uri.parse(openableUri(uri)), "video/")
+    private var ffamp = MediaBackend.ffamp(context, Uri.parse(openableUri(uri)), "video/")
+    private var soft: DesktopFrameInput? = null
     private var codec: MediaCodec? = null
     private var frames: DecodedFrames? = null
     private val info = MediaCodec.BufferInfo()
@@ -100,7 +112,6 @@ internal class VideoDecoder(private val context: Context, private val uri: Strin
 
     init {
         try {
-            extractor.setDataSource(context, Uri.parse(openableUri(uri)), null)
             val track = (0 until extractor.trackCount).first { extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true }
             format = extractor.getTrackFormat(track)
             readColor(format)
@@ -110,8 +121,20 @@ internal class VideoDecoder(private val context: Context, private val uri: Strin
             frames = decodedFrames(format.getInteger(MediaFormat.KEY_WIDTH), format.getInteger(MediaFormat.KEY_HEIGHT), MAX_IMAGES)
             format.setInteger(MediaFormat.KEY_ROTATION, 0)
             hdr = format.requestSdr()
-            codec = openDecoder(format, frames!!.surface)
+            soft = ffamp?.softFrames(context, uri)
+            if (soft == null) codec = systemOrFfamp({ openDecoder(format, frames!!.surface) }, ::rescued) { null }
         } catch (e: Exception) { close(); throw e }
+    }
+
+    private fun rescued(failed: Exception): DesktopFrameInput? {
+        val readers = MediaBackend.rescue ?: return null
+        val found = runCatching { readers.softFrames(context, uri, rescue = true) }.getOrNull() ?: return null
+        Log.w("AMVideo", "the system decoder failed on $uri, FFamp decodes it: $failed")
+        runCatching { codec?.release() }
+        codec = null
+        ffamp = readers
+        soft = found
+        return found
     }
 
     fun wantedPts(timeUs: Long): Long = timestamps.ptsAt(timeUs)
@@ -119,7 +142,12 @@ internal class VideoDecoder(private val context: Context, private val uri: Strin
     fun frame(timeUs: Long, exact: Boolean, obsolete: () -> Boolean): DecodedFrame? {
         val wanted = wantedPts(timeUs)
         if (wanted == currentPts) return current
+        soft?.let { return softFrame(it, wanted, exact, obsolete) }
         val decoder = codec ?: return current
+        return systemOrFfamp({ decoded(decoder, wanted, exact, obsolete) }, ::rescued) { softFrame(it, wanted, exact, obsolete) }
+    }
+
+    private fun decoded(decoder: MediaCodec, wanted: Long, exact: Boolean, obsolete: () -> Boolean): DecodedFrame? {
         val at = if (skipped) decodedTo else currentPts
         if (!positioned || (if (skipped) wanted <= at else wanted < at) || wanted - at > 1_000_000 || outputEnded) reposition(decoder, wanted)
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
@@ -215,10 +243,22 @@ internal class VideoDecoder(private val context: Context, private val uri: Strin
         return image
     }
 
+    private fun softFrame(source: DesktopFrameInput, wanted: Long, exact: Boolean, obsolete: () -> Boolean): DecodedFrame? {
+        var made: DecodedFrame? = null
+        kotlinx.coroutines.runBlocking(StopReading(obsolete)) { source.read(listOf(wanted)) { _, yuv -> made = ffamp!!.softFrame(yuv, wanted, source.colorStandard, source.fullRange) } }
+        val image = made ?: return if (exact || obsolete()) null else current
+        if (currentPts == Long.MIN_VALUE || wanted < currentPts || wanted - currentPts > 1_000_000) seeks++
+        current?.close()
+        current = image
+        currentPts = wanted
+        return image
+    }
+
     private fun drainImages() { frames?.drain() }
 
     override fun close() {
         current?.close(); current = null
+        soft?.close(); soft = null
         runCatching { codec?.stop() }; runCatching { codec?.release() }; codec = null
         frames?.close(); frames = null
         extractor.release()

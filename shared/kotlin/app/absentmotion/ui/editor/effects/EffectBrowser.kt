@@ -185,7 +185,7 @@ private fun BrowserBody(state: EditorState) {
     }
     fun add(effect: EffectDefinition, preset: EffectPreset? = null) {
         if (!effect.usable(blocked)) return
-        if (effect.key.startsWith("am-")) state.engine.loadEffectAsync(effect)
+        state.engine.loadEffectAsync(effect)
         val targets = state.effectTargets
         if (targets != null) {
             val added = state.addEffectToChosen(targets, skip = { !effect.usable(blockedCategory(it)) }) { layer: app.absentmotion.model.Layer -> effect.instance(preset, layer.endTime - layer.startTime) }

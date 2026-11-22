@@ -71,7 +71,7 @@ internal fun sweepCache(cache: File, now: Long = System.currentTimeMillis()): In
     var removed = 0
     for (file in cache.listFiles().orEmpty()) {
         when {
-            file.name == "proxies" || file.name.startsWith("gpu-") || file.name == "image-library-http" -> continue
+            file.name == "proxies" || file.name.startsWith("gpu-") || file.name == "image-library-http" || file.name == "picture-cache" -> continue
             file.name == "waveforms" && file.isDirectory -> {
                 val files = file.listFiles { f -> f.isFile }.orEmpty().sortedByDescending { it.lastModified() }
                 var total = 0L

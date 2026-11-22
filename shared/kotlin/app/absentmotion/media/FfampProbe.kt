@@ -35,13 +35,13 @@ internal object FfampProbe {
                 descriptor = opened
                 "/proc/self/fd/${opened.fd}"
             }
-            handle = FfampNative.INSTANCE.open(path)
+            handle = FfampNative.open(path)
             if (handle == 0L) return null
-            val count = FfampNative.INSTANCE.tracks(handle)
+            val count = FfampNative.tracks(handle)
             var video: LongArray? = null
             var audio = false
             for (i in 0 until count) {
-                val track = FfampNative.INSTANCE.track(handle, i) ?: continue
+                val track = FfampNative.track(handle, i) ?: continue
                 if (track.size > 0 && track[0] == 1L && video == null) video = track
                 if (track.size > 0 && track[0] == 2L) audio = true
             }
@@ -54,11 +54,11 @@ internal object FfampProbe {
                 width = (v.getOrNull(1) ?: 0).toInt(), height = (v.getOrNull(2) ?: 0).toInt(),
                 rotation = (((v.getOrNull(3) ?: 0).toInt() % 360) + 360) % 360,
                 durationUs = duration, fps = fps,
-                mime = runCatching { FfampNative.INSTANCE.mime(handle, 0) }.getOrNull(),
+                mime = runCatching { FfampNative.mime(handle, 0) }.getOrNull(),
                 hasAudio = audio, trackCount = count,
             )
         }.getOrNull().also {
-            if (handle != 0L) runCatching { FfampNative.INSTANCE.close(handle) }
+            if (handle != 0L) runCatching { FfampNative.close(handle) }
             runCatching { descriptor?.close() }
         }
     }

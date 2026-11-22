@@ -24,12 +24,18 @@ import app.absentmotion.model.modelUris
 import app.absentmotion.platform.readAtMost
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 
 class MediaLibrary(context: Context, private val engine: EngineThread) {
-    private val resolver = context.applicationContext.contentResolver
+    private val appContext = context.applicationContext
+    private val resolver = appContext.contentResolver
     private val lock = Mutex()
     private val loaded = mutableMapOf<String, Triple<MediaDeclaration?, String?, Pair<Int, Int>>>()
     private val models = mutableMapOf<String, Triple<String?, Pair<Pair<Int, Int>, Int>, Int>>()
@@ -63,7 +69,7 @@ class MediaLibrary(context: Context, private val engine: EngineThread) {
         loadPictures(scene.node.imageUris(), loaded,
             { uri -> Triple(scene.media(uri) ?: loaded[uri]?.first, withContext(Dispatchers.IO) { fileVersion(resolver, Uri.parse(uri)) }?.let { if (alight) "$it#alight" else it }, generation) },
             { uri ->
-                withContext(Dispatchers.IO) { decodePicture(resolver, Uri.parse(uri), limit, alightColours = alight) }
+                withContext(Dispatchers.IO) { PictureDiskCache.decode(appContext, resolver, Uri.parse(uri), limit, alight) }
                     .also { Log.i("AMMedia", "picture $uri ${it?.width}x${it?.height} limit $limit") }
             },
             forget = { uri -> engine.setPicture(uri, null) },
@@ -85,15 +91,28 @@ class MediaLibrary(context: Context, private val engine: EngineThread) {
     internal companion object {
         suspend fun <K, P : Any> loadPictures(uris: Iterable<String>, loaded: MutableMap<String, K>, key: suspend (String) -> K,
                                               decode: suspend (String) -> P?, forget: suspend (String) -> Unit = {}, install: suspend (String, P) -> Boolean) {
-            for (uri in uris) {
-                val version = key(uri)
-                if (loaded[uri] == version) continue
-                val picture = decode(uri)
+            val wanted = uris.toList()
+            val permits = Semaphore(minOf(3, wanted.size.coerceAtLeast(1)))
+            val decoded = coroutineScope {
+                wanted.map { uri ->
+                    async {
+                        permits.withPermit {
+                            val version = key(uri)
+                            if (loaded[uri] == version) null else Triple(uri, version, decode(uri))
+                        }
+                    }
+                }.awaitAll()
+            }
+            for (item in decoded) {
+                if (item == null) continue
+                val (uri, version, picture) = item
                 if (picture == null) {
                     if (loaded.remove(uri) != null) forget(uri)
                     continue
                 }
-                withContext(NonCancellable) { if (install(uri, picture)) loaded[uri] = version }
+                withContext(NonCancellable) {
+                    if (loaded[uri] != version && install(uri, picture)) loaded[uri] = version
+                }
             }
         }
     }

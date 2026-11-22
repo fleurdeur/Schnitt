@@ -434,19 +434,19 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
 
     suspend fun setPicture(uri: String, bitmap: Bitmap?, layerId: Long = 0): Boolean = withContext(dispatcher) {
         if (closed) return@withContext false
-        engine().setPicture(uri, bitmap, layerId).also { if (bitmap != null) pictureRevision.update { it + 1 }; renderNow() }
+        engine().setPicture(uri, bitmap, layerId).also { if (bitmap != null) pictureRevision.update { it + 1 }; requestRender() }
     }
 
     suspend fun setModel(uri: String, mesh: Mesh?, textures: List<Bitmap?>): Boolean = withContext(dispatcher) {
         if (closed) return@withContext false
         val engine = engine()
         textures.forEachIndexed { k, bitmap -> engine.setPicture("$uri#$k", bitmap) }
-        engine.setModel(uri, mesh).also { if (mesh != null) pictureRevision.update { it + 1 }; renderNow() }
+        engine.setModel(uri, mesh).also { if (mesh != null) pictureRevision.update { it + 1 }; requestRender() }
     }
 
     suspend fun setPicture(uri: String, buffer: HardwareBuffer, layerId: Long = 0, opaque: Boolean = true): Boolean = withContext(dispatcher) {
         if (closed) return@withContext false
-        engine().setPicture(uri, buffer, layerId, opaque).also { pictureRevision.update { it + 1 }; renderNow() }
+        engine().setPicture(uri, buffer, layerId, opaque).also { pictureRevision.update { it + 1 }; requestRender() }
     }
 
     fun setView(view: PreviewView): Long {
@@ -567,7 +567,7 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
     }
 
     private fun renderNow() {
-        if (closed || capturing || mediaJob?.isActive == true) return
+        if (closed || capturing) return
         try {
             applyPending()
             val v = view ?: return

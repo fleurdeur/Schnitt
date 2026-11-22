@@ -48,6 +48,25 @@ class EffectMigrationTest {
             .coerceIn(c.optDouble("min", -Double.MAX_VALUE).toFloat(), c.optDouble("max", Double.MAX_VALUE).toFloat())
     }
 
+    @Test fun importedColourFormatsSurviveAndKeepKeyframes() {
+        val result = migration.migrate(Scene.parse("""
+            <scene title="Colour" width="720" height="720" fps="30" totalTime="2000" bgcolor="#ff000000">
+              <shape id="1" label="c" startTime="0" endTime="2000" fillType="color" s=".circle">
+                <effect id="${foreign("gradientoverlay", "color1")}" locallyApplied="false">
+                  <property name="color1" type="color" value="255,0,128,1" />
+                  <property name="color2" type="color"><kf t="0" v="0,1,0,1" /><kf t="1" v="0,0,1,0.5" /></property>
+                </effect>
+                <property name="size" type="vec2" value="100,100" />
+              </shape>
+            </scene>
+        """.trimIndent()))
+        val effect = result.scene.node.children.single { it.name == "shape" }.children.single { it.name == "effect" }
+        assertEquals("#ffff0080", effect.children.single { it["name"] == "color1" }["value"])
+        val kfs = effect.children.single { it["name"] == "color2" }.children.filter { it.name == "kf" }
+        assertEquals("#ff00ff00", kfs[0]["v"])
+        assertEquals("#800000ff", kfs[1]["v"])
+    }
+
     private val scene: String get() = """
         <scene title="Mini" width="640" height="360" fps="30" totalTime="2000" bgcolor="#ff101820">
           <shape id="1" label="Backdrop card" startTime="0" endTime="1999" fillType="color" s=".rect">

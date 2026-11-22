@@ -14,6 +14,9 @@ data class AutoScrollConfig(
     val snap: Boolean,
     val speed: Float,
     val smoothness: Int,
+    val start: String = "bottom",
+    val skipTop: Int = 1,
+    val includeHidden: Boolean = false,
 )
 
 /**
@@ -79,7 +82,10 @@ object ExtensionRuntime {
         val snap = extension.property("snap")?.let { prop -> prop.flag(values[extension.id to prop.id]) } ?: true
         val speed = extension.property("speed")?.let { prop -> prop.number(values[extension.id to prop.id]) } ?: 1f
         val smoothness = extension.property("smoothness")?.let { prop -> prop.number(values[extension.id to prop.id]).toInt() } ?: 260
-        return AutoScrollConfig(mode, snap, speed.coerceIn(0.1f, 4f), smoothness.coerceIn(60, 2000))
+        val start = extension.property("start")?.let { prop -> prop.choice(values[extension.id to prop.id]) } ?: "bottom"
+        val skipTop = extension.property("skipTop")?.let { prop -> prop.number(values[extension.id to prop.id]) }?.toInt() ?: 1
+        val includeHidden = extension.property("includeHidden")?.let { prop -> prop.flag(values[extension.id to prop.id]) } ?: false
+        return AutoScrollConfig(mode, snap, speed.coerceIn(0.1f, 4f), smoothness.coerceIn(60, 2000), start, skipTop.coerceIn(0, 100), includeHidden)
     }
 
     /** Safe playback automation currently supported: loop at the scene end. */

@@ -1,6 +1,7 @@
 package app.absentmotion.ai
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -19,11 +20,23 @@ object GeminiClient {
 
     class Failure(message: String) : Exception(message)
 
-    data class Reply(val content: JSONObject?, val text: String, val calls: List<Call>)
+    data class Reply(val content: JSONObject?, val text: String, val calls: List<Call>, val thoughts: String = "")
 
     data class Call(val name: String, val args: JSONObject)
 
-    suspend fun generate(key: String, model: String, contents: JSONArray, tools: JSONArray?, system: String?): Reply {
+    /**
+     * Streams the answer instead of waiting for one huge response.  Besides
+     * showing progress immediately, each chunk resets the socket read timeout,
+     * so a long tool plan can no longer look like a dead connection.
+     */
+    suspend fun generate(
+        key: String,
+        model: String,
+        contents: JSONArray,
+        tools: JSONArray?,
+        system: String?,
+        onUpdate: ((text: String, thought: Boolean) -> Unit)? = null,
+    ): Reply {
         if (key.isBlank()) throw Failure("Add a Gemini API key first.")
         val body = JSONObject().put("contents", contents)
         if (tools != null && tools.length() > 0) {
@@ -31,22 +44,86 @@ object GeminiClient {
             body.put("toolConfig", JSONObject().put("functionCallingConfig", JSONObject().put("mode", "AUTO")))
         }
         if (!system.isNullOrBlank()) body.put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", system))))
-        body.put("generationConfig", JSONObject().put("temperature", 0.55).put("maxOutputTokens", 8192))
-        val root = post("$BASE/${safeModel(model)}:generateContent", key, body.toString().toByteArray(Charsets.UTF_8), "application/json")
-        val candidate = root.optJSONArray("candidates")?.optJSONObject(0)
-            ?: throw Failure(root.optJSONObject("promptFeedback")?.optString("blockReason")?.let { "Gemini blocked the request: $it" } ?: "Gemini returned no answer.")
-        val content = candidate.optJSONObject("content")
-        val parts = content?.optJSONArray("parts")
-        val text = StringBuilder()
-        val calls = ArrayList<Call>()
-        if (parts != null) for (i in 0 until parts.length()) {
+        body.put("generationConfig", JSONObject()
+            .put("temperature", 0.55)
+            .put("maxOutputTokens", 8192)
+            .put("thinkingConfig", JSONObject().put("thinkingBudget", 0)))
+        return stream("$BASE/${safeModel(model)}:streamGenerateContent?alt=sse", key, body.toString().toByteArray(Charsets.UTF_8), onUpdate)
+    }
+
+    private fun parseCandidate(candidate: JSONObject, text: StringBuilder, thoughts: StringBuilder, calls: MutableList<Call>, onUpdate: ((String, Boolean) -> Unit)?): Pair<Long, Long> {
+        var pushed = 0L
+        var thoughtPushed = 0L
+        val parts = candidate.optJSONObject("content")?.optJSONArray("parts") ?: return 0L to 0L
+        for (i in 0 until parts.length()) {
             val part = parts.optJSONObject(i) ?: continue
-            part.optString("text").takeIf { it.isNotEmpty() }?.let { if (text.isNotEmpty()) text.append('\n'); text.append(it) }
+            val chunk = part.optString("text")
+            if (chunk.isNotEmpty()) {
+                if (part.optBoolean("thought")) {
+                    thoughts.append(chunk); thoughtPushed += chunk.length
+                } else {
+                    text.append(chunk); pushed += chunk.length
+                }
+            }
             part.optJSONObject("functionCall")?.let { call ->
-                calls += Call(call.optString("name"), call.optJSONObject("args") ?: JSONObject())
+                val name = call.optString("name")
+                val args = call.optJSONObject("args") ?: JSONObject()
+                if (name.isNotBlank() && calls.none { it.name == name && it.args.toString() == args.toString() }) calls += Call(name, args)
             }
         }
-        return Reply(content, text.toString().trim(), calls)
+        if (pushed > 0L || thoughtPushed > 0L) {
+            val latest = if (pushed > 0L) text.toString().takeLast(180) else thoughts.toString().takeLast(180)
+            onUpdate?.invoke(latest, pushed == 0L)
+        }
+        return pushed to thoughtPushed
+    }
+
+    private fun stream(url: String, key: String, bytes: ByteArray, onUpdate: ((String, Boolean) -> Unit)?): Reply {
+        val connection = open(url, key)
+        connection.requestMethod = "POST"
+        connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+        connection.setRequestProperty("Accept", "text/event-stream")
+        connection.setFixedLengthStreamingMode(bytes.size)
+        connection.doOutput = true
+        connection.outputStream.use { it.write(bytes) }
+        val code = connection.responseCode
+        if (code !in 200..299) throw failure(connection, code)
+        val text = StringBuilder()
+        val thoughts = StringBuilder()
+        val calls = ArrayList<Call>()
+        if (connection.contentType?.contains("text/event-stream", ignoreCase = true) != true) {
+            val root = JSONObject(read(connection))
+            val candidate = root.optJSONArray("candidates")?.optJSONObject(0)
+                ?: throw Failure(root.optJSONObject("promptFeedback")?.optString("blockReason")?.let { "Gemini blocked the request: $it" } ?: "Gemini returned no answer.")
+            parseCandidate(candidate, text, thoughts, calls, onUpdate)
+            return Reply(assemble(text.toString(), calls), text.toString().trim(), calls, thoughts.toString().trim())
+        }
+        var saw = false
+        var lastPush = 0L
+        connection.inputStream.bufferedReader(Charsets.UTF_8).useLines { lines ->
+            for (line in lines) {
+                if (!line.startsWith("data:")) continue
+                val data = line.substring(5).trim()
+                if (data.isEmpty() || data == "[DONE]") continue
+                val root = runCatching { JSONObject(data) }.getOrNull() ?: continue
+                saw = true
+                val candidate = root.optJSONArray("candidates")?.optJSONObject(0) ?: continue
+                val now = System.currentTimeMillis()
+                val callback = if (now - lastPush >= 90L) onUpdate else null
+                val (pushed, thought) = parseCandidate(candidate, text, thoughts, calls, callback)
+                if (pushed > 0L || thought > 0L) lastPush = now
+            }
+        }
+        if (!saw) throw Failure("Gemini closed the response before sending an answer.")
+        return Reply(assemble(text.toString(), calls), text.toString().trim(), calls, thoughts.toString().trim())
+    }
+
+    private fun assemble(text: String, calls: List<Call>): JSONObject? {
+        if (text.isBlank() && calls.isEmpty()) return null
+        val parts = JSONArray()
+        if (text.isNotBlank()) parts.put(JSONObject().put("text", text))
+        for (call in calls) parts.put(JSONObject().put("functionCall", JSONObject().put("name", call.name).put("args", call.args)))
+        return JSONObject().put("role", "model").put("parts", parts)
     }
 
     /** Uploads a user-selected reference video to Gemini's Files API and waits
@@ -122,7 +199,7 @@ object GeminiClient {
         return Uploaded(uri, uploaded.optString("mimeType", "video/mp4"), uploaded.optString("name", file.name))
     }
 
-    private fun waitActive(key: String, file: Uploaded) {
+    private suspend fun waitActive(key: String, file: Uploaded) {
         val deadline = System.currentTimeMillis() + 180_000
         while (System.currentTimeMillis() < deadline) {
             val connection = open(file.uri, key)
@@ -133,21 +210,9 @@ object GeminiClient {
             val state = root.optString("state")
             if (state == "ACTIVE" || state.isEmpty()) return
             if (state == "FAILED") throw Failure("Gemini could not process the reference video.")
-            Thread.sleep(1500)
+            delay(1500)
         }
         throw Failure("Gemini is still processing the reference video. Try again in a moment.")
-    }
-
-    private fun post(url: String, key: String, bytes: ByteArray, contentType: String): JSONObject {
-        val connection = open(url, key)
-        connection.requestMethod = "POST"
-        connection.setRequestProperty("Content-Type", contentType)
-        connection.setFixedLengthStreamingMode(bytes.size)
-        connection.doOutput = true
-        connection.outputStream.use { it.write(bytes) }
-        val code = connection.responseCode
-        if (code !in 200..299) throw failure(connection, code)
-        return JSONObject(read(connection))
     }
 
     private fun open(url: String, key: String): HttpURLConnection {

@@ -75,16 +75,31 @@ class ExtensionStore(private val context: Context) {
         }
     }
 
-    /** Installs the bundled Auto Scroll example once, without touching a later user copy. */
+    /** Installs or upgrades the bundled Auto Scroll, without touching a later user copy. */
     fun ensureBundled() {
-        if (prefs.getBoolean("bundled.auto-scroll", false)) return
-        if (File(root, "auto-scroll").isDirectory) {
+        root.mkdirs()
+        val dir = File(root, "auto-scroll")
+        val current = if (dir.isDirectory) readManifest(dir) else null
+        val markedBundled = prefs.getBoolean("bundled.auto-scroll", false)
+        if (current != null && (!markedBundled || current.version >= BUNDLED_AUTO_SCROLL_VERSION)) {
+            if (!markedBundled) return
             prefs.edit().putBoolean("bundled.auto-scroll", true).apply()
             return
         }
+        // Early builds marked the shipped 1.0.0 copy as bundled but kept no
+        // version, so upgrade that exact example. A later user copy is left
+        // alone unless it was installed by this app as the bundled example.
+        if (current != null && !markedBundled && current.version != "1.0.0") return
+        val upgradedFrom = current?.version
         runCatching {
             context.assets.open("extensions/auto-scroll.sc").use { install(it, "auto-scroll.sc", bundled = true) }
         }.onSuccess {
+            if (upgradedFrom == "1.1.0" && prefs.getString("v.auto-scroll.skipTop", "0") == "0") {
+                prefs.edit()
+                    .putString("v.auto-scroll.mode", "playing")
+                    .putString("v.auto-scroll.skipTop", "1")
+                    .apply()
+            }
             prefs.edit().putBoolean("bundled.auto-scroll", true).apply()
         }.onFailure { Log.w("Extensions", "bundled extension was not installed", it) }
     }
@@ -186,6 +201,7 @@ class ExtensionStore(private val context: Context) {
     }
 
     companion object {
+        private const val BUNDLED_AUTO_SCROLL_VERSION = "1.2.0"
         private const val MAX_MANIFEST = 64 * 1024L
         private const val MAX_FILE = 2 * 1024 * 1024L
         private const val MAX_TOTAL = 8 * 1024 * 1024L

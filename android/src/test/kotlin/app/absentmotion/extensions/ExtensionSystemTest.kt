@@ -56,6 +56,12 @@ class ExtensionSystemTest {
             assertEquals("auto-scroll", manifest.id)
             assertEquals(ExtensionCategory.Behavior, manifest.category)
             assertTrue(manifest.properties.any { p -> p.id == "speed" && p.kind == ExtensionPropertyKind.Slider })
+            assertEquals("1.2.0", manifest.version)
+            assertEquals("sweep", manifest.property("mode")!!.optionValues.last())
+            assertEquals("playing", manifest.property("mode")!!.default)
+            assertEquals("bottom", manifest.property("start")!!.default)
+            assertTrue(manifest.properties.any { p -> p.id == "skipTop" && p.kind == ExtensionPropertyKind.Slider && p.default == "1.0" })
+            assertTrue(manifest.properties.any { p -> p.id == "includeHidden" && p.kind == ExtensionPropertyKind.Toggle })
         }
     }
 
@@ -79,5 +85,44 @@ class ExtensionSystemTest {
         assertEquals(2L, AutoScroll.activeLayerId(scene, 45, 30))
         assertEquals(2L, AutoScroll.activeLayerId(scene, 90, 30))
         assertNull(AutoScroll.activeLayerId(scene, 200, 30))
+    }
+
+    @Test fun autoScrollStartsAtTheBottomLayerAndCanSkipPinnedTopLayers() {
+        val scene = Scene.parse("""
+            <scene width="1080" height="1080" fps="30" totalTime="3000">
+              <shape id="1" startTime="0" endTime="3000"/>
+              <shape id="2" startTime="0" endTime="3000"/>
+              <shape id="3" startTime="0" endTime="3000"/>
+            </scene>
+        """.trimIndent())
+        assertEquals(1L, AutoScroll.activeLayerId(scene, 45, 30))
+        assertEquals(3L, AutoScroll.activeLayerId(scene, 45, 30, start = "top"))
+        assertEquals(1L, AutoScroll.activeLayerId(scene, 45, 30, skipTop = 1))
+    }
+
+    @Test fun sweepStartsAtTheBottomAndRisesToTheTop() {
+        val scene = Scene.parse("""
+            <scene width="1080" height="1080" fps="30" totalTime="3000">
+              <shape id="1" startTime="0" endTime="3000"/>
+              <shape id="2" startTime="0" endTime="3000"/>
+              <shape id="3" startTime="0" endTime="3000"/>
+            </scene>
+        """.trimIndent())
+        assertEquals(1L, AutoScroll.sweepLayerId(scene, 0, 30))
+        assertEquals(2L, AutoScroll.sweepLayerId(scene, 45, 30))
+        assertEquals(3L, AutoScroll.sweepLayerId(scene, 89, 30))
+        assertEquals(3L, AutoScroll.sweepLayerId(scene, 0, 30, start = "top"))
+    }
+
+    @Test fun hiddenLayersCanBeIncludedOrSkipped() {
+        val scene = Scene.parse("""
+            <scene width="1080" height="1080" fps="30" totalTime="3000">
+              <shape id="1" startTime="0" endTime="3000"/>
+              <shape id="2" startTime="0" endTime="3000" hidden="true"/>
+            </scene>
+        """.trimIndent())
+        assertEquals(1L, AutoScroll.activeLayerId(scene, 0, 30))
+        assertEquals(1L, AutoScroll.activeLayerId(scene, 0, 30, includeHidden = true))
+        assertEquals(2L, AutoScroll.activeLayerId(scene, 0, 30, start = "top", includeHidden = true))
     }
 }

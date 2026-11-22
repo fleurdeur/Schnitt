@@ -53,10 +53,12 @@ import java.net.InetSocketAddress
 import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
+import javax.net.ssl.SSLSocket
 import java.net.URL
 import java.util.Collections
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.thread
 
 /**
@@ -75,6 +77,8 @@ object McpServer {
     @Volatile private var token: String = ""
     @Volatile private var port: Int = 8765
     @Volatile private var appContext: Context? = null
+    @Volatile private var secure = true
+    private val epoch = AtomicLong()
 
     val running: Boolean get() = server?.isClosed == false
     val currentPort: Int get() = port
@@ -82,6 +86,7 @@ object McpServer {
 
     fun sync(context: Context, settings: AppSettings) {
         appContext = context.applicationContext
+        secure = true
         if (settings.mcpEnabled && settings.mcpToken.isBlank()) settings.mcpToken = newToken()
         if (!settings.mcpEnabled) { stop(); return }
         if (running && port == settings.mcpPort && token == settings.mcpToken) return
@@ -93,8 +98,10 @@ object McpServer {
 
     fun address(): String {
         val ip = lanAddress() ?: "127.0.0.1"
-        return "http://$ip:$port/mcp"
+        return "${if (secure) "https" else "http"}://$ip:$port/mcp"
     }
+
+    fun certificate(): String? = appContext?.let { LocalTls.certificatePem(it) }?.takeIf { secure }
 
     private fun lanAddress(): String? = runCatching {
         Collections.list(NetworkInterface.getNetworkInterfaces())
@@ -113,21 +120,36 @@ object McpServer {
     internal fun startLocal(port: Int, token: String) {
         this.port = port
         this.token = token
-        start(port, token)
+        secure = false
+        runCatching { ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(port)) } }
+            .getOrNull()?.let { socket ->
+                server = socket
+                thread(isDaemon = true, name = "Schnitt MCP test") { acceptLoop(socket) }
+            }
     }
 
     private fun start(port: Int, token: String) {
-        val socket = runCatching { ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(port)) } }.getOrNull() ?: return
-        server = socket
+        val context = appContext
+        val generation = epoch.incrementAndGet()
         worker = thread(isDaemon = true, name = "Schnitt MCP") {
-            while (!socket.isClosed) {
-                val client = runCatching { socket.accept() }.getOrNull() ?: break
-                thread(isDaemon = true, name = "Schnitt MCP client") { serve(client) }
-            }
+            val socket = if (secure && context != null) LocalTls.serverSocket(context, port)
+            else runCatching { ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(port)) } }.getOrNull()
+            if (socket == null) return@thread
+            if (generation != epoch.get()) { runCatching { socket.close() }; return@thread }
+            server = socket
+            acceptLoop(socket)
+        }
+    }
+
+    private fun acceptLoop(socket: ServerSocket) {
+        while (!socket.isClosed) {
+            val client = runCatching { socket.accept() }.getOrNull() ?: break
+            thread(isDaemon = true, name = "Schnitt MCP client") { serve(client) }
         }
     }
 
     fun stop() {
+        epoch.incrementAndGet()
         runCatching { server?.close() }
         server = null
         worker = null
@@ -135,6 +157,10 @@ object McpServer {
 
     private fun serve(client: Socket) {
         client.use { socket ->
+            if (socket is SSLSocket) {
+                socket.soTimeout = 15_000
+                runCatching { socket.startHandshake() }.getOrElse { return }
+            }
             socket.soTimeout = 30_000
             val input = BufferedInputStream(socket.getInputStream())
             val head = readHead(input) ?: return
@@ -144,6 +170,10 @@ object McpServer {
             val path = request.getOrNull(1)?.substringBefore('?') ?: "/"
             if (method == "OPTIONS") return reply(socket, 204, null)
             if (method == "GET" && path == "/health") return reply(socket, 200, JSONObject().put("ok", true).put("name", "schnitt-mcp"))
+            if (method == "GET" && path == "/certificate") {
+                val pem = certificate() ?: return reply(socket, 404, JSONObject().put("error", "no certificate"))
+                return replyText(socket, 200, "application/x-pem-file", pem)
+            }
             if (method != "POST" || (path != "/mcp" && path != "/")) return reply(socket, 404, JSONObject().put("error", "not found"))
             val auth = lines.firstOrNull { it.startsWith("Authorization:", true) }?.substringAfter(':')?.trim()
             if (token.isNotBlank() && auth != "Bearer $token") return reply(socket, 401, JSONObject().put("error", "unauthorized"))
@@ -173,6 +203,20 @@ object McpServer {
             if (out.endsWith("\r\n\r\n")) return out.toString()
         }
         return null
+    }
+
+    private fun replyText(socket: Socket, code: Int, type: String, body: String) {
+        val status = when (code) { 200 -> "OK"; 401 -> "Unauthorized"; 404 -> "Not Found"; else -> "Response" }
+        val bytes = body.toByteArray(Charsets.UTF_8)
+        val head = buildString {
+            append("HTTP/1.1 $code $status\r\n")
+            append("Content-Type: $type\r\n")
+            append("Content-Length: ${bytes.size}\r\n")
+            append("Access-Control-Allow-Origin: *\r\n")
+            append("Strict-Transport-Security: max-age=86400\r\n")
+            append("Connection: close\r\n\r\n")
+        }.toByteArray(Charsets.US_ASCII)
+        BufferedOutputStream(socket.getOutputStream()).use { out -> out.write(head); out.write(bytes); out.flush() }
     }
 
     private fun reply(socket: Socket, code: Int, body: JSONObject?) {
@@ -291,7 +335,7 @@ object McpBridge {
         var result: Result<T>? = null
         val latch = CountDownLatch(1)
         main.post { result = runCatching { block(state) }; latch.countDown() }
-        check(latch.await(30, TimeUnit.SECONDS)) { "editor did not answer" }
+        check(latch.await(120, TimeUnit.SECONDS)) { "editor did not answer" }
         return result!!.getOrThrow()
     }
 }
@@ -699,8 +743,8 @@ internal object McpTools {
         if (parsed.scheme != "http" && parsed.scheme != "https") return parsed to null
         val connection = URL(source).openConnection() as HttpURLConnection
         connection.instanceFollowRedirects = true
-        connection.connectTimeout = 30_000
-        connection.readTimeout = 60_000
+        connection.connectTimeout = 60_000
+        connection.readTimeout = 180_000
         connection.setRequestProperty("User-Agent", "Schnitt/1.0")
         val mime = connection.contentType?.substringBefore(';').orEmpty()
         val ext = when {

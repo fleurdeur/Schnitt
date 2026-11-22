@@ -1,10 +1,10 @@
 package app.absentmotion.audio
 
 import android.content.Context
-import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
 import android.provider.OpenableColumns
+import app.absentmotion.media.openDemuxer
 import app.absentmotion.model.MediaDeclaration
 import app.absentmotion.platform.deviceSounds
 import app.absentmotion.model.XmlNode
@@ -92,10 +92,9 @@ fun List<DeviceAudio>.shelves(view: SoundView, names: Comparator<String> = sound
 
 suspend fun deviceAudio(context: Context): List<DeviceAudio> = withContext(Dispatchers.IO) { deviceSounds(context) }
 
-suspend fun audioDeclaration(context: Context, uri: Uri): MediaDeclaration? = withContext(Dispatchers.IO) {
-    val extractor = MediaExtractor()
+suspend fun audioDeclaration(context: Context, uri: Uri, mime: String? = null): MediaDeclaration? = withContext(Dispatchers.IO) {
+    val extractor = try { openDemuxer(context, uri, "audio/") } catch (_: Exception) { return@withContext null }
     try {
-        extractor.setDataSource(context, uri, null)
         val format = (0 until extractor.trackCount).map { extractor.getTrackFormat(it) }
             .firstOrNull { it.getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true } ?: return@withContext null
         var name = uri.lastPathSegment ?: ""
@@ -104,7 +103,7 @@ suspend fun audioDeclaration(context: Context, uri: Uri): MediaDeclaration? = wi
             if (c.moveToFirst()) { name = c.getString(0) ?: name; if (!c.isNull(1)) size = c.getLong(1) }
         }
         MediaDeclaration(XmlNode("media", linkedMapOf("uri" to uri.toString(), "filename" to name, "title" to name,
-            "type" to (context.contentResolver.getType(uri) ?: "audio/mp4"),
+            "type" to (mime ?: context.contentResolver.getType(uri) ?: "audio/mp4"),
             "duration" to "${if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else 0L}",
             "size" to "$size", "infoUpdated" to "${System.currentTimeMillis()}")))
     } catch (_: Exception) { null } finally { extractor.release() }

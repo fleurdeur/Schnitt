@@ -150,8 +150,32 @@ object AiAgent {
                     .put("response", JSONObject().put("result", replyText))))
             }
             contents.put(JSONObject().put("role", "user").put("parts", responses))
+            ui { status = "Reviewing the result…" }
         }
         ui { messages += AgentMessage("assistant", "I stopped after reaching the tool-call limit. Ask me to continue if the project still needs work.") }
+    }
+
+    private fun phase(tool: String): String = when (tool.substringBefore('.')) {
+        "scene" -> if (tool.endsWith("apply_xml") || tool.endsWith("change")) "Rebuilding the project…" else "Inspecting the project…"
+        "layer" -> when {
+            tool.endsWith("add") -> "Adding a layer…"
+            tool.endsWith("delete") -> "Removing a layer…"
+            tool.endsWith("set") || tool.endsWith("attrs") -> "Changing layer properties…"
+            else -> "Reading layers…"
+        }
+        "keyframe" -> "Animating a property…"
+        "property" -> "Checking editable properties…"
+        "expression" -> "Setting up an expression…"
+        "media" -> "Importing and preparing media…"
+        "effect" -> when {
+            tool.endsWith("add") -> "Applying an effect…"
+            tool.endsWith("set") -> "Tuning an effect…"
+            tool.endsWith("remove") -> "Removing an effect…"
+            else -> "Reading the effects library…"
+        }
+        "time" -> "Setting the timeline…"
+        "edit" -> "Undoing the last change…"
+        else -> "Using ${tool.replace('.', ' ')}…"
     }
 
     private fun systemPrompt(state: EditorState): String {

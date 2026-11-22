@@ -9,6 +9,12 @@ import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
+import app.absentmotion.ffamp.FfampPcm
+import app.absentmotion.media.Demuxer
+import app.absentmotion.media.MediaBackend
+import app.absentmotion.media.openDemuxer
+import app.absentmotion.media.systemOrFfamp
+import android.util.Log
 import java.io.Closeable
 import java.nio.ByteOrder
 import app.absentmotion.library.openableUri
@@ -26,8 +32,10 @@ internal interface PcmSource : Closeable {
     fun next(): PcmChunk?
 }
 
-internal class PcmDecoder(context: Context, uri: String) : PcmSource {
-    private val extractor = MediaExtractor()
+internal class PcmDecoder(private val context: Context, private val uri: String) : PcmSource {
+    private var soft = if (MediaBackend.ffamp(context, Uri.parse(openableUri(uri)), "audio/") != null) FfampPcm.openIfNeeded(context, uri) else null
+    private var resumeUs = 0L
+    private lateinit var extractor: Demuxer
     private var codec: MediaCodec? = null
     private val info = MediaCodec.BufferInfo()
     private val chunk = PcmChunk()
@@ -40,34 +48,58 @@ internal class PcmDecoder(context: Context, uri: String) : PcmSource {
     override val durationUs: Long
 
     init {
-        try {
-            extractor.setDataSource(context, Uri.parse(openableUri(uri)), null)
+        val ready = soft
+        if (ready != null) durationUs = ready.durationUs
+        else try {
+            extractor = openDemuxer(context, Uri.parse(openableUri(uri)), "audio/")
             val track = (0 until extractor.trackCount).firstOrNull {
                 extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
             } ?: error(AppText.get(R.string.ai_no_audio_track, uri))
             val format = extractor.getTrackFormat(track)
             durationUs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else -1
             extractor.selectTrack(track)
-            val decoder = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!)
-            codec = decoder
-            format.setInteger(MediaFormat.KEY_MAX_OUTPUT_CHANNEL_COUNT, 2)
-            decoder.configure(format, null, null, 0)
-            decoder.start()
+            systemOrFfamp({
+                val decoder = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!)
+                codec = decoder
+                format.setInteger(MediaFormat.KEY_MAX_OUTPUT_CHANNEL_COUNT, 2)
+                decoder.configure(format, null, null, 0)
+                decoder.start()
+            }, ::rescued) { }
         } catch (e: Exception) {
             close()
             throw e
         }
     }
 
+    private fun rescued(failed: Exception): PcmSource? {
+        if (MediaBackend.rescue == null) return null
+        val found = runCatching { FfampPcm.openIfNeeded(context, uri, rescue = true) }.getOrNull() ?: return null
+        Log.w("AMAudio", "the system decoder failed on $uri, FFamp decodes it: $failed")
+        runCatching { codec?.release() }
+        codec = null
+        found.seek(resumeUs)
+        soft = found
+        return found
+    }
+
     override fun seek(us: Long) {
-        codec!!.flush()
-        extractor.seekTo(us.coerceAtLeast(0), MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
-        inputEnded = false
-        outputEnded = false
+        resumeUs = us.coerceAtLeast(0)
+        soft?.let { it.seek(us); return }
+        systemOrFfamp({
+            codec!!.flush()
+            extractor.seekTo(us.coerceAtLeast(0), MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+            inputEnded = false
+            outputEnded = false
+        }, ::rescued) { }
     }
 
     override fun next(): PcmChunk? {
+        soft?.let { return it.next() }
         val decoder = codec ?: return null
+        return systemOrFfamp({ decoded(decoder) }, ::rescued) { it.next() }
+    }
+
+    private fun decoded(decoder: MediaCodec): PcmChunk? {
         var progress = System.nanoTime()
         while (!outputEnded) {
             check(System.nanoTime() - progress < STALL_NS) { AppText.get(R.string.export_error_codec_busy) }
@@ -97,6 +129,7 @@ internal class PcmDecoder(context: Context, uri: String) : PcmSource {
                     decoder.releaseOutputBuffer(index, false)
                     if (has && chunk.frames > 0) {
                         chunk.ptsUs = info.presentationTimeUs
+                        resumeUs = chunk.ptsUs + chunk.frames * 1_000_000L / chunk.rate
                         return chunk
                     }
                 }
@@ -156,10 +189,12 @@ internal class PcmDecoder(context: Context, uri: String) : PcmSource {
     }
 
     override fun close() {
+        soft?.close()
+        soft = null
         runCatching { codec?.stop() }
         runCatching { codec?.release() }
         codec = null
-        extractor.release()
+        if (::extractor.isInitialized) extractor.release()
     }
 }
 
