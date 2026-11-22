@@ -164,6 +164,18 @@ internal fun ToolsTab(modifier: Modifier, store: ProjectStore, settings: AppSett
             }
         }
     }
+    val twixorCard: @Composable (Modifier) -> Unit = { m ->
+        ToolCard(AiVideoMode.Twixtor.icon, stringResource(AiVideoMode.Twixtor.title), stringResource(AiVideoMode.Twixtor.about), modifier = m) { open = 9 }
+    }
+    val dfrCard: @Composable (Modifier) -> Unit = { m ->
+        ToolCard(AiVideoMode.DeadFrames.icon, stringResource(AiVideoMode.DeadFrames.title), stringResource(AiVideoMode.DeadFrames.about), modifier = m) { open = 10 }
+    }
+    val gmAnimeCard: @Composable (Modifier) -> Unit = { m ->
+        ToolCard(AiVideoMode.GmAnime.icon, stringResource(AiVideoMode.GmAnime.title), stringResource(AiVideoMode.GmAnime.about), modifier = m) { open = 11 }
+    }
+    val gmSoulCard: @Composable (Modifier) -> Unit = { m ->
+        ToolCard(AiVideoMode.GmSoul.icon, stringResource(AiVideoMode.GmSoul.title), stringResource(AiVideoMode.GmSoul.about), modifier = m) { open = 12 }
+    }
     val presetsCard: @Composable (Modifier) -> Unit = { m ->
         ToolCard(HomeIcons.Notes, stringResource(R.string.tools_presets), stringResource(R.string.tools_presets_about), modifier = m) { open = 6 }
     }
@@ -196,24 +208,17 @@ internal fun ToolsTab(modifier: Modifier, store: ProjectStore, settings: AppSett
     }
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = if (PlatformFeatures.desktop) 28.dp else 16.dp)) {
         Spacer(Modifier.height(24.dp))
-        if (PlatformFeatures.desktop) ToolGrid(listOf(presetsCard, tiktokCard, compressCard, trimCard, extractCard, gifCard, downloaderCard, extensionsCard))
-        else if (LocalWide.current || app.absentmotion.ui.editor.LocalTablet.current) ToolGrid(listOf(presetsCard, tiktokCard, compressCard, trimCard, extractCard, gifCard, downloaderCard, extensionsCard))
-        else {
-            presetsCard(Modifier)
-            Spacer(Modifier.height(12.dp))
-            tiktokCard(Modifier)
-            Spacer(Modifier.height(12.dp))
-            compressCard(Modifier)
-            Spacer(Modifier.height(12.dp))
-            trimCard(Modifier)
-            Spacer(Modifier.height(12.dp))
-            extractCard(Modifier)
-            Spacer(Modifier.height(12.dp))
-            gifCard(Modifier)
-            Spacer(Modifier.height(12.dp))
-            downloaderCard(Modifier)
-            Spacer(Modifier.height(12.dp))
-            extensionsCard(Modifier)
+        val aiCards = listOf(twixorCard, dfrCard, gmAnimeCard, gmSoulCard)
+        val otherCards = listOf(presetsCard, tiktokCard, compressCard, trimCard, extractCard, gifCard, downloaderCard, extensionsCard)
+        if (PlatformFeatures.desktop || LocalWide.current || app.absentmotion.ui.editor.LocalTablet.current) {
+            SectionTitle(stringResource(R.string.tools_ai_video))
+            ToolGrid(aiCards)
+            Spacer(Modifier.height(24.dp))
+            ToolGrid(otherCards)
+        } else {
+            SectionTitle(stringResource(R.string.tools_ai_video))
+            aiCards.forEach { card -> card(Modifier); Spacer(Modifier.height(12.dp)) }
+            otherCards.forEach { card -> card(Modifier); Spacer(Modifier.height(12.dp)) }
         }
         Spacer(Modifier.height(28.dp))
         if (asking) AlertDialog(
@@ -235,6 +240,10 @@ internal fun ToolsTab(modifier: Modifier, store: ProjectStore, settings: AppSett
         6 -> PresetsScreen({ open = 0 }, { scene -> open = 0; onPreset(scene) })
         7 -> TikTokScreen({ open = 0 }, onImportXml)
         8 -> ExtensionScreen { open = 0 }
+        9 -> AiVideoScreen(AiVideoMode.Twixtor) { open = 0 }
+        10 -> AiVideoScreen(AiVideoMode.DeadFrames) { open = 0 }
+        11 -> AiVideoScreen(AiVideoMode.GmAnime) { open = 0 }
+        12 -> AiVideoScreen(AiVideoMode.GmSoul) { open = 0 }
     }
 }
 
