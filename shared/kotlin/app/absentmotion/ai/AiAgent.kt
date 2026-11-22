@@ -150,32 +150,32 @@ object AiAgent {
                     .put("response", JSONObject().put("result", replyText))))
             }
             contents.put(JSONObject().put("role", "user").put("parts", responses))
-            ui { status = "Reviewing the result…" }
+            ui { status = "Reviewing the result..." }
         }
         ui { messages += AgentMessage("assistant", "I stopped after reaching the tool-call limit. Ask me to continue if the project still needs work.") }
     }
 
     private fun phase(tool: String): String = when (tool.substringBefore('.')) {
-        "scene" -> if (tool.endsWith("apply_xml") || tool.endsWith("change")) "Rebuilding the project…" else "Inspecting the project…"
+        "scene" -> if (tool.endsWith("apply_xml") || tool.endsWith("change")) "Rebuilding the project..." else "Inspecting the project..."
         "layer" -> when {
-            tool.endsWith("add") -> "Adding a layer…"
-            tool.endsWith("delete") -> "Removing a layer…"
-            tool.endsWith("set") || tool.endsWith("attrs") -> "Changing layer properties…"
-            else -> "Reading layers…"
+            tool.endsWith("add") -> "Adding a layer..."
+            tool.endsWith("delete") -> "Removing a layer..."
+            tool.endsWith("set") || tool.endsWith("attrs") -> "Changing layer properties..."
+            else -> "Reading layers..."
         }
-        "keyframe" -> "Animating a property…"
-        "property" -> "Checking editable properties…"
-        "expression" -> "Setting up an expression…"
-        "media" -> "Importing and preparing media…"
+        "keyframe" -> "Animating a property..."
+        "property" -> "Checking editable properties..."
+        "expression" -> "Setting up an expression..."
+        "media" -> "Importing and preparing media..."
         "effect" -> when {
-            tool.endsWith("add") -> "Applying an effect…"
-            tool.endsWith("set") -> "Tuning an effect…"
-            tool.endsWith("remove") -> "Removing an effect…"
-            else -> "Reading the effects library…"
+            tool.endsWith("add") -> "Applying an effect..."
+            tool.endsWith("set") -> "Tuning an effect..."
+            tool.endsWith("remove") -> "Removing an effect..."
+            else -> "Reading the effects library..."
         }
-        "time" -> "Setting the timeline…"
-        "edit" -> "Undoing the last change…"
-        else -> "Using ${tool.replace('.', ' ')}…"
+        "time" -> "Setting the timeline..."
+        "edit" -> "Undoing the last change..."
+        else -> "Using ${tool.replace('.', ' ')}..."
     }
 
     private fun systemPrompt(state: EditorState): String {
@@ -200,8 +200,8 @@ HOW SCHNITT WORKS
 - Text layers use fillType=color, <content> for the string, and attributes size, font, align and wrapWidth. Effects are <effect id="..."> children with <property name type value> children; animation uses <kf t="0..1" v="..." e="linear|ease|...">. Keyframe t is normalized over that layer's duration. Never drop existing keyframes.
 - Keyframe and expression tools operate on one property at a time. Use comma-separated floats for vector properties and colors as #aarrggbb.
 - scene.apply_xml replaces the project and is undoable, but preserve media declarations and existing keyframes. Prefer targeted tools unless the user explicitly asks for a rebuild.
-- Media is declared once in <media uri=...> and referenced by layers. media.add imports from content://, file:// or https://, copies into the project, and creates a layer. Effect ids, parameter names, defaults, ranges and presets are discoverable with effect.list. Use effect.add; use effect.set for animated parameters.
-- Audio is a layer with src pointing at the media URI. Use media.add with kind=audio or add an audio layer. Keep music and dialogue in sync with the reference.
+- Media is declared once in <media uri=...> and referenced by layers. media.add imports from content://, file:// or a direct https:// file URL, copies into the project, and creates a layer. A sharing page or HTML link is not a media file; ask for a direct download URL. Effect ids, parameter names, defaults, ranges and presets are discoverable with effect.list. Use effect.add; use effect.set for animated parameters.
+- Audio is a layer with src pointing at the media URI. Use media.add with kind=audio when importing only the audio track of a video. Keep music and dialogue in sync with the reference.
 
 SMALL XML REFERENCE (shape with media, text and an effect)
 <scene title="Demo" width="1080" height="1920" fps="30" totalTime="5000" bgcolor="#ff000000">

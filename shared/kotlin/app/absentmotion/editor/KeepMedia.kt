@@ -17,8 +17,8 @@ import kotlinx.coroutines.withContext
 
 suspend fun EditorState.keepCopy(context: Context, media: MediaDeclaration): MediaDeclaration = keepCopy(context, settings, store, projectId, media, scene)
 
-suspend fun keepCopy(context: Context, settings: AppSettings, store: ProjectStore, projectId: String, media: MediaDeclaration, scene: Scene?): MediaDeclaration {
-    if (!settings.keepMediaCopies) return media
+suspend fun keepCopy(context: Context, settings: AppSettings, store: ProjectStore, projectId: String, media: MediaDeclaration, scene: Scene?, force: Boolean = false): MediaDeclaration {
+    if (!force && !settings.keepMediaCopies) return media
     val name = media.title.ifEmpty { context.getString(R.string.edit_keep_this_file) }
     if (media.size > BIG_FILE && !store.inMediaFolder(media.uri)) Toast.makeText(context, context.getString(R.string.edit_keep_copying, name), Toast.LENGTH_SHORT).show()
     val keeper = MediaKeeper(store, { uri -> context.contentResolver.openInputStream(Uri.parse(uri)) })

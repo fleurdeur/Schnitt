@@ -24,8 +24,11 @@ import app.absentmotion.editor.chosenLayers
 import app.absentmotion.effects.EffectCatalog
 import app.absentmotion.effects.EffectDefinition
 import app.absentmotion.audio.audioDeclaration
+import app.absentmotion.media.imageDeclaration
 import app.absentmotion.media.mediaDeclaration
+import app.absentmotion.media.videoDeclaration
 import app.absentmotion.model.Keyframe
+import app.absentmotion.model.MediaDeclaration
 import app.absentmotion.model.PropRef
 import app.absentmotion.model.Scene
 import app.absentmotion.model.XmlNode
@@ -55,6 +58,7 @@ import java.net.ServerSocket
 import java.net.Socket
 import javax.net.ssl.SSLSocket
 import java.net.URL
+import java.net.URLDecoder
 import java.util.Collections
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -426,7 +430,7 @@ object McpServer {
         put(tool("expression.set", "Bake an expression into keyframes using the expression editor language.", """{"id":{"type":"integer"},"property":{"type":"string"},"expression":{"type":"string"}}""", listOf("id", "property", "expression")))
         put(tool("expression.eval", "Evaluate an expression at a time without editing.", """{"id":{"type":"integer"},"expression":{"type":"string"},"timeMs":{"type":"number"}}""", listOf("id", "expression")))
         put(tool("media.list", "List every media item declared by the project, including unused imports, with type, size, duration and usage count.", "{}"))
-        put(tool("media.add", "Import and place an image, video or audio layer. Accepts an existing project URI, a content:// picker URI, a file:// URI or an https:// media URL. Media is copied into the project when copy is true. atMs places it at that project time; durationSec sets the layer length. kind may be auto, image, video or audio.", """{"uri":{"type":"string"},"kind":{"type":"string"},"atMs":{"type":"number"},"durationSec":{"type":"number"},"label":{"type":"string"},"copy":{"type":"boolean"}}""", listOf("uri")))
+        put(tool("media.add", "Import and place an image, video or audio layer. Accepts an existing project URI, a content:// picker URI, a file:// URI or a direct https:// media URL that returns the file itself, not a sharing or HTML page. Media is copied into the project when copy is true. atMs places it at that project time; durationSec sets the layer length. kind may be auto, image, video or audio; use kind=audio to import only the audio track of a video.", """{"uri":{"type":"string"},"kind":{"type":"string"},"atMs":{"type":"number"},"durationSec":{"type":"number"},"label":{"type":"string"},"copy":{"type":"boolean"}}""", listOf("uri")))
         put(tool("media.replace", "Replace every use of one project media URI with another imported image, video or audio file, keeping layers and keyframes intact.", """{"old":{"type":"string"},"uri":{"type":"string"},"kind":{"type":"string"},"copy":{"type":"boolean"}}""", listOf("old", "uri")))
         put(tool("effect.list", "Search the effect catalogue. Returns editable parameter ids, types, defaults and ranges, plus preset names. Use effect.add to apply one.", """{"query":{"type":"string"},"category":{"type":"string"},"limit":{"type":"integer"}}"""))
         put(tool("effect.add", "Add an effect to the selected layer(s) or the given layerIds. Resolve the effect by id, key or name. properties may be a flat object of parameter values; use effect.set for animated values.", """{"effectId":{"type":"string"},"layerIds":{"type":"array","items":{"type":"integer"}},"preset":{"type":"string"},"properties":{"type":"object"}}""", listOf("effectId")))
@@ -696,19 +700,17 @@ internal object McpTools {
     private fun mediaAdd(state: EditorState, args: JSONObject, context: Context?, requested: String): String {
         val app = context ?: McpBridge.context() ?: error("No editor context available")
         val source = args.getString("uri")
-        val (uri, temp) = materialize(app, source)
+        val copy = args.optBoolean("copy", true)
+        val media = materialize(app, source)
+        var tempUsed = false
         try {
-            val kind = requested.takeIf { it != "auto" } ?: guessKind(app, uri)
-            val declaration = runBlocking(Dispatchers.IO) {
-                when (kind) {
-                    "audio" -> audioDeclaration(app, uri)
-                    "image" -> mediaDeclaration(app, uri, "image/*")
-                    else -> mediaDeclaration(app, uri)
-                }
-            } ?: error("$source is not a supported $kind file")
-            val kept = if (args.optBoolean("copy", true)) runBlocking(Dispatchers.IO) {
-                keepCopy(app, state.settings, state.store, state.projectId, declaration, state.scene)
+            val kind = requested.takeIf { it == "audio" || it == "video" || it == "image" } ?: guessKind(app, media)
+            val declaration = runBlocking(Dispatchers.IO) { declarationFor(app, media, kind) }?.named(media.name)
+                ?: error("${media.name} is not a readable $kind file (${media.mime.ifBlank { "unknown type" }}). Use a direct media URL or pick the file again.")
+            val kept = if (copy) runBlocking(Dispatchers.IO) {
+                keepCopy(app, state.settings, state.store, state.projectId, declaration, state.scene, force = copy)
             } else declaration
+            tempUsed = media.temp != null && kept.uri == Uri.fromFile(media.temp).toString()
             val label = args.optString("label", "")
             val atMs = args.optDouble("atMs", state.timeMs.toDouble())
             val duration = args.optDouble("durationSec", -1.0)
@@ -732,7 +734,7 @@ internal object McpTools {
                 "added ${kept.type} ${kept.title} as layer $id"
             }
         } finally {
-            if (temp != null && args.optBoolean("copy", true)) temp.delete()
+            if (media.temp != null && copy && !tempUsed) media.temp.delete()
         }
     }
 
@@ -740,23 +742,22 @@ internal object McpTools {
         val app = context ?: McpBridge.context() ?: error("No editor context available")
         val old = args.getString("old")
         val source = args.getString("uri")
-        val (uri, temp) = materialize(app, source)
+        val copy = args.optBoolean("copy", true)
+        val media = materialize(app, source)
+        var tempUsed = false
         try {
-            val kind = args.optString("kind", "auto").takeIf { it != "auto" } ?: guessKind(app, uri)
-            val declaration = runBlocking(Dispatchers.IO) {
-                when (kind) {
-                    "audio" -> audioDeclaration(app, uri)
-                    "image" -> mediaDeclaration(app, uri, "image/*")
-                    else -> mediaDeclaration(app, uri)
-                }
-            } ?: error("$source is not a supported $kind file")
-            val kept = if (args.optBoolean("copy", true)) runBlocking(Dispatchers.IO) {
-                keepCopy(app, state.settings, state.store, state.projectId, declaration, state.scene)
+            val requested = args.optString("kind", "auto")
+            val kind = requested.takeIf { it == "audio" || it == "video" || it == "image" } ?: guessKind(app, media)
+            val declaration = runBlocking(Dispatchers.IO) { declarationFor(app, media, kind) }?.named(media.name)
+                ?: error("${media.name} is not a readable $kind file (${media.mime.ifBlank { "unknown type" }}). Use a direct media URL or pick the file again.")
+            val kept = if (copy) runBlocking(Dispatchers.IO) {
+                keepCopy(app, state.settings, state.store, state.projectId, declaration, state.scene, force = copy)
             } else declaration
+            tempUsed = media.temp != null && kept.uri == Uri.fromFile(media.temp).toString()
             McpBridge.onMain { current -> current.edit("mcp-media-replace") { it.replaceMedia(old, kept) } }
             return "replaced $old with ${kept.uri}"
         } finally {
-            if (temp != null && args.optBoolean("copy", true)) temp.delete()
+            if (media.temp != null && copy && !tempUsed) media.temp.delete()
         }
     }
 
@@ -864,54 +865,224 @@ internal object McpTools {
         return node
     }
 
-    private fun guessKind(context: Context, uri: Uri): String {
-        val type = runCatching { context.contentResolver.getType(uri) }.getOrNull().orEmpty()
-        if (type.startsWith("audio/")) return "audio"
-        if (type.startsWith("image/")) return "image"
-        if (type.startsWith("video/")) return "video"
-        val name = uri.lastPathSegment.orEmpty().lowercase()
-        return when {
-            name.matches(Regex(".*\\.(mp3|m4a|wav|aac|ogg|opus|flac)$")) -> "audio"
-            name.matches(Regex(".*\\.(png|jpe?g|webp|gif|bmp|heic|avif|svg)$")) -> "image"
-            else -> "video"
+    private data class Materialized(val uri: Uri, val temp: File?, val name: String, val mime: String)
+
+    private fun MediaDeclaration.named(name: String): MediaDeclaration =
+        if (name.isBlank()) this else MediaDeclaration(node.with("filename", name).with("title", name))
+
+    private suspend fun declarationFor(context: Context, media: Materialized, kind: String): MediaDeclaration? {
+        val mime = media.mime.takeIf { it.startsWith("$kind/") }
+        return when (kind) {
+            "audio" -> audioDeclaration(context, media.uri, mime)
+            "image" -> imageDeclaration(context, media.uri)
+            "video" -> videoDeclaration(context, media.uri, mime)
+            else -> null
         }
     }
 
-    private fun materialize(context: Context, source: String): Pair<Uri, File?> {
-        val parsed = Uri.parse(source)
-        if (parsed.scheme != "http" && parsed.scheme != "https") return parsed to null
-        val connection = URL(source).openConnection() as HttpURLConnection
-        connection.instanceFollowRedirects = true
-        connection.connectTimeout = 60_000
-        connection.readTimeout = 180_000
-        connection.setRequestProperty("User-Agent", "Schnitt/1.0")
-        val mime = connection.contentType?.substringBefore(';').orEmpty()
-        val ext = when {
-            mime.contains("png") -> "png"; mime.contains("jpeg") -> "jpg"; mime.contains("webp") -> "webp"
-            mime.contains("gif") -> "gif"; mime.startsWith("audio/") -> "mp3"; mime.startsWith("video/") -> "mp4"
-            else -> source.substringAfterLast('.', "bin").take(5).takeIf { it.all(Char::isLetterOrDigit) } ?: "bin"
+    private fun guessKind(context: Context, media: Materialized): String {
+        val mime = media.mime.ifBlank { runCatching { context.contentResolver.getType(media.uri) }.getOrNull().orEmpty() }.lowercase()
+        if (mime.startsWith("audio/")) return "audio"
+        if (mime.startsWith("image/")) return "image"
+        if (mime.startsWith("video/")) return "video"
+        val name = media.name.lowercase()
+        when {
+            name.matches(Regex(".*\\.(mp3|m4a|wav|aac|ogg|opus|flac)$")) -> return "audio"
+            name.matches(Regex(".*\\.(png|jpe?g|webp|gif|bmp|heic|avif|svg)$")) -> return "image"
+            name.matches(Regex(".*\\.(mp4|m4v|mov|webm|mkv|avi|3gp|ts|mts)$")) -> return "video"
         }
-        val file = File.createTempFile("agent-media-", ".$ext", context.cacheDir)
+        sniffMime(media.temp)?.let { sniffed ->
+            if (sniffed.startsWith("audio/")) return "audio"
+            if (sniffed.startsWith("image/")) return "image"
+            if (sniffed.startsWith("video/")) return "video"
+        }
+        error("Could not tell whether ${media.name} is audio, video or an image. Pass kind=audio, kind=video or kind=image.")
+    }
+
+    private fun materialize(context: Context, source: String): Materialized {
+        val parsed = Uri.parse(source)
+        return when (parsed.scheme?.lowercase()) {
+            "http", "https" -> downloadMedia(context, source)
+            "content" -> copyPickedMedia(context, parsed)
+            "file" -> Materialized(parsed, null, parsed.lastPathSegment?.substringAfterLast('/') ?: "media", runCatching { context.contentResolver.getType(parsed) }.getOrNull().orEmpty())
+            else -> Materialized(parsed, null, parsed.lastPathSegment?.substringAfterLast('/') ?: "media", runCatching { context.contentResolver.getType(parsed) }.getOrNull().orEmpty())
+        }
+    }
+
+    private fun downloadMedia(context: Context, source: String): Materialized {
+        val connection = (URL(source).openConnection() as HttpURLConnection).apply {
+            instanceFollowRedirects = true
+            connectTimeout = 60_000
+            readTimeout = 180_000
+            setRequestProperty("User-Agent", "Schnitt/1.0")
+            setRequestProperty("Accept", "*/*")
+        }
+        var file: File? = null
         try {
-            connection.inputStream.use { input ->
-                file.outputStream().buffered().use { output ->
-                    val buffer = ByteArray(256 * 1024)
-                    var total = 0L
-                    while (true) {
-                        val n = input.read(buffer)
-                        if (n < 0) break
-                        total += n
-                        if (total > 256L shl 20) error("The media URL is larger than 256 MB")
-                        output.write(buffer, 0, n)
-                    }
-                }
+            val code = connection.responseCode
+            if (code !in 200..299) error("The media URL answered HTTP $code. Use a direct download link, not a sharing page.")
+            val declaredSize = connection.contentLengthLong
+            if (declaredSize > MAX_IMPORT_BYTES) error("The media URL is larger than 512 MB")
+            val headerName = connection.getHeaderField("Content-Disposition").orEmpty().let(::dispositionName)
+            val urlName = URLDecoder.decode(URL(source).path.substringAfterLast('/'), "UTF-8")
+            val rawName = headerName.ifBlank { urlName }.ifBlank { "agent-media" }
+            val headerType = connection.contentType?.substringBefore(';').orEmpty().trim()
+            val mime = resolveMime(headerType, rawName)
+            val extension = extensionFor(mime, rawName)
+            val name = ensureExtension(rawName, extension)
+            file = File.createTempFile("agent-media-", ".$extension", context.cacheDir)
+            connection.inputStream.use { input -> copyLimited(input, file) }
+            if (file.length() <= 0L) error("The media URL returned an empty file")
+            val sniffed = sniffMime(file)
+            if (sniffed == null && (headerType.startsWith("text/") || looksLikeHtml(file))) {
+                error("The media URL returned a web page, not a media file. Use a direct download link.")
             }
-            return Uri.fromFile(file) to file
+            val resolved = when {
+                mime.startsWith("audio/") || mime.startsWith("video/") || mime.startsWith("image/") -> mime
+                sniffed != null -> sniffed
+                else -> mime
+            }
+            return Materialized(Uri.fromFile(file), file, name, resolved)
         } catch (t: Throwable) {
-            file.delete()
+            file?.delete()
             throw t
         } finally {
             connection.disconnect()
         }
     }
+
+    private fun copyPickedMedia(context: Context, parsed: Uri): Materialized {
+        var name = ""
+        context.contentResolver.query(parsed, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) name = cursor.getString(0).orEmpty()
+        }
+        val mime = runCatching { context.contentResolver.getType(parsed) }.getOrNull().orEmpty()
+        val extension = extensionFor(mime, name)
+        val safeName = ensureExtension(name.ifBlank { "picked-media" }, extension)
+        val file = File.createTempFile("agent-media-", ".$extension", context.cacheDir)
+        try {
+            context.contentResolver.openInputStream(parsed)?.use { input -> copyLimited(input, file) }
+                ?: error("The picked file could not be opened")
+            if (file.length() <= 0L) error("The picked file is empty")
+            return Materialized(Uri.fromFile(file), file, safeName, resolveMime(mime, safeName))
+        } catch (e: SecurityException) {
+            file.delete()
+            error("Schnitt does not have permission to read that content:// URI. Pick the file again from the picker.")
+        } catch (t: Throwable) {
+            file.delete()
+            throw t
+        }
+    }
+
+    private fun copyLimited(input: InputStream, file: File) {
+        file.outputStream().buffered().use { output ->
+            val buffer = ByteArray(256 * 1024)
+            var total = 0L
+            while (true) {
+                val n = input.read(buffer)
+                if (n < 0) break
+                total += n
+                if (total > MAX_IMPORT_BYTES) error("The media file is larger than 512 MB")
+                output.write(buffer, 0, n)
+            }
+        }
+    }
+
+    private fun dispositionName(header: String): String {
+        if (header.isBlank()) return ""
+        val extended = Regex("filename\\*=UTF-8''([^;]+)", RegexOption.IGNORE_CASE).find(header)?.groupValues?.get(1)
+        if (extended != null) return runCatching { URLDecoder.decode(extended.trim(), "UTF-8") }.getOrDefault(extended.trim())
+        return Regex("filename=\"?([^\";]+)", RegexOption.IGNORE_CASE).find(header)?.groupValues?.get(1)?.trim().orEmpty()
+    }
+
+    private fun resolveMime(header: String, name: String): String {
+        val clean = header.substringBefore(';').trim().lowercase()
+        if (clean.isNotBlank() && clean != "application/octet-stream" && clean != "binary/octet-stream") return clean
+        val ext = name.substringAfterLast('.', "").lowercase()
+        return when (ext) {
+            "mp4", "m4v" -> "video/mp4"
+            "mov" -> "video/quicktime"
+            "webm" -> "video/webm"
+            "mkv" -> "video/x-matroska"
+            "avi" -> "video/x-msvideo"
+            "3gp" -> "video/3gpp"
+            "mp3" -> "audio/mpeg"
+            "m4a" -> "audio/mp4"
+            "wav" -> "audio/wav"
+            "aac" -> "audio/aac"
+            "ogg", "opus" -> "audio/ogg"
+            "flac" -> "audio/flac"
+            "png" -> "image/png"
+            "jpg", "jpeg" -> "image/jpeg"
+            "webp" -> "image/webp"
+            "gif" -> "image/gif"
+            else -> clean
+        }
+    }
+
+    private fun extensionFor(mime: String, name: String): String {
+        val named = name.substringAfterLast('.', "").lowercase()
+        if (named in setOf("mp4", "m4v", "mov", "webm", "mkv", "avi", "3gp", "mp3", "m4a", "wav", "aac", "ogg", "opus", "flac", "png", "jpg", "jpeg", "webp", "gif", "ts")) return named
+        return when {
+            mime.contains("quicktime") -> "mov"
+            mime.contains("webm") -> "webm"
+            mime.contains("matroska") -> "mkv"
+            mime.contains("x-msvideo") -> "avi"
+            mime.contains("mpeg") && mime.startsWith("audio/") -> "mp3"
+            mime.contains("wav") -> "wav"
+            mime.contains("aac") -> "aac"
+            mime.contains("ogg") || mime.contains("opus") -> "ogg"
+            mime.contains("flac") -> "flac"
+            mime.startsWith("audio/") -> "m4a"
+            mime.contains("png") -> "png"
+            mime.contains("jpeg") -> "jpg"
+            mime.contains("webp") -> "webp"
+            mime.contains("gif") -> "gif"
+            mime.startsWith("image/") -> "jpg"
+            mime.startsWith("video/") -> "mp4"
+            else -> "bin"
+        }
+    }
+
+    private fun ensureExtension(name: String, extension: String): String {
+        val cleaned = name.substringAfterLast('/').substringAfterLast('\\').trim().take(120)
+        val base = cleaned.ifBlank { "agent-media" }
+        return if (base.substringAfterLast('.', "").lowercase() == extension) base else "$base.$extension"
+    }
+
+    private fun looksLikeHtml(file: File): Boolean = runCatching {
+        val head = ByteArray(64)
+        val count = file.inputStream().use { it.read(head) }
+        val text = String(head, 0, count.coerceAtLeast(0), Charsets.UTF_8).trimStart().lowercase()
+        text.startsWith("<!doctype") || text.startsWith("<html")
+    }.getOrDefault(false)
+
+    private fun sniffMime(file: File?): String? {
+        if (file == null || !file.isFile) return null
+        val head = ByteArray(16)
+        val count = runCatching { file.inputStream().use { it.read(head) } }.getOrDefault(-1)
+        if (count < 4) return null
+        fun ascii(start: Int, length: Int) = String(head, start, length, Charsets.US_ASCII)
+        if (head[0] == 0x89.toByte() && ascii(1, 3) == "PNG") return "image/png"
+        if (head[0] == 0xFF.toByte() && head[1] == 0xD8.toByte()) return "image/jpeg"
+        if (ascii(0, 3) == "GIF") return "image/gif"
+        if (ascii(0, 4) == "RIFF" && count >= 12) return when (ascii(8, 4)) {
+            "WAVE" -> "audio/wav"
+            "AVI " -> "video/x-msvideo"
+            else -> null
+        }
+        if (ascii(0, 4) == "fLaC") return "audio/flac"
+        if (ascii(0, 4) == "OggS") return "audio/ogg"
+        if (ascii(0, 3) == "ID3") return "audio/mpeg"
+        if (count >= 12 && ascii(4, 4) == "ftyp") {
+            val brand = ascii(8, 4)
+            return if (brand == "M4A " || brand == "M4B ") "audio/mp4" else "video/mp4"
+        }
+        if (count >= 4 && head[0] == 0x1A.toByte() && head[1] == 0x45.toByte() && head[2] == 0xDF.toByte() && head[3] == 0xA3.toByte()) return "video/x-matroska"
+        if (head[0] == 0x47.toByte()) return "video/mp2t"
+        if (head[0] == 0xFF.toByte() && (head[1].toInt() and 0xF6) == 0xF0) return "audio/aac"
+        return null
+    }
+
+    private const val MAX_IMPORT_BYTES = 512L shl 20
 }
