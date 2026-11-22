@@ -1,23 +1,13 @@
 {
-  "tag": "v5.15.0",
-  "name": "Schnitt 5.15.0",
-  "published": "2026-11-22T06:30:37Z",
-  "notes": "# Schnitt 5.15.0\n\nThis release fixes broken imported effects, restores the real Lens Blur and Zoom Blur, improves heavy-project playback, and makes the local MCP server usable with Claude custom connectors.\n\n## Imported effects\n\n- Every bundled external effect now compiles and renders instead of failing silently.\n- SkSL loops, dynamic array reads and reserved names were rewritten without dropping keyframes, parameters or presets.\n- Background, depth and mask effects still work in the Effects Library with editable properties.\n- Added translations and choices for the restored blur controls.\n\n## Real Lens Blur and Zoom Blur\n\n- Restored the original parameters, sampling and falloff from the reference implementation.\n- Lens Blur keeps its Spin and Zoom modes, sharp centre, feather and sweep.\n- Zoom Blur keeps its distance-weighted and even sampling modes.\n- Preview sampling scales with preview quality; paused preview, stills and exports use the full sample count.\n\n## Heavy-project playback\n\n- Heavy scenes now use a lower-resolution preview while playing even when automatic quality is off.\n- The preview is rendered into a genuinely smaller surface and upscaled once, instead of allocating full-screen effect buffers.\n- Nested groups now count toward the preview cost, so a busy composition cannot look cheap.\n- Motion blur reduces its pose count only while playing; export keeps the full trail.\n- Frame pacing drops display frames only when the measured draw time cannot keep up.\n- Tested on a bundled 83-layer project: playback improved from single-digit frames per second to a smooth low-resolution preview, with full-quality export unchanged.\n\n## Claude custom connectors\n\n- The local MCP server now advertises OAuth protected-resource and authorization-server metadata, dynamic client registration, PKCE and refresh tokens.\n- A 401 response points Claude at the discovery document, and the approval page accepts the existing bearer token.\n- Claude connects from its cloud, so the panel now explains the required public HTTPS tunnel on port 443.\n- A stalled client connection can no longer take the editor down.\n\n## Agent fix\n\n- Gemini function calls now preserve and echo thought signatures, fixing the missing-thought-signature error after tool calls.\n\n## More\n\n- Added regression coverage for nested preview cost and the updated MCP protocol.\n- Exported video and still frames remain full quality.\n",
+  "tag": "v5.15.1",
+  "name": "Schnitt 5.15.1",
+  "published": "2026-11-22T07:41:56Z",
+  "notes": "# Schnitt 5.15.1\n\nThis release fixes media import from the AI agent and custom MCP connectors.\n\n## Direct media links\n\n- media.add now downloads a direct https media file and copies it into the project.\n- A sharing page or HTML link is rejected with a clear message instead of being saved as a broken file.\n- MP4, MOV, WebM, WAV, MP3, M4A, FLAC, PNG, JPEG and WebP links are recognized from the file itself when the server does not send a useful type.\n- Use kind=audio to import only the audio track of a video. A WAV link imports directly as audio.\n- Downloaded files keep their original name and stay available after the temporary download is removed.\n\n## Picked files\n\n- A content:// picker URI is copied into app storage before it is opened, so providers that cannot seek still work.\n- A missing permission now explains that the file must be picked again.\n- Video URLs are declared as video explicitly instead of falling back to an image check.\n\n## Export and projects\n\n- Existing projects, effects, keyframes and export quality are unchanged.\n",
   "assets": [
     {
       "name": "app-arm64-v8a.apk",
-      "size": 97432549,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.15.0/app-arm64-v8a.apk"
-    },
-    {
-      "name": "app-armeabi-v7a.apk",
-      "size": 101321243,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.15.0/app-armeabi-v7a.apk"
-    },
-    {
-      "name": "app-universal.apk",
-      "size": 141723264,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.15.0/app-universal.apk"
+      "size": 97436573,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.15.1/app-arm64-v8a.apk"
     }
   ]
 }
