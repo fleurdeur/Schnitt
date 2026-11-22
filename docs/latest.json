@@ -6,18 +6,8 @@
   "assets": [
     {
       "name": "app-arm64-v8a.apk",
-      "size": 106821533,
+      "size": 106821225,
       "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.16.0/app-arm64-v8a.apk"
-    },
-    {
-      "name": "app-armeabi-v7a.apk",
-      "size": 110520837,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.16.0/app-armeabi-v7a.apk"
-    },
-    {
-      "name": "app-universal.apk",
-      "size": 154109179,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.16.0/app-universal.apk"
     }
   ]
 }
