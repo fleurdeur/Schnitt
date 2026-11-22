@@ -1,23 +1,13 @@
 {
-  "tag": "v5.15.1",
-  "name": "Schnitt 5.15.1",
-  "published": "2026-11-22T07:41:56Z",
-  "notes": "# Schnitt 5.15.1\n\nThis release fixes media import from the AI agent and custom MCP connectors.\n\n## Direct media links\n\n- media.add now downloads a direct https media file and copies it into the project.\n- A sharing page or HTML link is rejected with a clear message instead of being saved as a broken file.\n- MP4, MOV, WebM, WAV, MP3, M4A, FLAC, PNG, JPEG and WebP links are recognized from the file itself when the server does not send a useful type.\n- Use kind=audio to import only the audio track of a video. A WAV link imports directly as audio.\n- Downloaded files keep their original name and stay available after the temporary download is removed.\n\n## Picked files\n\n- A content:// picker URI is copied into app storage before it is opened, so providers that cannot seek still work.\n- A missing permission now explains that the file must be picked again.\n- Video URLs are declared as video explicitly instead of falling back to an image check.\n\n## Export and projects\n\n- Existing projects, effects, keyframes and export quality are unchanged.\n",
+  "tag": "v5.16.0",
+  "name": "Schnitt 5.16.0",
+  "published": "2026-11-22T11:10:10Z",
+  "notes": "# Schnitt 5.16.0\n\nThis release fixes reversed exports, adds the Gold AI tools and effects, and brings two new character effects.\n\n## Reversed export\n\n- A reversed clip now keeps the exact source frame size whenever any H.264 encoder supports it.\n- If the device truly cannot encode that size, the whole picture is scaled uniformly instead of keeping only the top-left corner.\n- A dropped frame now stops the job with a clear error instead of silently cutting motion out of the reversed clip.\n\n## AI Tools from Gold\n\n- GM Anime X4 and GM Soul X4 now use the real GM neural models, tiled at 128 pixels and stitched into a 4x result.\n- Twixtor is the frame-interpolation tool in the AI shelf.\n- Remove dead frames is a new tool. It samples the clip, drops duplicate frames and reports how many were removed.\n- The original AI tools, model choices and project data stay compatible.\n\n## New effects\n\n- Eye Blink draws a movable pair of eyes with adjustable spacing, size, tilt, blink speed, phase, lid colour and crease.\n- Hair Flow bends hair along a root-to-tip guide with width, sway, speed, strand density, anchor and curl controls.\n- Both effects are editable in the Effects Library and keep their keyframes.\n\n## Gold effect pack\n\n- More than two hundred Gold effects now load with their original controls and shaders, including GM Beauty, GM Color Link, GM Circle Mosaic and the GM 3D packs.\n- Effects that already have a native Schnitt version are not listed twice.\n\n## Preview\n\n- The preview chooses one detail level when playback starts instead of changing resolution mid-play, so the picture no longer jumps while it plays.\n- Paused preview and still frames stay at full resolution.\n\n## Export and projects\n\n- Existing projects, XML files, keyframes, presets and export quality are unchanged.\n",
   "assets": [
     {
-      "name": "app-arm64-v8a.apk",
-      "size": 97436573,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.15.1/app-arm64-v8a.apk"
-    },
-    {
-      "name": "app-armeabi-v7a.apk",
-      "size": 101325267,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.15.1/app-armeabi-v7a.apk"
-    },
-    {
-      "name": "app-universal.apk",
-      "size": 141727288,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.15.1/app-universal.apk"
+      "name": "schnitt-5.16.0-arm64-v8a.apk",
+      "size": 106821533,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.16.0/schnitt-5.16.0-arm64-v8a.apk"
     }
   ]
 }
