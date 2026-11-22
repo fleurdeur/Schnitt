@@ -20,7 +20,7 @@ class AmEffectLibraryTest {
     @Test fun everyBundledDefinitionParsesWithItsRealName() {
         val words = strings()
         val files = folder.listFiles { f -> f.extension == "xml" }.orEmpty()
-        assertEquals(320, files.size)
+        assertEquals(522, files.size)
         val effects = files.map { file ->
             val parsed = AmEffectImporter.parse(file.readText(), words)
             assertNotNull(file.name, parsed)

@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.shaderpack.clouds" name="GM Clouds" desc="Coupled Voronoi and flow-noise clouds with tailored density, altitude, drift and palette." category="procedural" tags="gm,shader,procedural,procedural" thumb="thumb/gm-clouds.webp" overdraw="true" max-overdraw="0.3" experimental="false" deprecated="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Cloud Field" />
+<spinner id="cloudEvolution" default="0" min="-1000" max="1000" step="0.01" label="Evolution" />
+<switch id="cloudAnimate" default="true" label="Drift Clouds" />
+<spinner id="cloudSpeed" default="1" min="-4" max="4" step="0.01" label="Cloud Speed" />
+<spinner id="cloudScale" default="8" min="1" max="24" step="0.1" label="Cloud Scale" />
+<spinner id="cloudDrift" default="0.15" min="-1" max="1" step="0.01" label="Vertical Drift" />
+<spinner id="cloudWarp" default="0.025" min="0" max="0.15" step="0.001" label="Flow Warp" />
+<spinner id="cloudDensity" default="0.6" min="0" max="1.5" step="0.01" label="Density Lift" />
+<spinner id="cloudThreshold" default="0.5" min="0.05" max="0.95" step="0.01" label="Body Threshold" />
+<color id="cloudSky" default="#FF6EACDD" label="Sky" alpha="false" />
+<color id="cloudEdge" default="#FFFFFFFF" label="Cloud Edge" alpha="false" />
+<color id="cloudInterior" default="#FFD2D2D2" label="Cloud Interior" alpha="false" />
+<section text="Composite" />
+<spinner id="gmMix" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<switch id="gmClip" default="false" label="Clip to Layer" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[#define iTime (cloudEvolution + (cloudAnimate ? acTime * cloudSpeed : 0.0))
+#define iResolution vec3(acScreenSize, 1.0)
+#define iDate vec4(0.0, 0.0, 0.0, iTime)
+#define iMouse vec4(acScreenSize * 0.5, 0.0, 0.0)
+vec2 hash2( vec2 p )
+{
+p = vec2( dot(p,vec2(127.1,311.7)), dot(p,vec2(269.5,183.3)) );
+return -1.0 + 2.0*fract(sin(p)*43758.5453123);
+}
+float voronoi( in vec2 x, float phase )
+{
+vec2 n = floor( x );
+vec2 f = fract( x );
+float md = 0.0;
+for( int j=-1; j<=1; j++ )
+for( int i=-1; i<=1; i++ )
+{
+vec2 g = vec2(float(i),float(j));
+vec2 o = hash2( n + g );
+o = 0.5 + 0.5*sin( phase + 6.2831*o );
+vec2 r = g - f + o;
+float d = dot( r, r );
+md += 1.0/pow( d, 8.0 );
+}
+return 1.0-pow( 1.0/md, 1.0/8.0 );
+}
+float flowNoise( in vec2 p, float t )
+{
+vec2 i = floor( p );
+vec2 f = fract( p );
+vec2 u = f*f*(3.0-2.0*f);
+mat2 R = mat2(cos(t),-sin(t),sin(t),cos(t));
+if (mod(i.x+i.y,2.)==0.) R=-R;
+float g = 2.*mix( mix( dot( hash2( i + vec2(0,0) ), (f - vec2(0,0))*R ),
+dot( hash2( i + vec2(1,0) ),-(f - vec2(1,0))*R ), u.x),
+mix( dot( hash2( i + vec2(0,1) ),-(f - vec2(0,1))*R ),
+dot( hash2( i + vec2(1,1) ), (f - vec2(1,1))*R ), u.x), u.y);
+return mix( 0.0, 1.0, .5 + .5* g );
+}
+float fbm4Voronoi( vec2 p, float t )
+{
+mat2 m = mat2( 0.80,  0.60, -0.60,  0.80 );
+float f = 0.0;
+f += 0.5000*voronoi( p, t*0.1 ); p = m*p*2.02;
+f += 0.2500*voronoi( p, t*0.2 ); p = m*p*2.03;
+f += 0.1250*voronoi( p, t*0.5 ); p = m*p*2.01;
+f += 0.0625;
+f = f/0.9375;
+return f;
+}
+float fbm4FlowNoise( vec2 p, float t )
+{
+mat2 m = mat2( 1.6,  1.2, -1.2,  1.6 );
+float g = 0.0;
+g += 0.5000*flowNoise( p, t*0.1 ); p = m*p;
+g += 0.2500*flowNoise( p, t*0.4 ); p = m*p;
+g += 0.1250*flowNoise( p, t*0.7 ); p = m*p;
+g += 0.0625*flowNoise( p, t*0.3 ); p = m*p;
+g += 0.0325*flowNoise( p, t*0.3 ); p = m*p*2.;
+g = g * 1.2;
+return g;
+}
+void gmGeneratedMainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+vec2 uv = fragCoord.xy / iResolution.xx;
+uv.y = 0.5 - uv.y;
+float scale = cloudScale;
+float gTime = iTime * 1.;
+float speed = gTime*0.5;
+float movement = gTime*cloudDrift;
+float offset = cloudDensity;
+uv += fbm4FlowNoise( uv * vec2(scale*1.,scale*1.) + vec2(0., speed*0.5), speed ) * cloudWarp;
+float f = fbm4Voronoi( uv*scale + vec2(0.0,movement), speed*10.0 );
+float g = fbm4FlowNoise( uv*scale + vec2(0.0,movement), speed*10.0 );
+float uvy = clamp( uv.y * 1.0, 0.0, 1.0 );
+g = smoothstep( 0.0, 1.0, g ) * uvy + offset;
+f = smoothstep( 0.0, 1.0, f ) * uvy + offset;
+float dist = 0.5;
+float threshold = cloudThreshold;
+float lowerLimit = (1.0-dist)-threshold;
+float upperLimit = (1.0-dist)+threshold;
+float val = f*g;
+val *= smoothstep( lowerLimit,upperLimit, val);
+vec4 col = vec4(0.0);
+vec4 sky = vec4(cloudSky.rgb, 1.0);
+float skyFlag = 0.2;
+vec4 white = vec4(cloudEdge.rgb, 1.0);
+float whiteFlag = 0.5;
+vec4 interior = vec4(cloudInterior.rgb, 1.0);
+float intFlag = 0.99;
+if( val < skyFlag ) col = sky;
+else if( val < whiteFlag ) col = mix( sky, white, smoothstep(0.0,1.0,(val-skyFlag)/(whiteFlag-skyFlag)) );
+else if( val < intFlag ) col = mix( white, interior, smoothstep(0.0,1.0,(val-whiteFlag)/(intFlag-whiteFlag)) );
+else col = interior;
+fragColor = col;
+}
+void main(){
+vec4 gmGenerated=vec4(0.0);
+gmGeneratedMainImage(gmGenerated,acScreenNorm*acScreenSize);
+vec4 gmSource=texture2DCv(inputImg.texture,acScreenNorm);
+float gmAlpha=gmClip?gmSource.a:gmGenerated.a;
+vec4 gmResult=vec4(gmGenerated.rgb*gmAlpha,gmAlpha);
+gl_FragColor=mix(gmSource,gmResult,gmMix);
+gl_FragColor *= texture2DCv(inputImg.texture, acScreenNorm).a;
+}]]></shader>
+</effect>

@@ -1,0 +1,133 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_hue_shift_bands"
+name="GM Hue Shift Bands"
+desc="Hue rotation applied in discrete bands. The layer's luminance, a rotatable position axis, distance from a point, angle around a point or time is cut into N bands, and each band gets its own hue offset - so instead of one flat rotation you get a stepped rainbow that follows the picture. Bands can also drive a saturation and a brightness wave, the edges can be feathered so the steps read as a soft posterise rather than a hard cut, and the whole stack can scroll over time. Layer space, so the bands stay welded to the layer."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.35"
+thumb="thumb/gm_hue_shift_bands.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Band Driver" />
+<selector id="bandDriver" style="dropdown" default="0" label="Bands From">
+<choice value="0" label="Luminance" />
+<choice value="1" label="Position Axis" />
+<choice value="2" label="Radial Distance" />
+<choice value="3" label="Angle" />
+<choice value="4" label="Time" />
+</selector>
+<spinner id="bands" default="6" min="2" max="24" step="1" type="integer" label="Band Count" />
+<spinner id="angle" default="0.0" min="0.0" max="360.0" step="1.0" type="angle" label="Axis Angle" />
+<spinner id="softness" default="0.35" min="0.0" max="1.0" step="0.01" label="Band Softness" />
+<spinner id="bandScroll" default="0.0" min="0.0" max="1.0" step="0.01" label="Band Scroll" />
+<point id="centre" default="0.5,0.5" label="Band Centre" />
+<section text="Hue" />
+<spinner id="bandShift" default="40.0" min="-180.0" max="180.0" step="1.0" type="angle" label="Hue Per Band" />
+<spinner id="globalShift" default="0.0" min="0.0" max="360.0" step="1.0" type="angle" label="Global Hue Shift" />
+<spinner id="sat" default="1.0" min="0.0" max="2.0" step="0.01" label="Saturation" />
+<section text="Band Wave" />
+<spinner id="satShift" default="0.0" min="-1.0" max="1.0" step="0.01" label="Sat Wave" />
+<spinner id="brightShift" default="0.0" min="-1.0" max="1.0" step="0.01" label="Bright Wave" />
+<section text="Output" />
+<spinner id="mixAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Effect Strength" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec3 sat3v(vec3 c){ return clamp(c, vec3(0.0), vec3(1.0)); }
+float lum(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+// LAYER -> SCREEN. Reads go through the layer transform, so the bands are cut
+// from the layer's own pixels and travel with it.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+
+vec3 rgb2hsv(vec3 c){
+vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+float d = q.x - min(q.w, q.y);
+float e = 1.0e-10;
+return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+vec3 hsv2rgb(vec3 c){
+vec3 rgb = clamp(abs(mod(c.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+rgb = rgb * rgb * (3.0 - 2.0 * rgb);
+return c.z * mix(vec3(1.0), rgb, clamp(c.y, 0.0, 1.0));
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float a  = max(src.a, 1e-4);
+vec3 sc  = src.rgb / a;
+float l  = lum(sc);
+
+float asp = acLayerSize.x / max(acLayerSize.y, 1.0);
+vec2  c0  = centre - vec2(0.5);
+c0.x *= asp;
+vec2  q   = lp - vec2(0.5);
+q.x *= asp;
+q -= c0;
+
+float ang = radians(angle);
+vec2  ax  = vec2(cos(ang), sin(ang));
+
+// ---- band coordinate ----------------------------------------------------
+float d;
+if (bandDriver <= 0){
+d = l;
+} else if (bandDriver <= 1){
+d = dot(lp - vec2(0.5), ax) + 0.5;
+} else if (bandDriver <= 2){
+d = length(q);
+} else if (bandDriver <= 3){
+d = atan(q.y, q.x) / 6.2831853 + 0.5;
+} else {
+d = fract(acTime * 0.15);
+}
+
+// Scroll slides the band boundaries through the driver value. fract() keeps it
+// wrapped, so a scrolling band set never runs out of range.
+d = fract(d + bandScroll * acTime * 0.08);
+
+float nb  = max(bands, 2.0);
+float bf  = d * nb;
+float bi  = floor(bf);
+float bff = bf - bi;
+
+// Feather only inside the top slice of the band and only by softness, so a
+// softness of 0 leaves the classic hard posterised steps.
+float edge   = smoothstep(0.5, 1.0, bff);
+float offA   = (bi + 1.0) * bandShift;
+float offB   = (bi + 2.0) * bandShift;
+float hueOff = mix(offA, offB, edge * clamp(softness, 0.0, 1.0));
+
+// ---- hue / sat / bright -------------------------------------------------
+vec3 hsv = rgb2hsv(sc);
+hsv.x = fract(hsv.x + (hueOff + globalShift) / 360.0);
+
+// The sat/bright waves run once across the whole band stack, so band 1 and the
+// last band sit at opposite ends of the wave and the ramp reads as a whole.
+float bwave = sin((bi + 0.5) / nb * 6.2831853);
+hsv.y = clamp(hsv.y * (1.0 + satShift * bwave), 0.0, 1.0);
+hsv.z = clamp(hsv.z * (1.0 + brightShift * bwave), 0.0, 1.0);
+
+vec3 c = hsv2rgb(hsv);
+float lc = lum(c);
+c = sat3v(mix(vec3(lc), c, max(sat, 0.0)));
+
+vec3  col = mix(sc, c, mixAmt);
+float oA  = src.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

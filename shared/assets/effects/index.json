@@ -219,5 +219,7 @@
  "timecode",
  "textpath",
  "drawingprogress",
- "stroketaper"
+ "stroketaper",
+ "eyeblink",
+ "hairflow"
 ]

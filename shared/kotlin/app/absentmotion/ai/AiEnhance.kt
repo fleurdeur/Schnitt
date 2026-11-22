@@ -22,16 +22,23 @@ enum class EnhanceMode(val xml: String, @StringRes val title: Int, @StringRes va
     Upscale2("upscale2", R.string.ai_enhance_upscale2, R.string.ai_enhance_upscale2_hint, R.string.ai_enhance_upscale2_help, 2, 720),
     Upscale4("upscale4", R.string.ai_enhance_upscale4, R.string.ai_enhance_upscale4_hint, R.string.ai_enhance_upscale4_help, 4, 360),
     Sharpen("sharpen", R.string.ai_enhance_sharpen, R.string.ai_enhance_sharpen_hint, R.string.ai_enhance_sharpen_help, 1, 1080),
-    Faces("faces", R.string.ai_enhance_faces, R.string.ai_enhance_faces_hint, R.string.ai_enhance_faces_help, 1, 2160);
+    Faces("faces", R.string.ai_enhance_faces, R.string.ai_enhance_faces_hint, R.string.ai_enhance_faces_help, 1, 2160),
+    GmAnime("gm-anime", R.string.ai_enhance_gm_anime, R.string.ai_enhance_gm_anime_hint, R.string.ai_enhance_gm_anime_help, 4, 360),
+    GmSoul("gm-soul", R.string.ai_enhance_gm_soul, R.string.ai_enhance_gm_soul_hint, R.string.ai_enhance_gm_soul_help, 4, 360);
 
     fun fits(width: Int, height: Int): Boolean = width > 0 && height > 0 && min(width, height) <= maxShortSide
 }
 
 data class EnhanceOptions(val mode: EnhanceMode = EnhanceMode.Upscale2, val cartoon: Boolean = false, val grain: Boolean = false, val quick: Boolean = false) {
-    internal val model: AiModel get() = if (cartoon) AiModel.Cartoon else AiModel.Detail
+    internal val model: AiModel get() = when (mode) {
+        EnhanceMode.GmAnime -> AiModel.Cartoon
+        EnhanceMode.GmSoul -> AiModel.Detail
+        else -> if (cartoon) AiModel.Cartoon else AiModel.Detail
+    }
     internal val blend: AiModel? get() = if (!cartoon && grain) AiModel.Grain else null
     internal val models: List<AiModel> get() = listOfNotNull(model, blend)
     val usesAi: Boolean get() = !(mode == EnhanceMode.Sharpen && quick)
+    val lockedModel: Boolean get() = mode == EnhanceMode.GmAnime || mode == EnhanceMode.GmSoul
     val xml: String get() = mode.xml + (if (cartoon) "+cartoon" else "") + (if (blend != null) "+grain" else "")
 
     internal fun gmacPerFrame(width: Int, height: Int): Double = model.gmacPerMegapixel *
@@ -158,6 +165,16 @@ internal object AiEnhance {
     suspend fun run(context: Context, layer: Layer, media: MediaDeclaration, options: EnhanceOptions, progress: AiProgress): AiMedia {
         check(options.mode.fits(media.width, media.height)) { capText(options.mode) }
         progress(0f, AppText.get(R.string.ai_loading_ai_model))
+        if (options.mode == EnhanceMode.GmAnime || options.mode == EnhanceMode.GmSoul) {
+            val gm = GmUpscale.open(context, options.mode)
+                ?: error(AppText.get(R.string.ai_enhance_gm_missing))
+            return gm.use {
+                val work = FrameWork { pts, argb, width, height, emit ->
+                    emit(pts, gm.upscale(argb, width, height))
+                }
+                rewriteVideo(context, VideoJob(layer, media, options.mode.scale), progress, work)
+            }
+        }
         AiDevice.probeGpu(context, options.model)
         val net = AiNet.open(context, options.model, options.blend, GRAIN_WEIGHT)
         return net.use {

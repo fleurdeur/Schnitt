@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_24k_gold" name="GM 24K Gold" desc="Animated gold liquid pattern." category="procedural" thumb="thumb/24kgold.webp" tags="gm,gold,abstract,animation">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="24K Gold" />
+<spinner id="time" default="0.0" min="0.0" max="100000.0" label="Time" step="0.001" />
+<spinner id="speed" default="1.0" min="-5.0" max="5.0" label="Animation Speed" step="0.01" />
+<spinner id="scale" default="1.0" min="0.2" max="4.0" label="Pattern Scale" step="0.01" />
+<spinner id="intensity" default="1.0" min="0.0" max="3.0" label="Gold Intensity" step="0.01" />
+<spinner id="sourceMix" default="0.0" min="0.0" max="1.0" label="Source Mix" step="0.01" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[void main(){
+vec2 r=acScreenSize, p=((acScreenNorm*r+acScreenNorm*r-r)/r.y)*scale; float t=time*speed,a=0.0,l=0.0,v=0.0;
+for(int i=1;i<6;i++){ float fi=float(i); a=cos(atan(p.y,p.x)*2.0); l=abs(fi-length(p)); v+=a*l; float q=t+a; p=p*mat2(cos(q),cos(q+11.0),cos(q+22.0),cos(q))+vec2(a,l); }
+vec3 pattern=abs(sin(v*vec3(0.3,0.2,0.1)))*vec3(1.0,0.72,0.18)*intensity; vec3 src=texture2DCv(inputImg.texture,acScreenNorm).rgb;
+gl_FragColor=vec4(mix(min(pattern,vec3(1.0)),src,sourceMix),1.0);
+gl_FragColor *= texture2DCv(inputImg.texture, acScreenNorm).a;
+}]]></shader>
+</effect>

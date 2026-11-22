@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect
+id="com.goldmotion.effects.v53.gm3d.fountain"
+name="GM Fountain"
+desc="Procedural volumetric fountain field with a rotatable 3D camera, evolving flow, octave detail and mobile-safe quality modes."
+category="3d"
+tags="gm,3d,fountain,ejection,flow,volumetric,procedural,raymarch,fbm"
+thumb="thumb/gm-fountain.webp"
+overdraw="true"
+max-overdraw="0.3"
+experimental="false"
+deprecated="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="3D Camera" />
+<spinner id="cameraX" default="0.0" min="-20.0" max="20.0" step="0.02" label="Camera X" />
+<spinner id="cameraY" default="5.6" min="-10.0" max="20.0" step="0.02" label="Camera Y" />
+<spinner id="cameraZ" default="0.2" min="-20.0" max="20.0" step="0.02" label="Camera Z" />
+<spinner id="cameraYaw" default="0" min="-3600" max="3600" step="0.25" ticks="-180,-90,0,90,180" type="angle" label="Yaw" />
+<spinner id="cameraPitch" default="0" min="-89" max="89" step="0.25" ticks="-45,0,45" type="angle" label="Pitch" />
+<spinner id="cameraRoll" default="0" min="-3600" max="3600" step="0.25" ticks="-90,0,90" type="angle" label="Roll" />
+<spinner id="focalLength" default="0.5" min="0.12" max="2.5" step="0.01" label="Perspective" />
+<spinner id="zoom" default="1.0" min="0.1" max="6.0" step="0.01" label="Zoom" />
+<spinner id="centerX" default="0.0" min="-1.0" max="1.0" step="0.005" label="Center X" />
+<spinner id="centerY" default="0.0" min="-1.0" max="1.0" step="0.005" label="Center Y" />
+<section text="Flow Animation" />
+<spinner id="evolution" default="0.0" min="-1000.0" max="1000.0" step="0.01" label="Evolution" />
+<switch id="autoAnimate" default="true" label="Auto Animate" />
+<spinner id="speed" default="1.0" min="-8.0" max="8.0" step="0.01" label="Speed" />
+<spinner id="depthFlow" default="0.3" min="-2.0" max="2.0" step="0.01" label="Depth Flow" />
+<spinner id="orbitFlow" default="0.15" min="-2.0" max="2.0" step="0.01" label="Orbit Flow" />
+<section text="Fountain Shape" />
+<spinner id="radiusBias" default="10.0" min="1.0" max="40.0" step="0.1" label="Radius" />
+<spinner id="heightOffset" default="0.29" min="-2.0" max="2.0" step="0.01" label="Height Offset" />
+<spinner id="surfaceLevel" default="1.0" min="-2.0" max="3.0" step="0.01" label="Surface Level" />
+<spinner id="frequencyBase" default="12.9" min="1.0" max="40.0" step="0.1" label="Detail Scale" />
+<spinner id="frequencyGrowth" default="2.0" min="1.25" max="3.0" step="0.01" label="Detail Growth" />
+<spinner id="turbulence" default="0.3647" min="0.0" max="1.5" step="0.005" label="Turbulence" />
+<spinner id="stepLength" default="1.0" min="0.1" max="2.0" step="0.01" label="Flow Length" />
+<section text="Light and Color" />
+<color id="lowColor" default="#FF000000" label="Shadow Color" alpha="false" />
+<color id="highColor" default="#FFFFFFFF" label="Fountain Color" alpha="false" />
+<color id="hotColor" default="#FFFFC76B" label="Hot Core" alpha="false" />
+<spinner id="hotCore" default="0.0" min="0.0" max="1.0" step="0.01" label="Hot Core Mix" />
+<spinner id="intensity" default="1.0" min="0.0" max="8.0" step="0.02" label="Intensity" />
+<spinner id="contrast" default="1.0" min="0.25" max="4.0" step="0.01" label="Contrast" />
+<switch id="invert" default="false" label="Invert" />
+<section text="Rendering" />
+<selector id="quality" style="dropdown" default="0" label="Render Quality">
+<choice label="Performance" value="0" />
+<choice label="Balanced" value="1" />
+<choice label="High Detail" value="2" />
+</selector>
+<selector id="blendMode" style="dropdown" default="0" label="Composite">
+<choice label="Replace" value="0" />
+<choice label="Add" value="1" />
+<choice label="Screen" value="2" />
+</selector>
+<spinner id="mixAmount" default="1.0" min="0.0" max="1.0" step="0.01" type="percent" label="Mix" />
+<switch id="clipToLayer" default="true" label="Clip to Layer" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[#define GM_SAFE_EPSILON 0.0001
+float gmSafeDivide(float numerator, float denominator){
+float safeDenominator = max(abs(denominator), 0.01);
+return numerator / safeDenominator;
+}
+mat3 gmRotateX(float angle){
+float s = sin(angle);
+float c = cos(angle);
+return mat3(1.0, 0.0, 0.0, 0.0, c, s, 0.0, -s, c);
+}
+mat3 gmRotateY(float angle){
+float s = sin(angle);
+float c = cos(angle);
+return mat3(c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c);
+}
+mat3 gmRotateZ(float angle){
+float s = sin(angle);
+float c = cos(angle);
+return mat3(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0);
+}
+float gmFountainField(vec2 screen, float timeValue, int stepBudget, int octaveBudget){
+vec3 ray = vec3(screen, focalLength);
+ray = gmRotateZ(cameraRoll) * gmRotateX(cameraPitch) * gmRotateY(cameraYaw) * ray;
+vec3 queryPosition = vec3(cameraX, cameraY, cameraZ);
+vec3 position = vec3(0.0);
+float stepValue = 0.0;
+float radius = 0.0;
+float energy = 0.0;
+float normalization = max(float(stepBudget) - 0.9, 1.0);
+float intensityFrequency = frequencyBase * pow(frequencyGrowth, 6.0);
+for(int i = 0; i < 95; i++){
+if(i >= stepBudget) break;
+float guardedStep = clamp(stepValue, -2.0, 2.0);
+queryPosition += ray * guardedStep * radius * stepLength;
+queryPosition = clamp(queryPosition, vec3(-10000.0), vec3(10000.0));
+position = queryPosition;
+radius = length(position) + max(radiusBias, 1.0);
+float normalizedDepth = gmSafeDivide(position.z, radius);
+position = vec3(
+log(max(radius, GM_SAFE_EPSILON)) - timeValue * depthFlow,
+exp(-clamp(normalizedDepth, -0.1, 1.4)) + heightOffset,
+atan(position.y, position.x) + timeValue * orbitFlow
+);
+position.y -= surfaceLevel;
+stepValue = position.y;
+float frequency = frequencyBase;
+for(int octave = 0; octave < 6; octave++){
+if(octave >= octaveBudget) break;
+vec3 waveA = sin(position.zxx * frequency);
+vec3 waveB = vec3(1.0) - cos(position.yyz * frequency);
+stepValue += gmSafeDivide(dot(waveA, waveB), frequency) * turbulence;
+frequency *= frequencyGrowth;
+}
+energy += clamp(stepValue * intensityFrequency, 0.0, 1.0) / normalization;
+}
+return clamp(energy, 0.0, 1.5);
+}
+void main(){
+vec2 uv = acScreenNorm;
+vec4 source = texture2DCv(inputImg.texture, uv);
+float timeValue = evolution;
+if(autoAnimate) timeValue += acTime * speed;
+vec2 center = vec2(0.5 + centerX * 0.5, 0.5 + centerY * 0.5);
+vec2 screen = uv - center;
+screen.x *= acScreenSize.x / max(acScreenSize.y, 1.0);
+screen *= zoom;
+int stepBudget = 48;
+int octaveBudget = 4;
+if(quality == 1){
+stepBudget = 70;
+octaveBudget = 5;
+}else if(quality == 2){
+stepBudget = 95;
+octaveBudget = 6;
+}
+float field = gmFountainField(screen, timeValue, stepBudget, octaveBudget);
+field = pow(max(field * intensity, 0.0), contrast);
+field = clamp(field, 0.0, 1.0);
+vec3 generated = mix(lowColor.rgb, highColor.rgb, field);
+float coreMask = smoothstep(0.55, 1.0, field) * hotCore;
+generated = mix(generated, hotColor.rgb, coreMask);
+if(invert) generated = vec3(1.0) - generated;
+vec3 effected = generated;
+if(blendMode == 1){
+effected = clamp(source.rgb + generated, 0.0, 1.0);
+}else if(blendMode == 2){
+effected = vec3(1.0) - (vec3(1.0) - source.rgb) * (vec3(1.0) - generated);
+}
+vec3 outputColor = mix(source.rgb, effected, mixAmount);
+float outputAlpha = clipToLayer ? source.a : 1.0;
+gl_FragColor = vec4(outputColor * outputAlpha, outputAlpha);
+}]]></shader>
+</effect>

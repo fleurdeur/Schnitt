@@ -1,0 +1,145 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_hue_shift_tunnel"
+name="GM Hue Shift Tunnel"
+desc="Wraps the layer around a tunnel and rotates the hue with depth, so the colour cycles as the corridor recedes. Five cross sections: a round bore, a square bore, a hexagonal kaleidoscopic bore, a triangular one, and a flat corridor. Depth scale, travel speed, hue per unit of depth, a global hue rotation, ring shading along the tunnel, a twist that skews the bore with distance, a swirl that rotates the whole wall, saturation and brightness are all separate. The tunnel centre is a layer point, so the whole corridor is welded to the layer."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.50"
+thumb="thumb/gm_hue_shift_tunnel.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Bore" />
+<selector id="tunnelShape" style="dropdown" default="0" label="Cross Section">
+<choice value="0" label="Circular" />
+<choice value="1" label="Square" />
+<choice value="2" label="Hexagonal" />
+<choice value="3" label="Triangular" />
+<choice value="4" label="Corridor" />
+</selector>
+<spinner id="wallScale" default="1.0" min="0.5" max="4.0" step="0.01" label="Wall Scale" />
+<spinner id="depth" default="1.0" min="0.05" max="3.0" step="0.01" label="Depth Scale" />
+<spinner id="speed" default="0.30" min="-2.0" max="2.0" step="0.01" label="Travel Speed" />
+<section text="Rotation" />
+<spinner id="twist" default="0.0" min="-1.0" max="1.0" step="0.01" label="Depth Twist" />
+<spinner id="swirl" default="0.0" min="-1.0" max="1.0" step="0.01" label="Wall Swirl" />
+<point id="centre" default="0.5,0.5" label="Tunnel Centre" />
+<section text="Hue" />
+<spinner id="huePerDepth" default="180.0" min="-720.0" max="720.0" step="1.0" type="angle" label="Hue Per Depth" />
+<spinner id="globalHue" default="0.0" min="0.0" max="360.0" step="1.0" type="angle" label="Global Hue Shift" />
+<spinner id="saturation" default="1.15" min="0.0" max="2.0" step="0.01" label="Saturation" />
+<spinner id="brightness" default="1.0" min="0.0" max="2.0" step="0.01" label="Brightness" />
+<section text="Shading" />
+<spinner id="rings" default="4.0" min="1.0" max="12.0" step="0.5" label="Ring Count" />
+<spinner id="shading" default="0.45" min="0.0" max="1.0" step="0.01" label="Ring Shading" />
+<spinner id="falloff" default="0.55" min="0.0" max="1.0" step="0.01" label="Depth Falloff" />
+<section text="Output" />
+<spinner id="mixAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Effect Strength" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec3 sat3v(vec3 c){ return clamp(c, vec3(0.0), vec3(1.0)); }
+
+// LAYER -> SCREEN. The tunnel is built around a layer point, so it is part of
+// the layer rather than a screen effect.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+
+vec3 rgb2hsv(vec3 c){
+vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+float d = q.x - min(q.w, q.y);
+float e = 1.0e-10;
+return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+vec3 hsv2rgb(vec3 c){
+vec3 rgb = clamp(abs(mod(c.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+rgb = rgb * rgb * (3.0 - 2.0 * rgb);
+return c.z * mix(vec3(1.0), rgb, clamp(c.y, 0.0, 1.0));
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float al = max(src.a, 1.0e-4);
+vec3 sc = src.rgb / al;
+
+float asp = acLayerSize.x / max(acLayerSize.y, 1.0);
+vec2  c0  = centre - vec2(0.5);
+c0.x *= asp;
+vec2  q   = lp - vec2(0.5);
+q.x *= asp;
+q -= c0;
+
+float rr  = length(q);
+float ang = atan(q.y, q.x);
+
+// ---- cross section ------------------------------------------------------
+// Every bore is an angle remap. The square one projects the ray onto the
+// square's perimeter first, which is what makes the corners read as corners.
+float a;
+if (tunnelShape <= 0){
+a = ang / 6.2831853 + 0.5;
+} else if (tunnelShape <= 1){
+float c = cos(ang);
+float s = sin(ang);
+float m = max(abs(c), abs(s));
+vec2  sq = vec2(c, s) / max(m, 1.0e-4);
+a = atan(sq.y, sq.x) / 6.2831853 + 0.5;
+} else if (tunnelShape <= 2){
+a = fract((ang / 6.2831853 + 0.5) * 6.0);
+} else if (tunnelShape <= 3){
+a = fract((ang / 6.2831853 + 0.5) * 3.0);
+} else {
+a = ang / 6.2831853 + 0.5;
+}
+
+// ---- depth --------------------------------------------------------------
+// Inverse radius is the depth. Clamped away from zero so the centre does not
+// blow up into a single-pixel singularity.
+float z = (1.0 / max(rr, 0.02)) * max(depth, 0.05) * max(wallScale, 0.05);
+z += acTime * speed * 2.0;
+
+// Twist skews the bore with distance, swirl rotates the whole wall.
+a += z * twist * 0.15 + acTime * swirl * 0.10;
+
+float dn = fract(z * 0.25);
+
+vec2 tuv = vec2(fract(a), dn);
+vec4 got = texture2DCv(inputImg.texture, clamp(tuv, 0.0, 1.0));
+float ga = max(got.a, 1.0e-4);
+vec3  c  = got.rgb / ga;
+
+// ---- ring shading + depth falloff --------------------------------------
+if (shading > 0.001){
+float ringsF = 0.5 + 0.5 * sin(dn * max(rings, 1.0) * 6.2831853);
+c *= mix(1.0, 0.42 + 0.90 * ringsF, clamp(shading, 0.0, 1.0));
+}
+c *= mix(1.0, 0.25 + 0.90 * smoothstep(0.0, 0.85, rr), clamp(falloff, 0.0, 1.0));
+
+// ---- hue with depth -----------------------------------------------------
+vec3 hsv = rgb2hsv(sat3v(c));
+hsv.x = fract(hsv.x + (dn * huePerDepth + globalHue) / 360.0);
+hsv.y = clamp(hsv.y * max(saturation, 0.0), 0.0, 1.0);
+hsv.z = clamp(hsv.z * brightness, 0.0, 1.0);
+c = sat3v(hsv2rgb(hsv));
+
+// Kill the last few pixels at the vanishing point, where the mapping is all
+// noise and no signal.
+c *= mix(0.12, 1.0, smoothstep(0.0, 0.05, rr));
+
+vec3  col = mix(sc, c, mixAmt);
+float oA  = src.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

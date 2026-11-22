@@ -1,0 +1,149 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_twirl"
+name="GM Twirl"
+desc="A twirl with real structure. The twist profile is a power curve over the radius, so the falloff control moves the effect from a tight knot at the centre to a wide slow rotation that reaches the edge. Six looks: a plain twirl, a whirlpool that also scales with the twist, a spiral that couples the radius to the angle, a pinch twirl, a black hole that pulls inward and darkens the core, and a double twirl whose two lobes counter-rotate. Ring ripple, turbulence, spin, and clamp/mirror/wrap sampling are all separate controls. Measured in layer space around a layer point."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.45"
+thumb="thumb/gm_twirl.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Twirl" />
+<selector id="twirlMode" style="dropdown" default="0" label="Preset">
+<choice value="0" label="Twirl" />
+<choice value="1" label="Whirlpool" />
+<choice value="2" label="Spiral" />
+<choice value="3" label="Pinch Twirl" />
+<choice value="4" label="Black Hole" />
+<choice value="5" label="Double Twirl" />
+</selector>
+<spinner id="angle" default="220.0" min="0.0" max="1080.0" step="1.0" type="angle" label="Twist Angle" />
+<spinner id="radius" default="0.45" min="0.05" max="1.50" step="0.01" label="Twirl Radius" />
+<spinner id="falloff" default="0.55" min="0.0" max="1.0" step="0.01" label="Radius Falloff" />
+<spinner id="speed" default="0.0" min="-2.0" max="2.0" step="0.01" label="Spin Speed" />
+<spinner id="spiral" default="0.0" min="-1.0" max="1.0" step="0.01" label="Spiral Coupling" />
+<spinner id="pinch" default="0.0" min="-1.0" max="1.0" step="0.01" label="Pinch" />
+<section text="Detail" />
+<spinner id="rings" default="0.0" min="0.0" max="1.0" step="0.01" label="Ring Ripple" />
+<spinner id="ringFreq" default="4.0" min="0.5" max="20.0" step="0.05" label="Ring Frequency" />
+<spinner id="turbulence" default="0.0" min="0.0" max="1.0" step="0.01" label="Turbulence" />
+<point id="centre" default="0.5,0.5" label="Twirl Centre" />
+<section text="Sampling" />
+<selector id="edgeMode" style="dropdown" default="0" label="Edge Handling">
+<choice value="0" label="Clamp" />
+<choice value="1" label="Mirror" />
+<choice value="2" label="Wrap" />
+</selector>
+<section text="Output" />
+<spinner id="mixAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Effect Strength" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[// LAYER -> SCREEN. The twirl centre is a layer point, so the vortex is part of
+// the layer rather than of the composition.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+
+float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+float vnoise(vec2 p){
+vec2 i = floor(p);
+vec2 f = fract(p);
+f = f * f * (3.0 - 2.0 * f);
+return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x),
+           mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+vec2 rot2(vec2 p, float a){ float c = cos(a); float s = sin(a); return vec2(p.x * c - p.y * s, p.x * s + p.y * c); }
+
+vec2 edgeFix(vec2 lp){
+if (edgeMode <= 0) return clamp(lp, 0.0, 1.0);
+if (edgeMode <= 1){
+vec2 m = mod(lp, vec2(2.0, 2.0));
+return abs(m - vec2(1.0, 1.0)) * -1.0 + vec2(1.0);
+}
+return fract(lp);
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float al = max(src.a, 1.0e-4);
+vec3 sc = src.rgb / al;
+
+float asp = acLayerSize.x / max(acLayerSize.y, 1.0);
+vec2  c0  = centre - vec2(0.5);
+c0.x *= asp;
+vec2  q   = lp - vec2(0.5);
+q.x *= asp;
+q -= c0;
+
+float r = length(q);
+
+// ---- twist profile ------------------------------------------------------
+// t is 1 at the centre and 0 at the twirl radius. Raising it to a power is what
+// the falloff control does: a low exponent spreads the twist over the whole
+// disc, a high one keeps it knotted near the middle.
+float t = clamp(1.0 - r / max(radius, 1.0e-4), 0.0, 1.0);
+float w = pow(t, mix(0.35, 3.20, clamp(falloff, 0.0, 1.0)));
+
+float tw = radians(angle) * w + acTime * speed * w;
+
+// Double Twirl - two counter-rotating lobes. A smoothstep on sin(2*angle)
+// rather than a sign() so there is no seam where they meet.
+if (twirlMode >= 5){
+float a0 = atan(q.y, q.x);
+tw *= mix(-1.0, 1.0, smoothstep(-0.25, 0.25, sin(a0 * 2.0)));
+}
+
+// Ring ripple: modulate the twist radially so the rotation comes in bands.
+if (rings > 0.001){
+tw += sin(r * ringFreq * 6.2831853 - acTime * 1.5) * rings * w * 0.55;
+}
+
+// ---- radial scale -------------------------------------------------------
+// Spiral couples the radius to the angle; Whirlpool and Black Hole lean on the
+// same term with a preset bias, which is why they are one code path.
+float rs = 1.0;
+float spiralAmt = spiral;
+if (twirlMode >= 1 && twirlMode <= 1) spiralAmt = max(spiral, 0.35);
+if (twirlMode >= 4 && twirlMode <= 4) spiralAmt = min(spiral, -0.30);
+rs *= 1.0 + spiralAmt * tw * 0.35;
+if (twirlMode >= 3 && twirlMode <= 3) rs *= 1.0 + 0.55 * w;
+
+float pinchAmt = pinch;
+if (twirlMode >= 4 && twirlMode <= 4) pinchAmt = min(pinch, -0.65);
+rs *= 1.0 + pinchAmt * w * 0.55;
+
+// ---- rebuild the coordinate --------------------------------------------
+vec2 rot = rot2(q, tw) * max(rs, 0.02);
+vec2 dpos = centre + vec2(rot.x / max(asp, 1.0e-3), rot.y);
+
+if (turbulence > 0.001){
+float n1 = vnoise(lp * 7.0 + vec2(acTime * 0.4, 0.0));
+float n2 = vnoise(lp * 7.0 + vec2(0.0, acTime * 0.4) + 9.1);
+dpos += (vec2(n1, n2) - 0.5) * turbulence * 0.05;
+}
+
+vec4 got = texture2DCv(inputImg.texture, clamp(lpToScreen(edgeFix(dpos)), 0.0, 1.0));
+float ga = max(got.a, 1.0e-4);
+vec3 gc  = got.rgb / ga;
+
+// Black Hole darkens the core, where the pull is strongest.
+if (twirlMode >= 4 && twirlMode <= 4){
+gc *= mix(1.0, 0.10 + 0.90 * smoothstep(0.0, 0.55, r), clamp(w, 0.0, 1.0));
+}
+
+vec3  col = mix(sc, gc, mixAmt);
+float oA  = got.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

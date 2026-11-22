@@ -142,21 +142,12 @@ fun Preview(state: EditorState, modifier: Modifier = Modifier, reserveEnd: Dp = 
     val (scale, dx, dy) = previewFrame(size.width.toFloat(), size.height.toFloat(), with(LocalDensity.current) { reserveEnd.toPx() }, scene.width.toFloat(), scene.height.toFloat(), viewZoom, viewPan)
     var adaptiveDivisor by remember { mutableIntStateOf(1) }
     LaunchedEffect(state.playing, state.settings.adaptivePreview, scene) {
+        // Pick one playback divisor and keep it for the whole run. Changing it
+        // while frames are on screen made a heavy preview visibly pop or jump.
         if (!state.settings.adaptivePreview || !state.playing) { adaptiveDivisor = 1; return@LaunchedEffect }
-        adaptiveDivisor = maxOf(1, minOf(12, app.absentmotion.editor.previewComplexityDivisor(scene)))
-        var fast = 0
-        while (true) {
-            delay(180)
-            val ms = state.engine.lastRenderMs
-            val floor = minOf(if (state.playing) 12 else 2, app.absentmotion.editor.previewComplexityDivisor(scene))
-            val next = when {
-                ms >= 22.0 -> min(12, adaptiveDivisor + 1)
-                ms >= 15.0 && adaptiveDivisor < floor -> floor
-                ms in 1.0..8.0 && adaptiveDivisor > maxOf(1, floor) -> { fast++; if (fast >= 3) adaptiveDivisor - 1 else adaptiveDivisor }
-                else -> { fast = 0; adaptiveDivisor }
-            }
-            if (next != adaptiveDivisor) { adaptiveDivisor = next; fast = 0 }
-        }
+        val complexity = app.absentmotion.editor.previewComplexityDivisor(scene)
+        val measured = state.engine.smoothedRenderMs.takeIf { it > 0.0 }?.let { (it / 16.7).toInt().coerceIn(1, 12) } ?: 1
+        adaptiveDivisor = minOf(12, maxOf(complexity, measured))
     }
     // A heavy scene must still be watchable when the automatic-quality toggle is off.
     val complexityDivisor = if (state.playing) minOf(12, app.absentmotion.editor.previewComplexityDivisor(scene)) else 0

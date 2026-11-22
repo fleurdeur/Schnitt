@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/Color_Link.webp" id="com.goldmotion.effects.v51.colorlink" name="GM Color Link"
+desc="Samples the composition below and links its live palette, luminance and saturation to the current layer."
+category="color" tags="gm,color,link,palette,match,composition" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" /><texture id="comp" srcType="comp" />
+<spinner id="paletteStrength" default="0.75" min="0" max="1" step="0.01" label="Palette Link" type="percent" />
+<spinner id="lumaStrength" default="0.55" min="0" max="1" step="0.01" label="Luminance Link" type="percent" />
+<spinner id="saturationStrength" default="0.5" min="0" max="1" step="0.01" label="Saturation Link" type="percent" />
+<spinner id="contrast" default="1" min="0.2" max="3" step="0.01" label="Contrast" />
+<spinner id="preserveSkin" default="0.25" min="0" max="1" step="0.01" label="Warm Tone Protection" type="percent" />
+<spinner id="mixAmount" default="1" min="0" max="1" step="0.01" label="Mix" type="percent" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec3 gmAvg(sampler2D t){vec3 s=vec3(0.0);s+=texture2DCv(t,vec2(.18,.18)).rgb;s+=texture2DCv(t,vec2(.5,.18)).rgb;s+=texture2DCv(t,vec2(.82,.18)).rgb;s+=texture2DCv(t,vec2(.18,.5)).rgb;s+=texture2DCv(t,vec2(.5,.5)).rgb;s+=texture2DCv(t,vec2(.82,.5)).rgb;s+=texture2DCv(t,vec2(.18,.82)).rgb;s+=texture2DCv(t,vec2(.5,.82)).rgb;s+=texture2DCv(t,vec2(.82,.82)).rgb;return s/9.0;}
+void main(){vec4 src=texture2DCv(inputImg.texture,acScreenNorm);vec3 ref=gmAvg(comp.texture),own=gmAvg(inputImg.texture);float rl=dot(ref,vec3(.2126,.7152,.0722)),ol=dot(own,vec3(.2126,.7152,.0722));vec3 refChr=ref/max(rl,.001),ownChr=own/max(ol,.001);vec3 c=src.rgb*mix(vec3(1.0),refChr/max(ownChr,vec3(.05)),paletteStrength);float l=dot(c,vec3(.2126,.7152,.0722));c*=mix(1.0,rl/max(l,.001),lumaStrength);float sat=max(max(ref.r,ref.g),ref.b)-min(min(ref.r,ref.g),ref.b);c=mix(vec3(dot(c,vec3(.2126,.7152,.0722))),c,mix(1.0,0.5+sat*2.0,saturationStrength));c=(c-0.5)*contrast+0.5;float warm=smoothstep(0.02,0.35,src.r-src.b)*smoothstep(0.05,0.5,src.g);c=mix(c,src.rgb,warm*preserveSkin);gl_FragColor=vec4(mix(src.rgb,c,mixAmount),src.a);}]]></shader>
+</effect>

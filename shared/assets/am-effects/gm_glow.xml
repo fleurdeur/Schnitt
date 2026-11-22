@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/glow.webp"
+id="com.goldmotion.effects.v51.glow"
+name="GM Glow"
+desc="Node-style multipass pyramid bloom with soft highlight extraction."
+category="color"
+tags="gm,glow,bloom,light,deep"
+overdraw="true"
+max-overdraw="0.75"
+experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<texture id="down0" srcType="buffer" downsample="2" />
+<texture id="down1" srcType="buffer" downsample="4" />
+<texture id="down2" srcType="buffer" downsample="8" />
+<texture id="down3" srcType="buffer" downsample="16" />
+<texture id="up2" srcType="buffer" downsample="8" />
+<texture id="up1" srcType="buffer" downsample="4" />
+<texture id="up0" srcType="buffer" downsample="2" />
+<section text="Glow" />
+<spinner id="bloomScattering" default="7" min="1" max="10" step="1" label="Scattering" />
+<spinner id="thresholdLow" default="0.3" min="0.0" max="1.0" step="0.01" label="Threshold Start" />
+<spinner id="thresholdHigh" default="1.0" min="0.0" max="1.0" step="0.01" label="Threshold Limit" />
+<spinner id="bloomIntensity" default="1.0" min="0.0" max="10.0" step="0.05" label="Intensity" />
+<color id="glowColor" default="#FFFFFFFF" label="Glow Color" alpha="true" />
+<switch id="preserveAlpha" default="false" label="Preserve Alpha" />
+<section text="MOD BY PNKJ" />
+</params>
+<passes>
+<pass target="down0" />
+<pass target="down1" />
+<pass target="down2" />
+<pass target="down3" />
+<pass target="up2" />
+<pass target="up1" />
+<pass target="up0" />
+<pass />
+</passes>
+<shader type="fragment" precision="high"><![CDATA[vec4 gmSample(sampler2D tex, vec2 uv) {
+return texture2DCv(tex, uv);
+}
+vec4 gmBox4(sampler2D tex, vec2 uv, vec2 texel,
+vec2 a, vec2 b, vec2 c, vec2 d) {
+return gmSample(tex, uv + a * texel) +
+gmSample(tex, uv + b * texel) +
+gmSample(tex, uv + c * texel) +
+gmSample(tex, uv + d * texel);
+}
+vec4 gmNodeDownsample(sampler2D tex, vec2 uv, vec2 texel) {
+const float W1 = 0.0208333004;
+const float W2 = 0.0833332986;
+const float W3 = 0.00923329964;
+vec4 result = vec4(0.0);
+result += gmBox4(tex, uv, texel,
+vec2(-0.9, 0.0), vec2(0.0, 0.0),
+vec2(0.0, 0.9), vec2(-0.9, 0.9)) * W1;
+result += gmBox4(tex, uv, texel,
+vec2(-0.45, 0.45), vec2(0.45, 0.45),
+vec2(-0.45, -0.45), vec2(0.45, -0.45)) * W2;
+result += gmBox4(tex, uv, texel,
+vec2(0.0, 0.0), vec2(0.9, 0.9),
+vec2(0.0, 0.9), vec2(0.9, 0.0)) * W1;
+result += gmBox4(tex, uv, texel,
+vec2(0.0, -0.9), vec2(-0.9, -0.9),
+vec2(-0.9, 0.0), vec2(0.0, 0.0)) * W1;
+result += gmBox4(tex, uv, texel,
+vec2(0.0, -0.9), vec2(0.9, -0.9),
+vec2(0.0, 0.0), vec2(0.9, 0.0)) * W1;
+result += gmBox4(tex, uv, texel,
+vec2(-1.45, 1.45), vec2(-0.45, 1.45),
+vec2(-1.45, 0.45), vec2(-0.45, 0.45)) * W3;
+result += gmBox4(tex, uv, texel,
+vec2(-0.45, 1.45), vec2(0.45, 1.45),
+vec2(-0.45, 0.45), vec2(0.45, 0.45)) * W3;
+result += gmBox4(tex, uv, texel,
+vec2(1.45, 0.45), vec2(0.45, 0.45),
+vec2(0.45, 1.45), vec2(1.45, 1.45)) * W3;
+result += gmBox4(tex, uv, texel,
+vec2(-1.45, 0.45), vec2(-0.45, 0.45),
+vec2(-1.45, -0.45), vec2(-0.45, -0.45)) * W3;
+result += gmBox4(tex, uv, texel,
+vec2(-0.45, 0.45), vec2(0.45, 0.45),
+vec2(-0.45, -0.45), vec2(0.45, -0.45)) * W3;
+result += gmBox4(tex, uv, texel,
+vec2(1.45, 0.45), vec2(0.45, 0.45),
+vec2(0.45, -0.45), vec2(1.45, -0.45)) * W3;
+result += gmBox4(tex, uv, texel,
+vec2(-1.45, -1.45), vec2(-0.45, -1.45),
+vec2(-1.45, -0.45), vec2(-0.45, -0.45)) * W3;
+result += gmBox4(tex, uv, texel,
+vec2(-0.45, -1.45), vec2(0.45, -1.45),
+vec2(-0.45, -0.45), vec2(0.45, -0.45)) * W3;
+result += gmBox4(tex, uv, texel,
+vec2(0.45, -1.45), vec2(1.45, -1.45),
+vec2(0.45, -0.45), vec2(1.45, -0.45)) * W3;
+return result;
+}
+vec4 gmNodeUpsample(sampler2D tex, vec2 uv, vec2 texel) {
+vec4 result = gmSample(tex, uv) * 0.159999996;
+result += (gmSample(tex, uv + vec2( 1.0,  0.0) * texel) +
+gmSample(tex, uv + vec2(-1.0,  0.0) * texel) +
+gmSample(tex, uv + vec2( 0.0,  1.0) * texel) +
+gmSample(tex, uv + vec2( 0.0, -1.0) * texel)) * 0.0799999982;
+result += (gmSample(tex, uv + vec2( 1.0,  1.0) * texel) +
+gmSample(tex, uv + vec2(-1.0,  1.0) * texel) +
+gmSample(tex, uv + vec2( 1.0, -1.0) * texel) +
+gmSample(tex, uv + vec2(-1.0, -1.0) * texel) +
+gmSample(tex, uv + vec2( 2.0,  0.0) * texel) +
+gmSample(tex, uv + vec2(-2.0,  0.0) * texel) +
+gmSample(tex, uv + vec2( 0.0,  2.0) * texel) +
+gmSample(tex, uv + vec2( 0.0, -2.0) * texel)) * 0.0399999991;
+result += (gmSample(tex, uv + vec2(-2.0,  1.0) * texel) +
+gmSample(tex, uv + vec2(-1.0,  2.0) * texel) +
+gmSample(tex, uv + vec2( 1.0,  2.0) * texel) +
+gmSample(tex, uv + vec2( 2.0,  1.0) * texel) +
+gmSample(tex, uv + vec2( 2.0, -1.0) * texel) +
+gmSample(tex, uv + vec2( 1.0, -2.0) * texel) +
+gmSample(tex, uv + vec2(-1.0, -2.0) * texel) +
+gmSample(tex, uv + vec2(-2.0, -1.0) * texel)) * 0.0199999996;
+result += (gmSample(tex, uv + vec2(-2.0,  2.0) * texel) +
+gmSample(tex, uv + vec2( 2.0,  2.0) * texel) +
+gmSample(tex, uv + vec2( 2.0, -2.0) * texel) +
+gmSample(tex, uv + vec2(-2.0, -2.0) * texel)) * 0.00999999978;
+return result;
+}
+vec2 gmTexel(vec2 encodedSize) {
+return 1.0 / max(encodedSize, vec2(1.0));
+}
+vec4 gmExtract(vec4 filtered) {
+float energy2 = dot(filtered.rgb, filtered.rgb);
+vec3 direction = filtered.rgb * inversesqrt(max(energy2, 1.0e-20));
+vec3 limited = min(direction * thresholdHigh,
+max(filtered.rgb, vec3(0.0))) * 0.908999979;
+float peak = max(max(limited.r, limited.g), limited.b);
+float above = peak - thresholdLow;
+float safePeak = max(peak, 9.99999975e-05);
+float knee = clamp(above + 9.99999975e-05,
+0.0, 0.000199999995);
+knee = knee * knee * 2000.00012;
+float contribution = max(above, knee);
+filtered.rgb = max(limited * contribution / safePeak, vec3(0.0));
+return filtered * glowColor;
+}
+void main() {
+vec2 uv = acScreenNorm;
+float scattering = clamp(bloomScattering, 1.0, 10.0);
+float spread = mix(0.75, 6.5, (scattering - 1.0) / 9.0);
+if (acPass == 0) {
+gl_FragColor = gmExtract(gmNodeDownsample(
+inputImg.texture, uv, gmTexel(inputImg.size)));
+return;
+}
+if (acPass == 1) {
+gl_FragColor = gmNodeDownsample(
+down0.texture, uv, gmTexel(down0.size));
+return;
+}
+if (acPass == 2) {
+gl_FragColor = gmNodeDownsample(
+down1.texture, uv, gmTexel(down1.size));
+return;
+}
+if (acPass == 3) {
+gl_FragColor = gmNodeDownsample(
+down2.texture, uv, gmTexel(down2.size));
+return;
+}
+if (acPass == 4) {
+gl_FragColor = gmNodeUpsample(
+down2.texture, uv, gmTexel(down2.size) * spread) +
+gmSample(down3.texture, uv);
+return;
+}
+if (acPass == 5) {
+gl_FragColor = gmNodeUpsample(
+down1.texture, uv, gmTexel(down1.size) * spread) +
+gmSample(up2.texture, uv);
+return;
+}
+if (acPass == 6) {
+gl_FragColor = gmNodeUpsample(
+down0.texture, uv, gmTexel(down0.size) * spread) +
+gmSample(up1.texture, uv);
+return;
+}
+vec4 source = gmSample(inputImg.texture, uv);
+vec4 bloom = gmNodeUpsample(
+up0.texture, uv, gmTexel(up0.size) * spread);
+vec4 result = source + bloom * bloomIntensity;
+if (preserveAlpha) result.a = source.a;
+gl_FragColor = result;
+}]]></shader>
+</effect>

@@ -16,6 +16,7 @@ enum class AiKind(val xml: String, @StringRes val title: Int, val attribute: Str
     Smooth("smooth", R.string.smooth_clip, "fillVideo", false),
     Enhance("enhance", R.string.ai_enhance, "fillVideo"),
     Reverse("reverse", R.string.speed_reverse, null, false),
+    Dfr("dfr", R.string.ai_dfr, "fillVideo", false),
 }
 
 enum class NoiseSource(val xml: String, @StringRes val title: Int, @StringRes val hint: Int, val rumbleHz: Double, val blend: Double) {

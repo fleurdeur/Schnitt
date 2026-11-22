@@ -33,14 +33,14 @@ import kotlin.math.sqrt
 
 enum class AiAction(@StringRes val title: Int) {
     Background(R.string.ai_remove_background), Noise(R.string.ai_reduce_noise), Video(R.string.ai_remove_background_video), Smooth(R.string.smooth_clip),
-    Enhance(R.string.ai_enhance), Reverse(R.string.speed_reverse);
+    Enhance(R.string.ai_enhance), Reverse(R.string.speed_reverse), Dfr(R.string.ai_dfr);
 
     val offered: Boolean get() = when (this) {
         Noise -> true
         Enhance -> true
         Video -> BackgroundRemoval.AVAILABLE
         Background -> BackgroundRemoval.AVAILABLE
-        Smooth, Reverse -> false
+        Smooth, Reverse, Dfr -> false
     }
 
     fun unavailable(layer: Layer?): UiText? = when (this) {
@@ -49,6 +49,7 @@ enum class AiAction(@StringRes val title: Int) {
         Enhance -> app.absentmotion.Tier.reason(app.absentmotion.Feature.AiEnhance) ?: videoReason(layer, AiKind.Enhance)
         Smooth -> videoReason(layer, AiKind.Smooth)
         Reverse -> videoReason(layer, null) ?: if (layer?.aiMarks.orEmpty().any { it.kind == AiKind.Smooth || it.kind == AiKind.Enhance }) txt(R.string.speed_reverse_remove_ai) else null
+        Dfr -> videoReason(layer, AiKind.Dfr)
         Video -> videoReason(layer, null) ?: if (layer?.shape.isNullOrEmpty()) txt(R.string.ai_select_video_layer) else null
     }
 
@@ -144,6 +145,8 @@ class AiTools(private val context: Context, private val state: EditorState, priv
             var result: AiMedia? = null
             var committed = false
             var fallback: Int? = null
+            var dfrRemoved = 0
+            var dfrTotal = 0
             try { CrashLogs.during("running AI ${action.name.lowercase()}") { holdingPreview(action) {
                 val report: AiProgress = { fraction, text ->
                     withContext(Dispatchers.Main) { progress = fraction.coerceIn(0f, 1f); message = text }
@@ -202,6 +205,19 @@ class AiTools(private val context: Context, private val state: EditorState, priv
                     state.edit { scene ->
                         scene.update(layer.id) { it.reversedTo(output.media.declaration.uri, output.mirrorUs, media) }.withMedia(output.media.declaration)
                     }
+                } else if (action == AiAction.Dfr) {
+                    val media = checkNotNull(state.scene.media(layer.mediaFill!!.uri)) { AppText.get(R.string.ai_video_missing) }
+                    val output = withContext(Dispatchers.IO) { DeadFrameRemover.run(context, layer, media, report).also { result = it.media } }
+                    dfrRemoved = output.removed
+                    dfrTotal = output.total
+                    ensureActive()
+                    check(state.scene.layer(layer.id) == layer) { AppText.get(R.string.ai_layer_changed) }
+                    state.edit { scene ->
+                        scene.update(layer.id) {
+                            it.copy(node = it.node.with(AiKind.Dfr.attribute!!, output.media.declaration.uri))
+                                .withAiMark(AiKind.Dfr, it.node[AiKind.Dfr.attribute], output.media.declaration.uri, media = media)
+                        }.withMedia(output.media.declaration)
+                    }
                 } else {
                     val mark = layer.backgroundMark?.takeIf { action == AiAction.Background }
                     val source = if (action == AiAction.Noise) layer.node["src"]!! else mark?.original ?: layer.node["fillImage"]!!
@@ -239,7 +255,11 @@ class AiTools(private val context: Context, private val state: EditorState, priv
                     fallback = note
                 }
                 committed = true
-                message = fallback?.let { AppText.get(it) } ?: ""
+                message = when {
+                    action == AiAction.Dfr -> AppText.get(R.string.ai_dfr_frames, dfrRemoved.toString(), dfrTotal.toString())
+                    fallback != null -> AppText.get(fallback!!)
+                    else -> ""
+                }
                 if (fallback == null && action != AiAction.Reverse && state.panel != EditorPanel.Speed) {
                     state.panel = EditorPanel.Tools
                     state.effectBrowserOpen = false

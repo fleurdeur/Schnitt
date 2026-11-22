@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/ok.webp" id="com.goldmotion.effects.v51.pixelmosh" name="GM Pixel Mosh"
+desc="Codec-style macroblock prediction errors, pixel sorting, quantization and chroma corruption."
+category="distort" tags="gm,pixel,mosh,glitch,codec" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="blockSize" default="24" min="2" max="200" step="1" label="Macroblock Size" />
+<spinner id="corruption" default="0.55" min="0" max="1" step="0.01" label="Corruption" type="percent" />
+<spinner id="predictionPx" default="45" min="0" max="500" step="1" label="Prediction Error" />
+<spinner id="sortAmount" default="0.35" min="0" max="1" step="0.01" label="Pixel Sort" />
+<spinner id="quantization" default="12" min="2" max="64" step="1" label="Color Levels" />
+<spinner id="chromaPx" default="5" min="0" max="50" step="0.5" label="Chroma Error" />
+<spinner id="speed" default="8" min="0" max="40" step="0.1" label="Speed" />
+<spinner id="seed" default="1" min="0" max="100" step="0.1" label="Seed" />
+<spinner id="transition" default="1" min="0" max="1" step="0.01" label="Transition" type="percent" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[float gmHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}
+vec2 gmMirror(vec2 uv){return 1.0-abs(mod(uv,2.0)-1.0);}
+void main(){vec2 uv=acScreenNorm;vec2 texSize=max(inputImg.size,vec2(1.0));float bs=max(blockSize,2.0);vec2 pixel=uv*texSize;vec2 cell=floor(pixel/bs);float frame=floor(acTime*speed);float gate=step(1.0-corruption*transition,gmHash(cell+vec2(frame*0.17,seed*7.3)));float a=gmHash(cell+vec2(seed,frame))*6.28318530718;vec2 flow=vec2(cos(a),sin(a))*predictionPx/texSize*gate;float band=floor(pixel.y/max(bs*0.35,1.0));float sortGate=step(1.0-sortAmount*transition,gmHash(vec2(band,frame+seed)));vec2 sortedUv=uv+vec2((gmHash(vec2(band,seed))-0.5)*predictionPx/texSize.x*sortGate,0.0);vec2 sampleUv=gmMirror(mix(sortedUv,uv+flow,gate));vec2 chroma=vec2(chromaPx/texSize.x,0.0)*gate;vec4 base=texture2DCv(inputImg.texture,sampleUv);vec3 c=vec3(texture2DCv(inputImg.texture,gmMirror(sampleUv+chroma)).r,base.g,texture2DCv(inputImg.texture,gmMirror(sampleUv-chroma)).b);float levels=max(floor(quantization+0.5),2.0);c=floor(c*levels+0.5)/levels;vec4 src=texture2DCv(inputImg.texture,uv);float local=max(gate,sortGate)*transition;gl_FragColor=vec4(mix(src.rgb,c,local),src.a);}]]></shader>
+</effect>

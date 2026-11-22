@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/ok.webp"
+id="com.goldmotion.effects.v51.datamosh"
+name="GM Datamosh Macroblocks"
+desc="Coherent macroblock motion corruption with directional smearing and chroma drift."
+category="distort"
+tags="datamosh,glitch,macroblock,motion,chroma"
+experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Macroblocks" />
+<spinner id="blockSizePx" default="28.0" min="4.0" max="160.0" step="1.0" label="Block Size" />
+<spinner id="corruption" default="0.45" min="0.0" max="1.0" step="0.01" label="Corruption" type="percent" />
+<spinner id="motionPx" default="24.0" min="0.0" max="240.0" step="1.0" label="Motion" />
+<spinner id="directionality" default="0.35" min="0.0" max="1.0" step="0.01" label="Directionality" type="percent" />
+<spinner id="angle" default="0.0" min="-3600.0" max="3600.0" step="0.5" type="angle" label="Direction" />
+<section text="Smear" />
+<spinner id="smear" default="0.65" min="0.0" max="2.0" step="0.01" label="Smear Length" />
+<spinner id="decay" default="0.72" min="0.1" max="0.95" step="0.01" label="Smear Decay" />
+<spinner id="chromaPx" default="2.0" min="0.0" max="20.0" step="0.25" label="Chroma Drift" />
+<section text="Animation" />
+<switch id="autoAnimate" default="true" label="Auto Animate" />
+<spinner id="speed" default="1.0" min="-8.0" max="8.0" step="0.05" label="Speed" />
+<spinner id="evolution" default="0.0" min="-100.0" max="100.0" step="0.01" label="Evolution" />
+<spinner id="seed" default="1.0" min="0.0" max="100.0" step="0.1" label="Seed" />
+<slider id="mixAmount" default="1.0" min="0.0" max="1.0" step="0.01" label="Mix" type="percent" />
+<selector id="edgeMode" default="1" style="dropdown" label="Edges">
+<choice label="Clamp" value="0" />
+<choice label="Mirror" value="1" />
+<choice label="Tile" value="2" />
+</selector>
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[float gmHash21(vec2 p) {
+return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+vec2 gmEdge(vec2 uv) {
+if (edgeMode == 1) {
+return 1.0 - abs(mod(uv, 2.0) - 1.0);
+}
+if (edgeMode == 2) {
+return fract(uv);
+}
+return clamp(uv, 0.0, 1.0);
+}
+void main() {
+vec2 uv = acScreenNorm;
+vec2 texSize = max(inputImg.size, vec2(1.0));
+float safeBlock = max(blockSizePx, 1.0);
+vec2 cell = floor(uv * texSize / safeBlock);
+float framePhase = floor(evolution * 12.0 + (autoAnimate ? acTime * speed * 12.0 : 0.0));
+vec2 phaseCell = cell + vec2(framePhase * 0.071, framePhase * 0.113) + seed * vec2(1.73, 2.37);
+float blockGate = step(1.0 - corruption, gmHash21(phaseCell + vec2(5.1, 9.7)));
+float randomAngle = gmHash21(phaseCell + vec2(17.3, 2.9)) * 6.28318530718;
+vec2 randomDirection = vec2(cos(randomAngle), sin(randomAngle));
+vec2 chosenDirection = vec2(cos(angle), sin(angle));
+vec2 flowDirection = normalize(mix(randomDirection, chosenDirection, directionality) + vec2(0.00001));
+float randomMagnitude = 0.25 + 0.75 * gmHash21(phaseCell + vec2(11.9, 23.7));
+vec2 motion = flowDirection * motionPx * randomMagnitude * blockGate / texSize;
+vec4 src = texture2DCv(inputImg.texture, uv);
+vec4 accumulated = vec4(0.0);
+float weight = 1.0;
+float weightSum = 0.0;
+for (int i = 0; i < 8; i++) {
+float t = float(i) / 7.0;
+vec2 sampleUv = gmEdge(uv + motion * (1.0 + t * smear));
+accumulated += texture2DCv(inputImg.texture, sampleUv) * weight;
+weightSum += weight;
+weight *= decay;
+}
+vec4 shifted = accumulated / max(weightSum, 0.0001);
+vec2 chromaOffset = flowDirection * chromaPx * blockGate / texSize;
+vec4 redSample = texture2DCv(inputImg.texture, gmEdge(uv + motion + chromaOffset));
+vec4 blueSample = texture2DCv(inputImg.texture, gmEdge(uv + motion - chromaOffset));
+vec3 moshRgb = vec3(redSample.r, shifted.g, blueSample.b);
+float localMix = clamp(mixAmount * blockGate, 0.0, 1.0);
+gl_FragColor = vec4(mix(src.rgb, moshRgb, localMix), src.a);
+}]]></shader>
+</effect>

@@ -1,0 +1,151 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_time_slice"
+name="GM Time Slice"
+desc="Cuts the layer into bands and gives each band its own moment. Six constructions: Slit Scan slides every band sideways by a progressively larger amount, Repeat Tile replaces each band's slice coordinate with its own so the picture tiles along the axis, Mirror Echo reflects it about the band centre for a kaleidoscopic echo, Radial Slices does the same thing in polar coordinates, Stretch Bands scales each band around its own centre, and Freeze Column makes every band take its content from the first. Band count, offset, an accumulation curve, stagger, edge feather, direction, animation, in-band blur and clamp/mirror/wrap sampling are all separate."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.45"
+thumb="thumb/gm_time_slice.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Slices" />
+<selector id="sliceMode" style="dropdown" default="0" label="Construction">
+<choice value="0" label="Slit Scan" />
+<choice value="1" label="Repeat Tile" />
+<choice value="2" label="Mirror Echo" />
+<choice value="3" label="Radial Slices" />
+<choice value="4" label="Stretch Bands" />
+<choice value="5" label="Freeze Column" />
+</selector>
+<spinner id="slices" default="18" min="2" max="64" step="1" type="integer" label="Slice Count" />
+<spinner id="direction" default="90.0" min="0.0" max="360.0" step="1.0" type="angle" label="Slice Axis" />
+<spinner id="offset" default="0.12" min="0.0" max="0.50" step="0.001" label="Slice Offset" />
+<spinner id="curve" default="1.0" min="0.05" max="3.0" step="0.01" label="Offset Curve" />
+<spinner id="bandScale" default="0.0" min="-1.0" max="1.0" step="0.01" label="Band Stretch" />
+<section text="Timing" />
+<spinner id="speed" default="0.35" min="0.0" max="2.0" step="0.01" label="Animation Speed" />
+<spinner id="stagger" default="0.25" min="0.0" max="1.0" step="0.01" label="Random Stagger" />
+<spinner id="seed" default="9.0" min="0.0" max="64.0" step="0.5" label="Seed" />
+<section text="Edge" />
+<spinner id="feather" default="0.20" min="0.0" max="0.95" step="0.01" label="Slice Feather" />
+<spinner id="blur" default="0.0" min="0.0" max="1.0" step="0.01" label="In-Slice Blur" />
+<selector id="edgeMode" style="dropdown" default="0" label="Edge Handling">
+<choice value="0" label="Clamp" />
+<choice value="1" label="Mirror" />
+<choice value="2" label="Wrap" />
+</selector>
+<section text="Output" />
+<spinner id="mixAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Effect Strength" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec3 sat3v(vec3 c){ return clamp(c, vec3(0.0), vec3(1.0)); }
+
+// LAYER -> SCREEN. The bands are cut from layer coordinates and every read
+// comes back through the layer transform.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+vec3 strL(vec2 lp){ vec4 s = fetchL(lp); return s.rgb / max(s.a, 1e-4); }
+
+float h21(vec2 p){ return fract(sin(dot(p + seed * 1.71, vec2(127.1, 311.7))) * 43758.5453123); }
+
+vec2 edgeFix(vec2 lp){
+if (edgeMode <= 0) return clamp(lp, 0.0, 1.0);
+if (edgeMode <= 1){
+vec2 m = mod(lp, vec2(2.0, 2.0));
+return abs(m - vec2(1.0, 1.0)) * -1.0 + vec2(1.0);
+}
+return fract(lp);
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float al = max(src.a, 1.0e-4);
+vec3 sc = src.rgb / al;
+
+float asp = acLayerSize.x / max(acLayerSize.y, 1.0);
+vec2  q   = vec2((lp.x - 0.5) * asp, lp.y - 0.5);
+
+float ra   = radians(direction);
+vec2  ax   = vec2(cos(ra), sin(ra));
+vec2  perp = vec2(-ax.y, ax.x);
+
+float n  = max(slices, 2.0);
+float s  = dot(q, ax);
+float sf = (s + 1.0) * 0.5 * n;
+float si = floor(sf);
+float sfr = sf - si;
+
+// Feathering the band INDEX rather than blending two separate results: the
+// offset is a continuous function of the index, so a fractional index gives a
+// smooth cross-fade for free.
+float fe = clamp(feather, 0.0, 0.95);
+float edge = smoothstep(1.0 - max(fe, 0.001), 1.0, sfr);
+float sif  = mix(si, si + 1.0, edge * fe);
+float bc   = (sif + 0.5) / n * 2.0 - 1.0;
+
+float t   = acTime * speed;
+float acc = pow(clamp((sif + 0.5) / n, 0.0, 1.0), max(curve, 0.05));
+float off = acc * offset * 2.0
+          + (h21(vec2(floor(si), floor(t * 3.0))) - 0.5) * stagger * 0.25
+          + t * 0.12;
+
+// ---- construction -------------------------------------------------------
+vec2 qd = q;
+if (sliceMode <= 0){
+qd = q + perp * off;
+} else if (sliceMode <= 1){
+// Replace the slice coordinate with this band's own centre, so the picture is
+// sampled from one line and smeared across the band.
+qd = q + ax * (bc - s);
+} else if (sliceMode <= 2){
+// Reflect about the band centre - twice the displacement, opposite sign.
+qd = q + ax * ((bc - s) * 2.0);
+} else if (sliceMode <= 3){
+// Polar version: the bands are angular sectors and the offset is radial.
+float ang = atan(q.y, q.x);
+float af  = (ang / 6.2831853 + 0.5) * n;
+float ai  = floor(af);
+float accR = pow(clamp((ai + 0.5) / n, 0.0, 1.0), max(curve, 0.05));
+float offR = accR * offset * 2.0
+           + (h21(vec2(ai, floor(t * 3.0)) + 5.0) - 0.5) * stagger * 0.25
+           + t * 0.12;
+qd = q * (1.0 + offR);
+} else if (sliceMode <= 4){
+// Scale each band around its own centre.
+float sc2 = 1.0 + (s - bc) * bandScale;
+qd = q + ax * (s * (sc2 - 1.0));
+} else {
+// Freeze Column - every band reads from the first one.
+float bc0 = 0.5 / n * 2.0 - 1.0;
+qd = q + ax * (bc0 - s);
+}
+
+vec2 dpos = vec2(qd.x / max(asp, 1.0e-3), qd.y) + vec2(0.5);
+
+vec3 c = strL(edgeFix(dpos));
+if (blur > 0.001){
+// A small perpendicular average inside the band: takes the hard edge off the
+// sampling without bleeding across band boundaries.
+float bw = blur * 0.014;
+c += strL(edgeFix(dpos + perp * bw));
+c += strL(edgeFix(dpos - perp * bw));
+c /= 3.0;
+}
+
+c = sat3v(c);
+vec3  col = mix(sc, c, mixAmt);
+float oA  = src.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.gm3d.hologramdepthscan" name="GM Hologram Depth Scan 3D" desc="Creates a luma-extruded holographic volume with parallax scan planes, RGB depth and emissive lines." category="3d" tags="gm,3d,hologram,scan,depth,parallax" thumb="thumb/Hologram_depth_scan.webp" overdraw="true" max-overdraw="0.35" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="depth" default="0.045" min="-0.2" max="0.2" step="0.001" label="Hologram Depth" />
+<spinner id="direction" default="-25" min="-3600" max="3600" step="0.5" type="angle" label="View Direction" />
+<spinner id="scanDensity" default="90" min="10" max="240" step="1" label="Scan Density" />
+<spinner id="phase" default="0" min="-20" max="20" step="0.01" label="Scan Phase" />
+<spinner id="glow" default="0.55" min="0" max="2" step="0.01" label="Hologram Glow" />
+<color id="holoColor" default="#FF42E8FF" label="Hologram Color" alpha="false" />
+<spinner id="mixAmount" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[void main(){
+vec2 uv=acScreenNorm,dir=vec2(cos(direction),sin(direction));
+vec4 src=texture2DCv(inputImg.texture,uv); float lum=dot(src.rgb,vec3(0.299,0.587,0.114));
+vec2 q=clamp(uv-dir*depth*(lum-0.35),0.0,1.0);
+vec4 base=texture2DCv(inputImg.texture,q);
+float scan=pow(0.5+0.5*sin((q.y+lum*depth)*scanDensity+phase),12.0);
+float slice=pow(0.5+0.5*cos((lum+dot(q,dir)*depth)*scanDensity*0.42-phase),18.0);
+vec4 r=texture2DCv(inputImg.texture,clamp(q+dir*depth*0.22,0.0,1.0));
+vec4 b=texture2DCv(inputImg.texture,clamp(q-dir*depth*0.22,0.0,1.0));
+vec3 spectral=vec3(r.r,base.g,b.b);
+vec3 hologram=mix(spectral,spectral*holoColor.rgb,0.72);
+hologram+=holoColor.rgb*(scan*0.55+slice*0.35)*glow*base.a;
+hologram*=0.72+0.38*lum;
+gl_FragColor=vec4(mix(src.rgb,hologram,mixAmount),src.a);
+}]]></shader>
+</effect>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.gm3d.voxelrelief" name="GM Voxel Relief 3D" desc="Builds a luminance-driven field of raised image blocks with parallax, bevel and relief shading." category="3d" tags="gm,3d,voxel,blocks,relief,luma" thumb="thumb/voxel_relief_3d.webp" overdraw="true" max-overdraw="0.25" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="blocks" default="24" min="4" max="80" step="1" label="Block Density" />
+<spinner id="depth" default="0.75" min="-2" max="2" step="0.01" label="Relief Depth" />
+<spinner id="parallax" default="0.35" min="0" max="1" step="0.01" label="Parallax" />
+<spinner id="bevel" default="0.18" min="0" max="0.48" step="0.01" label="Bevel" />
+<spinner id="lighting" default="0.65" min="0" max="1" step="0.01" label="Lighting" />
+<spinner id="mixAmount" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[void main(){
+vec2 uv=acScreenNorm,grid=vec2(max(blocks,1.0));
+vec2 id=floor(uv*grid), center=(id+0.5)/grid, local=fract(uv*grid)-0.5;
+vec4 tile=texture2DCv(inputImg.texture,clamp(center,0.0,1.0));
+float lum=dot(tile.rgb,vec3(0.299,0.587,0.114));
+float z=(lum-0.5)*depth;
+vec2 q=uv-(center-0.5)*z*parallax/max(blocks,1.0);
+vec4 raised=texture2DCv(inputImg.texture,clamp(q,0.0,1.0));
+float edge=max(abs(local.x),abs(local.y));
+float bevelMask=smoothstep(0.5-bevel,0.5,edge);
+float faceLight=clamp(0.82+z*0.28,0.35,1.35);
+float sideLight=mix(faceLight,0.38+0.25*step(0.0,local.x+local.y),bevelMask*lighting);
+raised.rgb*=mix(1.0,sideLight,lighting);
+vec4 src=texture2DCv(inputImg.texture,uv);
+gl_FragColor=mix(src,raised,mixAmount);
+}]]></shader>
+</effect>

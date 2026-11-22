@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.shaderpack.lights_blazing" name="GM Lights Blazing" desc="CC0 cosmic light interference with independent seed, spatial energy, motion and colour response." category="procedural" tags="gm,shader,procedural,procedural" thumb="thumb/light-blazing.webp" overdraw="true" max-overdraw="0.3" experimental="false" deprecated="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Cosmic Field" />
+<spinner id="blazeEvolution" default="0" min="-1000" max="1000" step="0.01" label="Evolution" />
+<switch id="blazeAnimate" default="true" label="Animate Lights" />
+<spinner id="blazeSpeed" default="1" min="-8" max="8" step="0.01" label="Energy Speed" />
+<spinner id="blazeSeed" default="42" min="-1000" max="1000" step="1" label="Pattern Seed" />
+<spinner id="blazeScale" default="5" min="0.5" max="15" step="0.05" label="Field Scale" />
+<spinner id="blazeTimeScale" default="0.2" min="0.01" max="2" step="0.01" label="Time Scale" />
+<spinner id="blazeColorCycles" default="3.14159" min="0.2" max="12" step="0.01" label="Color Cycles" />
+<spinner id="blazeContrast" default="1" min="0.1" max="3" step="0.01" label="Contrast" />
+<section text="Composite" />
+<spinner id="gmMix" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<switch id="gmClip" default="false" label="Clip to Layer" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[#define iTime (blazeEvolution + (blazeAnimate ? acTime * blazeSpeed : 0.0))
+#define iResolution vec3(acScreenSize, 1.0)
+#define iDate vec4(0.0, 0.0, 0.0, iTime)
+#define iMouse vec4(acScreenSize * 0.5, 0.0, 0.0)
+#define SEED blazeSeed
+float swayRandomized(float seed, float value)
+{
+float f = floor(value);
+float start = sin((cos(f * seed) + sin(f * 1024.)) * 345. + seed);
+float end   = sin((cos((f+1.) * seed) + sin((f+1.) * 1024.)) * 345. + seed);
+return mix(start, end, smoothstep(0., 1., value - f));
+}
+float cosmic(float seed, vec3 con)
+{
+float sum = swayRandomized(seed, con.z + con.x);
+sum = sum + swayRandomized(seed, con.x + con.y + sum);
+sum = sum + swayRandomized(seed, con.y + con.z + sum);
+return sum * 0.3333333333 + 0.5;
+}
+void gmGeneratedMainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+vec2 uv = fragCoord/iResolution.y;
+float aTime = iTime * blazeTimeScale;
+vec3 s = vec3(swayRandomized(-16405.31527, aTime - 1.11),
+swayRandomized(-77664.8142, aTime + 1.41),
+swayRandomized(-50993.5190, aTime + 2.61)) * blazeScale;
+vec3 c = vec3(swayRandomized(-10527.92407, aTime - 1.11),
+swayRandomized(-61557.6687, aTime + 1.41),
+swayRandomized(-43527.8990, aTime + 2.61)) * blazeScale;
+vec3 con = vec3(0.0004375, 0.0005625, 0.0008125) * aTime + c * uv.x + s * uv.y;
+con.x = cosmic(SEED, con);
+con.y = cosmic(SEED, con);
+con.z = cosmic(SEED, con);
+fragColor = vec4(pow(clamp(sin(con * blazeColorCycles) * 0.5 + 0.5, 0.0, 1.0), vec3(1.0/max(blazeContrast,0.01))),1.0);
+}
+void main(){
+vec4 gmGenerated=vec4(0.0);
+gmGeneratedMainImage(gmGenerated,acScreenNorm*acScreenSize);
+vec4 gmSource=texture2DCv(inputImg.texture,acScreenNorm);
+float gmAlpha=gmClip?gmSource.a:gmGenerated.a;
+vec4 gmResult=vec4(gmGenerated.rgb*gmAlpha,gmAlpha);
+gl_FragColor=mix(gmSource,gmResult,gmMix);
+gl_FragColor *= texture2DCv(inputImg.texture, acScreenNorm).a;
+}]]></shader>
+</effect>

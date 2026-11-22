@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.shaderpack.grain_blur" name="GM Grain Blur" desc="Noise-rotated lavender/orange field with independent warp, grain, balance and three-colour palette." category="blur" tags="gm,shader,procedural,blur" thumb="thumb/gm-grain-blur.webp" overdraw="true" max-overdraw="0.3" experimental="false" deprecated="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Grain Flow" />
+<spinner id="grainEvolution" default="0" min="-1000" max="1000" step="0.01" label="Evolution" />
+<switch id="grainAnimate" default="true" label="Animate Warp" />
+<spinner id="grainSpeed" default="1" min="-6" max="6" step="0.01" label="Animation Speed" />
+<spinner id="grainTimeSpeed" default="1" min="0" max="4" step="0.01" label="Flow Speed" />
+<spinner id="grainBalance" default="0.2" min="-0.5" max="0.5" step="0.01" label="Color Balance" />
+<spinner id="grainWarp" default="1" min="0.01" max="2" step="0.01" label="Warp Strength" />
+<spinner id="grainFrequency" default="5" min="0.2" max="20" step="0.1" label="Warp Frequency" />
+<spinner id="grainStrength" default="0.09" min="0" max="0.3" step="0.005" label="Film Grain" />
+<color id="grainLavender" default="#FFDDD3F6" label="Lavender" alpha="false" />
+<color id="grainOrange" default="#FFF0683F" label="Orange" alpha="false" />
+<color id="grainDark" default="#FF000C12" label="Dark" alpha="false" />
+<section text="Composite" />
+<spinner id="gmMix" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<switch id="gmClip" default="false" label="Clip to Layer" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[#define iTime (grainEvolution + (grainAnimate ? acTime * grainSpeed : 0.0))
+#define iResolution vec3(acScreenSize, 1.0)
+#define iDate vec4(0.0, 0.0, 0.0, iTime)
+#define iMouse vec4(acScreenSize * 0.5, 0.0, 0.0)
+#define S(a,b,t) smoothstep(a,b,t)
+mat2 Rot(float a) {
+float s = sin(a); float c = cos(a);
+return mat2(c, -s, s, c);
+}
+vec2 hash( vec2 p ) {
+p = vec2( dot(p,vec2(2127.1,81.17)), dot(p,vec2(1269.5,283.37)) );
+return fract(sin(p)*43758.5453);
+}
+float noise( in vec2 p ) {
+vec2 i = floor( p ); vec2 f = fract( p );
+vec2 u = f*f*(3.0-2.0*f);
+float n = mix( mix( dot( -1.0+2.0*hash( i + vec2(0.0,0.0) ), f - vec2(0.0,0.0) ),
+dot( -1.0+2.0*hash( i + vec2(1.0,0.0) ), f - vec2(1.0,0.0) ), u.x),
+mix( dot( -1.0+2.0*hash( i + vec2(0.0,1.0) ), f - vec2(0.0,1.0) ),
+dot( -1.0+2.0*hash( i + vec2(1.0,1.0) ), f - vec2(1.0,1.0) ), u.x), u.y);
+return 0.5 + 0.5*n;
+}
+void gmGeneratedMainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+float timeSpeed = grainTimeSpeed;
+float colorBalance = grainBalance;
+float warpStrength = grainWarp;
+float grainAmount = grainStrength;
+float t = iTime * timeSpeed;
+vec2 uv = fragCoord/iResolution.xy;
+float ratio = iResolution.x / iResolution.y;
+vec2 tuv = uv - 0.5;
+float degree = noise(vec2(t * 0.1, tuv.x * tuv.y));
+tuv.y *= 1./ratio;
+tuv *= Rot(radians((degree - 0.5) * 720. + 180.));
+tuv.y *= ratio;
+float frequency = grainFrequency;
+float amplitude = 30. / warpStrength;
+tuv.x += sin(tuv.y * frequency + (t * 2.)) / amplitude;
+tuv.y += sin(tuv.x * (frequency * 1.5) + (t * 2.)) / (amplitude * 0.5);
+vec3 colLavender = grainLavender.rgb;
+vec3 colOrange = grainOrange.rgb;
+vec3 colDark = grainDark.rgb;
+float b = colorBalance;
+vec3 layer1 = mix(colDark, colOrange, S(-0.3 - b, 0.2 - b, (tuv * Rot(radians(-5.))).x));
+vec3 layer2 = mix(colOrange, colLavender, S(-0.3 - b, 0.2 - b, (tuv * Rot(radians(-5.))).x));
+vec3 col = mix(layer1, layer2, S(0.5 - b, -0.3 - b, tuv.y));
+float grain = fract(sin(dot(uv, vec2(12.9898, 78.233))) * 43758.5453);
+col += (grain - 0.5) * grainAmount;
+fragColor = vec4(col, 1.0);
+}
+void main(){
+vec4 gmGenerated=vec4(0.0);
+gmGeneratedMainImage(gmGenerated,acScreenNorm*acScreenSize);
+vec4 gmSource=texture2DCv(inputImg.texture,acScreenNorm);
+float gmAlpha=gmClip?gmSource.a:gmGenerated.a;
+vec4 gmResult=vec4(gmGenerated.rgb*gmAlpha,gmAlpha);
+gl_FragColor=mix(gmSource,gmResult,gmMix);
+}]]></shader>
+</effect>

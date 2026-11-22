@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_warp_fbm" name="GM Warp FBM" desc="Animated pink fractal Brownian motion field." category="procedural" thumb="thumb/warp-fbm.webp" tags="gm,procedural,noise,fbm">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Warp FBM" />
+<spinner id="time" default="0.0" min="0.0" max="100000.0" label="Time" step="0.001" />
+<spinner id="speed" default="1.0" min="-5.0" max="5.0" label="Animation Speed" step="0.01" />
+<spinner id="scale" default="2.0" min="0.1" max="12.0" label="UV Scale" step="0.01" />
+<spinner id="contrast" default="1.0" min="0.1" max="3.0" label="Contrast" step="0.01" />
+<spinner id="sourceMix" default="0.0" min="0.0" max="1.0" label="Source Mix" step="0.01" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[float rand(vec2 n){ return fract(sin(dot(n,vec2(12.9898,4.1414)))*43758.5453); }
+float noise(vec2 p){ vec2 ip=floor(p), u=fract(p); u=u*u*(3.0-2.0*u); float r=mix(mix(rand(ip),rand(ip+vec2(1.0,0.0)),u.x),mix(rand(ip+vec2(0.0,1.0)),rand(ip+vec2(1.0,1.0)),u.x),u.y); return r*r; }
+const mat2 M=mat2(0.80,0.60,-0.60,0.80);
+float fbm(vec2 p,float t){ float f=0.0; f+=0.500000*noise(p+t); p=M*p*2.02; f+=0.031250*noise(p); p=M*p*2.01; f+=0.250000*noise(p); p=M*p*2.03; f+=0.125000*noise(p); p=M*p*2.01; f+=0.062500*noise(p); p=M*p*2.04; f+=0.015625*noise(p+sin(t)); return f/0.96875; }
+float pattern(vec2 p,float t){ return fbm(p+fbm(p+fbm(p,t),t),t); }
+vec3 colormap(float x){
+float r=x<0.0?54.0/255.0:(x<20049.0/82979.0?(829.79*x+54.51)/255.0:1.0);
+float g=x<20049.0/82979.0?0.0:(x<327013.0/810990.0?(8546482679670.0/10875673217.0*x-2064961390770.0/10875673217.0)/255.0:(x<=1.0?(103806720.0/483977.0*x+19607415.0/483977.0)/255.0:1.0));
+float b=x<0.0?54.0/255.0:(x<7249.0/82979.0?(829.79*x+54.51)/255.0:(x<20049.0/82979.0?127.0/255.0:(x<327013.0/810990.0?(792.0224934*x-64.3647907)/255.0:1.0)));
+return vec3(r,g,b);
+}
+void main(){ vec2 uv=(acScreenNorm*acScreenSize)/acScreenSize.x*scale; float shade=pow(clamp(pattern(uv,time*speed),0.0,1.0),1.0/contrast); vec3 src=texture2DCv(inputImg.texture,acScreenNorm).rgb; gl_FragColor=vec4(mix(colormap(shade),src,sourceMix),1.0);
+gl_FragColor *= texture2DCv(inputImg.texture, acScreenNorm).a;
+}]]></shader>
+</effect>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.gm.prismfield" name="GM Prism Field" desc="Multi-chromatic bokeh and prism diffusion." category="blur" tags="prism,bokeh,blur" thumb="thumb/GM_PRISM_FIELD_2.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="amount" default="0.02" min="0.0" max="0.2" step="0.01" label="Prism Amount" />
+<spinner id="blur" default="1.0" min="0.0" max="5.0" step="0.1" label="Diffusion" />
+  <section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[void main() {
+vec2 uv = acScreenNorm;
+vec4 base = texture2DCv(inputImg.texture, uv);
+vec2 offsetR = vec2(amount, amount);
+vec2 offsetB = vec2(-amount, -amount);
+float r = texture2DCv(inputImg.texture, uv + offsetR * blur).r;
+float g = base.g;
+float b = texture2DCv(inputImg.texture, uv + offsetB * blur).b;
+gl_FragColor = vec4(r, g, b, base.a);
+}]]></shader>
+</effect>

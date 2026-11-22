@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/film_glow.webp" id="com.goldmotion.effects.v51.fastfilmglow" name="GM Fast Film Glow"
+desc="Efficient separable cinematic highlight glow with soft-knee extraction and alpha-safe composite."
+category="blur" tags="gm,fast,film,glow,bloom,highlight" overdraw="true" max-overdraw="0.6" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<texture id="blurH" srcType="buffer" downsample="2" />
+<texture id="blurV" srcType="buffer" downsample="2" />
+<spinner id="threshold" default="0.55" min="0" max="2" step="0.01" label="Threshold" />
+<spinner id="softKnee" default="0.35" min="0.01" max="1" step="0.01" label="Soft Knee" />
+<spinner id="radiusPx" default="28" min="1" max="180" step="1" label="Radius" />
+<spinner id="intensity" default="1.2" min="0" max="10" step="0.05" label="Intensity" />
+<color id="glowColor" default="#FFFFE4C0" label="Glow Color" alpha="false" />
+<spinner id="saturation" default="1.1" min="0" max="3" step="0.01" label="Saturation" />
+<spinner id="mixAmount" default="1" min="0" max="1" step="0.01" label="Mix" type="percent" />
+<section text="MOD BY PNKJ" />
+</params>
+<passes><pass target="blurH" /><pass target="blurV" /><pass /></passes>
+<shader type="fragment" precision="high"><![CDATA[vec4 gmExtract(vec4 c){float l=max(max(c.r,c.g),c.b);float x=max(l-threshold,0.0)+softKnee*log(1.0+exp((l-threshold)/max(softKnee,0.001)));return vec4(c.rgb*x/max(l,0.0001),c.a);}
+vec4 gmBlur(sampler2D tex,vec2 uv,vec2 stepUv){vec4 s=vec4(0.0);float w=0.0;for(int i=-12;i<=12;i++){float x=float(i)/12.0;float k=exp(-x*x*3.2);s+=texture2DCv(tex,clamp(uv+stepUv*float(i),0.0,1.0))*k;w+=k;}return s/w;}
+void main(){
+vec2 uv=acScreenNorm;
+if(acPass==0){vec2 sz=max(inputImg.size,vec2(1.0));gl_FragColor=gmBlur(inputImg.texture,uv,vec2(radiusPx/12.0/sz.x,0.0));gl_FragColor=gmExtract(gl_FragColor);return;}
+if(acPass==1){vec2 sz=max(blurH.size,vec2(1.0));gl_FragColor=gmBlur(blurH.texture,uv,vec2(0.0,radiusPx/12.0/sz.y));return;}
+vec4 src=texture2DCv(inputImg.texture,uv),g=texture2DCv(blurV.texture,uv);float l=dot(g.rgb,vec3(0.2126,0.7152,0.0722));g.rgb=mix(vec3(l),g.rgb,saturation)*glowColor.rgb*intensity;
+vec3 outRgb=src.rgb+g.rgb;gl_FragColor=vec4(mix(src.rgb,outRgb,mixAmount),src.a+clamp(g.a*intensity,0.0,1.0)*mixAmount*(1.0-src.a));
+}]]></shader>
+</effect>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.gm3d.cylinderwrappro" name="GM Cylinder Wrap Pro" desc="Wraps the layer around a shaded cylindrical surface with directional rotation and lens depth." category="3d" tags="gm,3d,cylinder,wrap,curved,projection" thumb="thumb/cylinder_wrap_pro.webp" overdraw="true" max-overdraw="0.3" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="curve" default="0.72" min="-1.5" max="1.5" step="0.01" label="Cylinder Curve" />
+<spinner id="radius" default="0.55" min="0.08" max="2" step="0.01" label="Radius" />
+<spinner id="direction" default="0" min="-3600" max="3600" step="0.5" type="angle" label="Direction" />
+<spinner id="perspective" default="0.7" min="0" max="2" step="0.01" label="Perspective" />
+<spinner id="specular" default="0.38" min="0" max="1" step="0.01" label="Specular" />
+<spinner id="mixAmount" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[void main(){
+vec2 uv=acScreenNorm,p=uv-0.5; float c=cos(direction),s=sin(direction);
+mat2 r=mat2(c,-s,s,c); vec2 a=r*p;
+float theta=a.x/max(radius,0.01)*curve*1.5707963;
+float z=(1.0-cos(theta))*radius;
+vec2 w=vec2(sin(theta)*radius/max(abs(curve)*1.5707963,0.001),a.y/(1.0+z*perspective));
+if(curve<0.0) w.x=-w.x;
+vec2 q=mat2(c,s,-s,c)*w+0.5;
+float valid=step(0.0,q.x)*step(q.x,1.0)*step(0.0,q.y)*step(q.y,1.0);
+vec4 src=texture2DCv(inputImg.texture,uv),dst=texture2DCv(inputImg.texture,clamp(q,0.0,1.0));
+float highlight=pow(max(cos(theta),0.0),8.0);
+dst.rgb*=0.58+0.42*max(cos(theta),0.0); dst.rgb+=highlight*specular;
+gl_FragColor=mix(src,dst,mixAmount*valid);
+}]]></shader>
+</effect>

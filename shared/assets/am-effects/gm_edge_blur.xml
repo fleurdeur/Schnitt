@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_edge_blur" name="GM Edge Blur" desc="Directional edge-aware blur with adjustable comparison split." category="blur" thumb="thumb/gmedgeblur.webp" tags="gm,blur,edge,comparison">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Edge Blur" />
+<spinner id="radius" default="5.0" min="0.0" max="40.0" label="Radius (Pixels)" step="0.1" />
+<spinner id="sensitivity" default="0.5" min="0.01" max="2.0" label="Edge Sensitivity" step="0.01" />
+<spinner id="split" default="1.0" min="0.0" max="1.0" label="Blur Coverage" step="0.01" />
+<spinner id="feather" default="0.02" min="0.001" max="0.25" label="Coverage Feather" step="0.001" />
+<spinner id="strength" default="1.0" min="0.0" max="1.0" label="Blur Strength" step="0.01" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[void main(){
+vec2 uv=acScreenNorm, px=1.0/max(acScreenSize,vec2(1.0));
+vec4 base=texture2DCv(inputImg.texture,uv); vec3 sum=base.rgb; float w=1.0;
+for(int y=-2;y<=2;y++) for(int x=-2;x<=2;x++){
+if(x==0 && y==0) continue;
+vec2 off=vec2(float(x),float(y))*px*radius*0.5;
+vec3 s=texture2DCv(inputImg.texture,clamp(uv+off,0.0,1.0)).rgb;
+float edge=1.0-smoothstep(sensitivity,sensitivity*2.0,length(s-base.rgb));
+float weight=edge/(1.0+dot(vec2(float(x),float(y)),vec2(float(x),float(y)))); sum+=s*weight; w+=weight;
+}
+vec3 blurred=sum/max(w,0.0001); float mask=smoothstep(split-feather,split+feather,uv.x);
+vec3 outCol=mix(base.rgb,blurred,strength*mask);
+gl_FragColor=vec4(outCol,base.a);
+}]]></shader>
+</effect>

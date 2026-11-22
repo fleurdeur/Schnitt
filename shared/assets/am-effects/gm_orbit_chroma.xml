@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.gm.orbitchroma" name="GM Orbit Chroma" desc="Rotational chromatic aberration." category="distortion" tags="chroma,aberration,spin" thumb="thumb/GM_ORBIT_CHROMA.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="angle" default="0.0" min="-180.0" max="180.0" step="1.0" label="Displacement Angle" />
+<spinner id="distance" default="0.05" min="0.0" max="0.5" step="0.01" label="Chroma Distance" />
+  <section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[void main() {
+vec2 uv = acScreenNorm;
+float rad = radians(angle);
+vec2 dirR = vec2(cos(rad), sin(rad)) * distance;
+vec2 dirB = vec2(cos(rad + 3.1415), sin(rad + 3.1415)) * distance;
+float r = texture2DCv(inputImg.texture, uv + dirR).r;
+float g = texture2DCv(inputImg.texture, uv).g;
+float b = texture2DCv(inputImg.texture, uv + dirB).b;
+gl_FragColor = vec4(r, g, b, texture2DCv(inputImg.texture, uv).a);
+}]]></shader>
+</effect>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.shaderpack.mezmeration" name="GM Mezmeration" desc="Source luminance treatment with selectable channel weighting, contrast, inversion and tint." category="color" tags="gm,shader,procedural,color" thumb="thumb/mezmeration.webp" overdraw="true" max-overdraw="0.3" experimental="false" deprecated="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Monochrome Response" />
+<spinner id="mezRedWeight" default="0.299" min="0" max="1" step="0.001" label="Red Weight" />
+<spinner id="mezGreenWeight" default="0.587" min="0" max="1" step="0.001" label="Green Weight" />
+<spinner id="mezBlueWeight" default="0.114" min="0" max="1" step="0.001" label="Blue Weight" />
+<spinner id="mezContrast" default="1" min="0" max="4" step="0.01" label="Contrast" />
+<spinner id="mezBrightness" default="0" min="-1" max="1" step="0.01" label="Brightness" />
+<switch id="mezInvert" default="false" label="Invert Luminance" />
+<color id="mezTint" default="#FFFFFFFF" label="Tint" alpha="false" />
+<section text="Composite" />
+<spinner id="gmMix" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<switch id="gmClip" default="true" label="Clip to Layer" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[#define iTime (0.0)
+#define iResolution vec3(acScreenSize, 1.0)
+#define iDate vec4(0.0, 0.0, 0.0, iTime)
+#define iMouse vec4(acScreenSize * 0.5, 0.0, 0.0)
+void gmGeneratedMainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+vec2 uv = fragCoord / iResolution.xy;
+vec3 mezSample = texture2DCv(inputImg.texture, uv).rgb; float val = dot(mezSample, vec3(mezRedWeight,mezGreenWeight,mezBlueWeight)); val = (val-0.5)*mezContrast+0.5+mezBrightness; if(mezInvert) val=1.0-val;
+fragColor = vec4(vec3(val)*mezTint.rgb, texture2DCv(inputImg.texture,uv).a);
+}
+void main(){
+vec4 gmGenerated=vec4(0.0);
+gmGeneratedMainImage(gmGenerated,acScreenNorm*acScreenSize);
+vec4 gmSource=texture2DCv(inputImg.texture,acScreenNorm);
+float gmAlpha=gmClip?gmSource.a:gmGenerated.a;
+vec4 gmResult=vec4(gmGenerated.rgb*gmAlpha,gmAlpha);
+gl_FragColor=mix(gmSource,gmResult,gmMix);
+}]]></shader>
+</effect>

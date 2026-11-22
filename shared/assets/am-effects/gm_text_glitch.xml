@@ -1,0 +1,155 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_text_glitch"
+name="GM Text Glitch"
+desc="A bursty corruption, not a constant noise. A burst clock decides WHEN the text is attacked; between bursts the text is untouched. Inside a burst four independent strikes fire on their own hashed blocks: whole blocks of characters are displaced (the sliced-and-reglued datamosh look), individual glyphs are swapped for a chosen pool, characters stutter by repeating themselves, and characters drop out entirely. Every strike is hashed from the burst index, so no two bursts are alike, and nothing is random - a preview and an export produce exactly the same frames. The clock runs on the LAYER's own time, so the corruption travels with the layer."
+category="text"
+tags="gm,text,glitch,corrupt,datamosh,kinetic,error,cyber"
+affinity="text!" type="text"
+experimental="false"
+thumb="thumb/gm_text_glitch.webp">
+<params>
+<section text="Burst Clock" />
+<spinner id="rate" default="2.0" min="0.0" max="12.0" step="0.01" label="Bursts per Second" />
+<spinner id="burstLen" default="0.30" min="0.02" max="1.0" step="0.01" type="percent" label="Burst Length" />
+<spinner id="burstFade" default="0.25" min="0.0" max="1.0" step="0.01" type="percent" label="Burst Softness" />
+<spinner id="offset" default="0.0" min="0.0" max="1.0" step="0.001" type="percent" label="Phase" />
+<spinner id="seed" default="0.0" min="0.0" max="20.0" step="0.01" label="Seed" />
+<section text="Strikes" />
+<spinner id="subAmount" default="0.35" min="0.0" max="1.0" step="0.01" type="percent" label="Glyph Substitution" />
+<spinner id="shiftAmount" default="0.25" min="0.0" max="1.0" step="0.01" type="percent" label="Block Displace" />
+<spinner id="shiftRange" default="4" min="1" max="24" step="1" type="integer" label="Displace Distance" />
+<spinner id="stutterAmount" default="0.15" min="0.0" max="1.0" step="0.01" type="percent" label="Stutter" />
+<spinner id="dropAmount" default="0.10" min="0.0" max="1.0" step="0.01" type="percent" label="Dropout" />
+<spinner id="blockSize" default="3" min="1" max="16" step="1" type="integer" label="Block Size" />
+<selector id="charset" style="dropdown" default="4" label="Glitch Glyphs">
+<choice value="0" label="Uppercase" />
+<choice value="1" label="Lowercase" />
+<choice value="2" label="Digits" />
+<choice value="3" label="Mixed Case" />
+<choice value="4" label="Digits and Letters" />
+<choice value="5" label="Symbols" />
+<choice value="6" label="Blocks" />
+<choice value="7" label="Binary" />
+<choice value="8" label="Katakana" />
+</selector>
+<switch id="preserveSpace" default="true" label="Keep Spaces" />
+<section text="Range" />
+<spinner id="start" default="0.0" min="0.0" max="1.0" step="0.001" type="percent" label="Start" />
+<spinner id="end" default="1.0" min="0.0" max="1.0" step="0.001" type="percent" label="End" />
+<section text="Output" />
+<spinner id="amount" default="1.0" min="0.0" max="1.0" step="0.01" type="percent" label="Glitch Amount" />
+<section text="MOD BY PNKJ" />
+</params>
+<script lang="js"><![CDATA[function hash21(x, y){
+let s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
+return s - Math.floor(s);
+}
+
+function animate(env, el, p){
+let base = el.text;
+let n = base.length;
+if( n < 1 ) return el;
+
+// ---- burst clock --------------------------------------------------------
+// env.time is 0..1 across the layer and env.duration is seconds, so t is the
+// layer's own clock. Bursts are keyed on it, never on wall time, so a preview
+// and an export agree frame for frame.
+let t   = env.time * env.duration;
+let cyc = t * p.rate + p.offset;
+let bi  = Math.floor(cyc);
+let bf  = cyc - bi;
+
+let bl = Math.max(p.burstLen, 0.02);
+let gate = 0.0;
+if( bf < bl ){
+let f = Math.max(bl * p.burstFade, 1e-3);
+let e = Math.min(bf / f, (bl - bf) / f);
+gate = Math.max(0.0, Math.min(1.0, e));
+}
+let amt = p.amount * gate;
+if( amt < 0.0001 ) return el;
+
+// ---- active range -------------------------------------------------------
+let a0 = Math.min(p.start, p.end);
+let a1 = Math.max(p.start, p.end);
+let lo = Math.floor(n * a0);
+let hi = Math.ceil(n * a1);
+if( hi <= lo ) return el;
+
+// ---- glyph pool ---------------------------------------------------------
+let cs = "";
+let c = Math.round(p.charset);
+if( c < 1 ) cs = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+else if( c < 2 ) cs = "abcdefghijklmnopqrstuvwxyz";
+else if( c < 3 ) cs = "0123456789";
+else if( c < 4 ) cs = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+else if( c < 5 ) cs = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+else if( c < 6 ) cs = "!@#$%^&*()_+-=[]{};:,.<>/?|~";
+else if( c < 7 ) cs = "\u2588\u2593\u2592\u2591\u25A0\u25AA\u25AB\u2580\u2584";
+else if( c < 8 ) cs = "01";
+else cs = "\u30A2\u30AB\u30B5\u30BF\u30CA\u30CF\u30DE\u30E4\u30E9\u30EF\u30F2\u30F3";
+if( cs.length < 1 ) cs = "0123456789";
+
+let arr = base.split("");
+
+// ---- strike 1: block displacement --------------------------------------
+// Whole blocks are ROTATED by a hashed amount. Rotating rather than shuffling
+// is what gives the sliced-and-reglued datamosh read instead of per-character
+// jitter, and it keeps every character count intact.
+let bs = Math.max(1, Math.round(p.blockSize));
+if( p.shiftAmount > 0.0001 ){
+for( let b = 0; b * bs < n; b = b + 1 ){
+let s0 = b * bs;
+let s1 = Math.min(s0 + bs, n);
+let ln = s1 - s0;
+if( ln > 1 && s0 >= lo && s0 < hi ){
+let hb = hash21(b + p.seed * 13.7, bi * 3.1 + p.seed * 7.3);
+if( hb < p.shiftAmount * amt ){
+let off = Math.floor(hash21(b + 91.7 + p.seed, bi + 17.3) * (p.shiftRange * 2 + 1)) - p.shiftRange;
+off = ((off % ln) + ln) % ln;
+if( off > 0 ){
+let tmp = [];
+for( let k = 0; k < ln; k = k + 1 ){ tmp.push(arr[s0 + k]); }
+for( let k = 0; k < ln; k = k + 1 ){ arr[s0 + k] = tmp[(k + off) % ln]; }
+}
+}
+}
+}
+}
+
+// ---- strikes 2-4: substitute, stutter, drop -----------------------------
+// Three independent hashes per index so a character can, say, survive the drop
+// roll and still get substituted. Drop wins over everything, substitution
+// wins over the original glyph, stutter is additive.
+let out = "";
+for( let i = 0; i < n; i = i + 1 ){
+let ch = arr[i];
+if( i >= lo && i < hi ){
+let h1 = hash21(i + p.seed * 13.7, bi * 5.3 + p.seed * 7.3);
+let h2 = hash21(i * 1.7 + p.seed * 3.1, bi * 9.7 + p.seed * 2.9);
+let h3 = hash21(i * 2.3 + p.seed * 5.5, bi * 1.3 + p.seed * 4.1);
+let dropped = (p.dropAmount > 0.0001) && (h3 < p.dropAmount * amt) && !(p.preserveSpace && ch == " ");
+if( !dropped ){
+let emit = ch;
+if( (p.subAmount > 0.0001) && (h1 < p.subAmount * amt) && !(p.preserveSpace && ch == " ") ){
+let gi = Math.floor(hash21(i * 3.9 + p.seed, bi * 7.7 + p.seed * 3.3) * cs.length);
+if( gi > cs.length - 1 ) gi = cs.length - 1;
+if( gi < 0 ) gi = 0;
+emit = cs.charAt(gi);
+}
+out = out + emit;
+if( (p.stutterAmount > 0.0001) && (h2 < p.stutterAmount * amt) && ch != " " ){
+let reps = 1 + Math.floor(hash21(i * 5.1 + p.seed, bi * 2.7 + p.seed * 6.1) * 3);
+for( let r = 0; r < reps; r = r + 1 ){ out = out + ch; }
+}
+}
+} else {
+out = out + ch;
+}
+}
+
+el.text = out;
+return el;
+}]]></script>
+</effect>
+

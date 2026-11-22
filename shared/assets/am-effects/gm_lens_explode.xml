@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect
+id="com.goldmotion.effects.v53.procedural.lensexplode"
+name="GM Lens Explode"
+desc="Radial RGB lens explosion with animated tiled light, editable center, pulse and compositing controls."
+category="procedural"
+tags="gm,lens,explode,radial,rgb,light,procedural,shadertoy,pulse"
+thumb="thumb/gm-lens-explode.webp"
+overdraw="true"
+max-overdraw="0.2"
+experimental="false"
+deprecated="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Animation" />
+<spinner id="evolution" default="0" min="-1000" max="1000" step="0.01" label="Evolution" />
+<switch id="autoAnimate" default="true" label="Auto Animate" />
+<spinner id="speed" default="1.0" min="-8.0" max="8.0" step="0.01" label="Speed" />
+<spinner id="channelPhase" default="0.07" min="0.0" max="1.0" step="0.005" label="RGB Phase" />
+<section text="Explosion" />
+<spinner id="explosion" default="1.0" min="0.0" max="4.0" step="0.01" label="Explosion Amount" />
+<spinner id="pulseBias" default="1.0" min="0.0" max="2.0" step="0.01" label="Pulse Bias" />
+<spinner id="radialFrequency" default="9.0" min="0.5" max="40.0" step="0.1" label="Radial Frequency" />
+<spinner id="phaseRate" default="2.0" min="-8.0" max="8.0" step="0.01" label="Phase Motion" />
+<spinner id="radialFalloff" default="1.0" min="0.0" max="2.5" step="0.01" label="Center Falloff" />
+<section text="Lens Grid" />
+<spinner id="gridDensity" default="1.0" min="0.25" max="16.0" step="0.05" label="Grid Density" />
+<spinner id="lightWidth" default="0.01" min="0.001" max="0.08" step="0.001" label="Light Width" />
+<spinner id="cellRoundness" default="2.0" min="0.25" max="3.0" step="0.01" label="Cell Roundness" />
+<spinner id="zoom" default="1.0" min="0.1" max="8.0" step="0.01" label="Zoom" />
+<spinner id="angle" default="0" min="-3600" max="3600" step="0.25" ticks="-180,-90,0,90,180" type="angle" label="Angle" />
+<spinner id="centerX" default="0.0" min="-1.0" max="1.0" step="0.005" label="Center X" />
+<spinner id="centerY" default="0.0" min="-1.0" max="1.0" step="0.005" label="Center Y" />
+<section text="Color and Output" />
+<selector id="colorMode" style="dropdown" default="0" label="Color Mode">
+<choice label="Original RGB" value="0" />
+<choice label="Tinted" value="1" />
+<choice label="Monochrome" value="2" />
+</selector>
+<color id="tintColor" default="#FFFFB84D" label="Tint Color" alpha="false" />
+<color id="backgroundColor" default="#FF000000" label="Background" alpha="false" />
+<spinner id="intensity" default="1.0" min="0.0" max="8.0" step="0.02" label="Intensity" />
+<spinner id="softLimit" default="4.0" min="0.1" max="8.0" step="0.01" label="Highlight Roll-off" />
+<switch id="invert" default="false" label="Invert Pattern" />
+<selector id="blendMode" style="dropdown" default="0" label="Composite">
+<choice label="Replace" value="0" />
+<choice label="Add" value="1" />
+<choice label="Screen" value="2" />
+</selector>
+<spinner id="mixAmount" default="1.0" min="0.0" max="1.0" step="0.01" type="percent" label="Mix" />
+<switch id="clipToLayer" default="true" label="Clip to Layer" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[mat2 gmRotate(float radiansValue){
+float s = sin(radiansValue);
+float c = cos(radiansValue);
+return mat2(c, -s, s, c);
+}
+vec3 gmSoftLimit(vec3 value){
+float limitValue = max(softLimit, 0.001);
+return value / (vec3(1.0) + value / limitValue);
+}
+void main(){
+vec2 uv = acScreenNorm;
+vec4 source = texture2DCv(inputImg.texture, uv);
+float timeValue = evolution;
+if(autoAnimate) timeValue += acTime * speed;
+vec2 center = vec2(0.5 + centerX * 0.5, 0.5 + centerY * 0.5);
+vec2 position = uv - center;
+position.x *= acScreenSize.x / max(acScreenSize.y, 1.0);
+position = gmRotate(angle) * position;
+position *= zoom;
+float radius = max(length(position), 0.00075);
+vec2 radialDirection = position / radius;
+vec2 gridBase = gmRotate(angle) * (uv - center);
+gridBase = gridBase * zoom + 0.5;
+vec3 channels = vec3(0.0);
+for(int i = 0; i < 3; i++){
+float phase = timeValue + channelPhase * float(i + 1);
+float pulse = (sin(phase) + pulseBias) * abs(sin(radius * radialFrequency - phase * phaseRate));
+vec2 lensUv = gridBase + radialDirection * pulse * explosion;
+vec2 cell = abs(fract(lensUv * max(gridDensity, 0.001)) - 0.5);
+float cellDistance = pow(
+pow(max(cell.x, 0.00001), cellRoundness) +
+pow(max(cell.y, 0.00001), cellRoundness),
+1.0 / max(cellRoundness, 0.001)
+);
+float channelValue = lightWidth / max(cellDistance, 0.00075);
+if(i == 0) channels.r = channelValue;
+else if(i == 1) channels.g = channelValue;
+else channels.b = channelValue;
+}
+float falloff = pow(radius, radialFalloff);
+vec3 pattern = channels / max(falloff, 0.015);
+pattern *= intensity;
+pattern = gmSoftLimit(max(pattern, vec3(0.0)));
+if(colorMode == 1){
+float luminance = dot(pattern, vec3(0.2126, 0.7152, 0.0722));
+pattern = tintColor.rgb * luminance;
+}else if(colorMode == 2){
+float luminance = dot(pattern, vec3(0.2126, 0.7152, 0.0722));
+pattern = vec3(luminance);
+}
+vec3 generated = backgroundColor.rgb + pattern;
+generated = clamp(generated, 0.0, 1.0);
+if(invert) generated = vec3(1.0) - generated;
+vec3 effected = generated;
+if(blendMode == 1){
+effected = clamp(source.rgb + generated, 0.0, 1.0);
+}else if(blendMode == 2){
+effected = vec3(1.0) - (vec3(1.0) - source.rgb) * (vec3(1.0) - generated);
+}
+vec3 outputColor = mix(source.rgb, effected, mixAmount);
+float outputAlpha = clipToLayer ? source.a : 1.0;
+gl_FragColor = vec4(outputColor * outputAlpha, outputAlpha);
+gl_FragColor *= texture2DCv(inputImg.texture, acScreenNorm).a;
+}]]></shader>
+</effect>

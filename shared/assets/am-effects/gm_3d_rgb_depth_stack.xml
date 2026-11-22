@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.gm3d.rgbdepthstack" name="GM RGB Depth Stack 3D" desc="Separates the layer into chromatic Z-slices with luma-aware spacing and directional perspective." category="3d" tags="gm,3d,rgb,depth,stack,chromatic" thumb="thumb/RGB_DEPTH_STACK.webp" overdraw="true" max-overdraw="0.35" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="layers" default="6" min="2" max="8" step="1" label="Depth Layers" />
+<spinner id="spread" default="0.035" min="0" max="0.2" step="0.001" label="Z Spread" />
+<spinner id="direction" default="-35" min="-3600" max="3600" step="0.5" type="angle" label="Direction" />
+<spinner id="lumaDepth" default="0.7" min="0" max="2" step="0.01" label="Luma Depth" />
+<spinner id="fade" default="0.72" min="0.1" max="1" step="0.01" label="Layer Fade" />
+<spinner id="mixAmount" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[void main(){
+vec2 uv=acScreenNorm,dir=vec2(cos(direction),sin(direction));
+vec4 src=texture2DCv(inputImg.texture,uv); float lum=dot(src.rgb,vec3(0.299,0.587,0.114));
+vec3 acc=vec3(0.0); float weight=0.0;
+for(int i=0;i<8;i++){
+float fi=float(i),enabled=step(fi+0.5,layers);
+float z=fi/max(layers-1.0,1.0), w=pow(fade,fi)*enabled;
+vec2 off=dir*spread*z*(0.35+lum*lumaDepth);
+vec4 cr=texture2DCv(inputImg.texture,clamp(uv-off*1.12,0.0,1.0));
+vec4 cg=texture2DCv(inputImg.texture,clamp(uv-off,0.0,1.0));
+vec4 cb=texture2DCv(inputImg.texture,clamp(uv-off*0.88,0.0,1.0));
+acc+=vec3(cr.r,cg.g,cb.b)*w; weight+=w;
+}
+vec3 stacked=acc/max(weight,0.001);
+float rim=clamp(length(stacked-src.rgb)*2.2,0.0,1.0);
+stacked+=vec3(0.12,0.05,0.18)*rim;
+gl_FragColor=vec4(mix(src.rgb,stacked,mixAmount),src.a);
+}]]></shader>
+</effect>

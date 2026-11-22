@@ -1,0 +1,163 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_granite"
+name="GM Granite"
+desc="Five stone surfaces generated in layer space. Granite builds crystalline cells from a cellular noise field and drops mineral speckle on top, Marble runs a turbulent sine through the field to make veins, Sandstone lays down horizontal sedimentary bands, Basalt grows columnar joints, and Concrete is an octave stack with grit. A real bump normal is taken from the pattern's own gradient and lit from an adjustable angle, so the surface has relief instead of being a flat texture. Pattern scale, octaves, crystal size, speckle, vein strength, roughness and a source modulation are all separate controls."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.30"
+thumb="thumb/gm_granite.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Surface" />
+<selector id="stoneMode" style="dropdown" default="0" label="Stone">
+<choice value="0" label="Granite" />
+<choice value="1" label="Marble" />
+<choice value="2" label="Sandstone" />
+<choice value="3" label="Basalt" />
+<choice value="4" label="Concrete" />
+</selector>
+<spinner id="scale" default="6.0" min="0.5" max="30.0" step="0.1" label="Pattern Scale" />
+<spinner id="detail" default="4" min="1" max="6" step="1" type="integer" label="Noise Octaves" />
+<spinner id="seed" default="11.0" min="0.0" max="64.0" step="0.5" label="Seed" />
+<section text="Crystals" />
+<spinner id="crystalSize" default="1.4" min="0.10" max="6.00" step="0.01" label="Crystal Size" />
+<spinner id="speckle" default="0.45" min="0.0" max="1.0" step="0.01" label="Speckle Amount" />
+<spinner id="speckleSize" default="0.55" min="0.0" max="1.0" step="0.01" label="Speckle Size" />
+<section text="Veins" />
+<spinner id="veinStrength" default="0.65" min="0.0" max="1.0" step="0.01" label="Vein Strength" />
+<spinner id="veinTurb" default="0.55" min="0.0" max="1.0" step="0.01" label="Vein Turbulence" />
+<section text="Relief" />
+<spinner id="roughness" default="0.60" min="0.0" max="1.0" step="0.01" label="Surface Roughness" />
+<spinner id="lightAngle" default="135.0" min="0.0" max="360.0" step="1.0" type="angle" label="Light Angle" />
+<spinner id="contrast" default="0.35" min="0.0" max="2.0" step="0.01" label="Pattern Contrast" />
+<section text="Colour" />
+<color id="stoneCol" default="#3a3f47" label="Base Stone" alpha="true" />
+<color id="mineralCol" default="#c9c2b2" label="Mineral" alpha="true" />
+<spinner id="sourceMix" default="0.45" min="0.0" max="1.0" step="0.01" label="Source Modulation" />
+<section text="Output" />
+<spinner id="mixAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Effect Strength" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec3 sat3v(vec3 c){ return clamp(c, vec3(0.0), vec3(1.0)); }
+float lum(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+// LAYER -> SCREEN. The stone is generated from layer coordinates, so it is
+// pinned to the layer and inherits its transform.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+
+float h21(vec2 p){ return fract(sin(dot(p + seed * 2.11, vec2(127.1, 311.7))) * 43758.5453123); }
+float h22(vec2 p){ return fract(sin(dot(p + seed * 2.11, vec2(269.5, 183.3))) * 43758.5453123); }
+
+float vnoise(vec2 p){
+vec2 i = floor(p);
+vec2 f = fract(p);
+f = f * f * (3.0 - 2.0 * f);
+return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x),
+           mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+float fbm(vec2 p){
+float s = 0.0;
+float amp = 0.5;
+for (int i = 0; i < 6; i++){
+if (float(i) >= float(detail)) break;
+s += amp * vnoise(p);
+p *= 2.03;
+amp *= 0.5;
+}
+return s;
+}
+
+// Cellular F1 - distance to the nearest feature point. This is the crystal
+// grain: quantising it is what makes granite look like granite.
+float worley(vec2 p){
+vec2 i = floor(p);
+vec2 f = fract(p);
+float d = 8.0;
+for (int j = -1; j <= 1; j++){
+for (int k = -1; k <= 1; k++){
+vec2 n  = vec2(float(k), float(j));
+vec2 pt = n + vec2(h21(i + n), h22(i + n));
+d = min(d, length(pt - f));
+}
+}
+return d;
+}
+
+// The raw stone value at a layer position, before colour and before lighting.
+float stoneAt(vec2 lp){
+vec2  sp = lp * max(scale, 0.05);
+float w  = worley(sp * max(crystalSize, 0.10));
+float fb = fbm(sp);
+float grit = h21(floor(sp * (4.0 + speckleSize * 30.0))) - 0.5;
+float base;
+
+if (stoneMode <= 0){
+base = w + grit * speckle * 0.9;
+} else if (stoneMode <= 1){
+// Marble - a sine driven sideways by turbulence. The pow() sharpens the
+// crest so the veins read as thin bright threads, not as broad waves.
+float t = fb * veinTurb * 6.0;
+base = 0.5 + 0.5 * sin((sp.x * 0.6 + sp.y * 0.35 + t) * 2.2);
+base = pow(max(base, 0.0), 3.0) * (0.55 + 0.90 * veinStrength);
+} else if (stoneMode <= 2){
+// Sandstone - horizontal beds, softened by noise so they are not ruled lines.
+base = 0.5 + 0.5 * sin(sp.y * 1.6 + fb * 2.4);
+base = mix(base, base * base, 0.40);
+} else if (stoneMode <= 3){
+// Basalt - the cellular field pushed hard so the joints become columns.
+base = pow(clamp(w * 1.70, 0.0, 1.0), 1.40);
+} else {
+base = fb * 0.85 + grit * speckle * 0.70;
+}
+
+return clamp(base, 0.0, 1.0);
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float a  = max(src.a, 1e-4);
+vec3 sc  = src.rgb / a;
+
+// ---- pattern + bump ----------------------------------------------------
+float e  = 1.6 / max(acLayerSize.y, 1.0);
+float b0 = stoneAt(lp);
+float bx = stoneAt(lp + vec2(e, 0.0));
+float by = stoneAt(lp + vec2(0.0, e));
+
+// Finite difference of the pattern IS the surface normal. Scaling the xy terms
+// by roughness is what turns a flat texture into a carved one.
+vec2 gg = vec2((bx - b0) / e, (by - b0) / e) * roughness * 0.06;
+vec3 n  = normalize(vec3(-gg, 1.0));
+
+float la = radians(lightAngle);
+vec3  L  = normalize(vec3(cos(la) * 0.75, sin(la) * 0.75, 0.66));
+float sh = clamp(dot(n, L), 0.0, 1.0);
+float shade = 0.42 + 1.00 * sh;
+
+// ---- colour ------------------------------------------------------------
+float bc = clamp((b0 - 0.5) * (1.0 + contrast) + 0.5, 0.0, 1.0);
+vec3  c  = mix(stoneCol.rgb, mineralCol.rgb, bc) * shade;
+
+// Source modulation keeps the stone tied to the layer's own picture instead of
+// covering it with an unrelated texture.
+c *= mix(1.0, 0.50 + 0.95 * lum(sc), clamp(sourceMix, 0.0, 1.0));
+
+c = sat3v(c);
+vec3  col = mix(sc, c, mixAmt);
+float oA  = src.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

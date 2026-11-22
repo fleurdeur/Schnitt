@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.gm3d.crystalrefraction" name="GM Crystal Refraction 3D" desc="Cuts the image into procedural crystal faces with depth refraction, RGB dispersion and sparkling edges." category="3d" tags="gm,3d,crystal,glass,refraction,facets" thumb="thumb/Crytal_refraction_3d.webp" overdraw="true" max-overdraw="0.3" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="facets" default="9" min="3" max="30" step="1" label="Facet Density" />
+<spinner id="refraction" default="0.035" min="-0.15" max="0.15" step="0.001" label="Refraction" />
+<spinner id="depth" default="0.8" min="0" max="2" step="0.01" label="Crystal Depth" />
+<spinner id="dispersion" default="0.55" min="0" max="2" step="0.01" label="Dispersion" />
+<spinner id="sparkle" default="0.4" min="0" max="1" step="0.01" label="Edge Sparkle" />
+<spinner id="mixAmount" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[float gmHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+void main(){
+vec2 uv=acScreenNorm,g=uv*max(facets,1.0),id=floor(g),f=fract(g);
+float tri=step(1.0,f.x+f.y); id+=tri; float seed=gmHash(id);
+float a=seed*6.2831853+tri*1.5707963; vec2 n=vec2(cos(a),sin(a));
+float faceDepth=(0.35+0.65*seed)*depth, off=refraction*faceDepth;
+vec2 qr=clamp(uv+n*off*(1.0+dispersion*0.35),0.0,1.0);
+vec2 qg=clamp(uv+n*off,0.0,1.0);
+vec2 qb=clamp(uv+n*off*(1.0-dispersion*0.35),0.0,1.0);
+vec4 sr=texture2DCv(inputImg.texture,qr),sg=texture2DCv(inputImg.texture,qg),sb=texture2DCv(inputImg.texture,qb);
+vec3 col=vec3(sr.r,sg.g,sb.b);
+float edge=min(min(f.x,f.y),abs(1.0-f.x-f.y));
+float shine=exp(-abs(edge)*max(facets,1.0)*2.2)*sparkle;
+col=col*(0.72+0.36*abs(n.y))+shine;
+vec4 src=texture2DCv(inputImg.texture,uv);
+gl_FragColor=vec4(mix(src.rgb,col,mixAmount),src.a);
+}]]></shader>
+</effect>

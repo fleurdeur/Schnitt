@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.gm.solarflaregrade" name="GM Solar Flare Grade" desc="Warm cinematic color grading and flare washout." category="color" tags="flare,sun,warm" thumb="thumb/GM_SOLAR_FLARE_GRADE.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="warmth" default="0.5" min="0.0" max="1.0" step="0.01" label="Warmth" />
+<spinner id="washout" default="0.2" min="0.0" max="1.0" step="0.01" label="Flare Washout" />
+<color id="tint" default="#FFFFA65C" label="Flare Tint" alpha="false" />
+  <section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[void main() {
+vec2 uv = acScreenNorm;
+vec4 base = texture2DCv(inputImg.texture, uv);
+base.r += warmth * 0.2;
+base.b -= warmth * 0.1;
+float dist = distance(uv, vec2(0.5));
+float flare = smoothstep(0.8, 0.0, dist) * washout;
+base.rgb += tint.rgb * flare;
+gl_FragColor = clamp(base, 0.0, 1.0);
+}]]></shader>
+</effect>

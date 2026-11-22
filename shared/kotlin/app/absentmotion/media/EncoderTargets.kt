@@ -35,6 +35,16 @@ internal fun h264Target(width: Int, height: Int, fps: Int): EncoderTarget? {
         add(0.2); add(0.15); add(0.1)
         add(2.0); add(4.0); add(8.0)
     }
+    // Reverse must not crop or silently resize a clip. Keep the source size even
+    // when the encoder's advertised rate range is narrower than the source fps.
+    val exactW = even(width.toDouble())
+    val exactH = even(height.toDouble())
+    for (encoder in encoders) {
+        val caps = encoder.caps
+        if (runCatching { caps.isSizeSupported(exactW, exactH) }.getOrDefault(false)) {
+            return EncoderTarget(exactW, exactH, encoder.name)
+        }
+    }
     val commons = listOf(1920 to 1080, 1280 to 720, 1080 to 1920, 720 to 1280, 1080 to 1080, 720 to 720, 640 to 360, 360 to 640)
     val candidates = ArrayList<Pair<Int, Int>>()
     for (scale in scales) candidates += even(width * scale) to even(height * scale)
@@ -61,18 +71,22 @@ internal fun h264Target(width: Int, height: Int, fps: Int): EncoderTarget? {
 }
 
 internal fun h264EncoderNames(width: Int, height: Int, fps: Int): List<String> {
-    val target = h264Target(width, height, fps) ?: return emptyList()
     return runCatching {
-        MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
+        val encoders = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
             .filter { it.isEncoder && !it.alias && MediaFormat.MIMETYPE_VIDEO_AVC in it.supportedTypes }
-            .filter { info -> runCatching {
-                val caps = info.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC).videoCapabilities
-                caps?.isSizeSupported(target.width, target.height) == true &&
-                    runCatching { caps.areSizeAndRateSupported(target.width, target.height, fps.toDouble()) }.getOrDefault(true)
-            }.getOrDefault(false) }
-            .sortedByDescending { it.isHardwareAccelerated }
-            .map { it.name }
-    }.getOrDefault(listOf(target.name))
+            .mapNotNull { info ->
+                val caps = runCatching { info.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC).videoCapabilities }.getOrNull()
+                    ?: return@mapNotNull null
+                if (!runCatching { caps.isSizeSupported(width, height) }.getOrDefault(false)) return@mapNotNull null
+                val rated = runCatching { caps.areSizeAndRateSupported(width, height, fps.toDouble()) }.getOrDefault(false)
+                Triple(info, caps, rated)
+            }
+        // Prefer an encoder that accepts the source rate, but never lose the exact
+        // source dimensions just because a high frame rate is outside the hint.
+        (encoders.filter { it.third } + encoders.filterNot { it.third }).distinctBy { it.first.name }
+            .sortedByDescending { it.first.isHardwareAccelerated }
+            .map { it.first.name }
+    }.getOrDefault(emptyList())
 }
 
 private fun even(value: Double): Int = maxOf(2, (value / 2).roundToInt() * 2)

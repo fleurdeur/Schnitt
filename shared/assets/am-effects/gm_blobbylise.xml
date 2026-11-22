@@ -1,0 +1,192 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_blobbylise"
+name="GM Blobbylise"
+desc="Melts the layer into organic blobs. A cellular field is built in layer space, each cell gets a jittered centre and a radius taken from the layer underneath it, and a smooth-minimum union then lets neighbouring blobs fuse wherever they touch. Five looks: Blobs gives flat rounded masses with an outline, Metaballs fuses them into liquid, Liquid Voronoi keeps the cell edges and bends the layer through a lens at every boundary, Cells keeps hard quantised tiles, and Wax pushes the dome shading and gloss so the blobs look cast. Size, wobble, merge distance, gloss, edge and a refraction amount are all separate."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.35"
+thumb="thumb/gm_blobbylise.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Blobs" />
+<selector id="blobMode" style="dropdown" default="1" label="Look">
+<choice value="0" label="Blobs" />
+<choice value="1" label="Metaballs" />
+<choice value="2" label="Liquid Voronoi" />
+<choice value="3" label="Cells" />
+<choice value="4" label="Wax" />
+</selector>
+<spinner id="scale" default="14.0" min="2.0" max="90.0" step="0.5" label="Blob Size (px)" />
+<spinner id="blobSize" default="0.62" min="0.20" max="1.50" step="0.01" label="Blob Radius" />
+<spinner id="merge" default="0.55" min="0.0" max="1.0" step="0.01" label="Merge Distance" />
+<spinner id="seed" default="5.0" min="0.0" max="64.0" step="0.5" label="Seed" />
+<section text="Surface" />
+<spinner id="wobble" default="0.35" min="0.0" max="1.0" step="0.01" label="Boundary Wobble" />
+<spinner id="wobbleScale" default="3.0" min="0.5" max="12.0" step="0.05" label="Wobble Scale" />
+<spinner id="depth" default="0.55" min="0.0" max="1.0" step="0.01" label="Dome Depth" />
+<spinner id="gloss" default="0.50" min="0.0" max="1.0" step="0.01" label="Gloss" />
+<spinner id="glossSharp" default="0.35" min="0.05" max="1.0" step="0.01" label="Gloss Tightness" />
+<spinner id="edge" default="0.40" min="0.0" max="1.0" step="0.01" label="Edge Darkening" />
+<spinner id="refractAmt" default="0.030" min="0.0" max="0.120" step="0.001" label="Refraction" />
+<section text="Output" />
+<spinner id="mixAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Effect Strength" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec3 sat3v(vec3 c){ return clamp(c, vec3(0.0), vec3(1.0)); }
+float lum(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+// LAYER -> SCREEN. The blob field lives in layer space, so the blobs are made of
+// the layer's own pixels and travel with it.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+vec3 strL(vec2 lp){ vec4 s = fetchL(lp); return s.rgb / max(s.a, 1e-4); }
+
+float h21(vec2 p){ return fract(sin(dot(p + seed * 3.31, vec2(127.1, 311.7))) * 43758.5453123); }
+float h22(vec2 p){ return fract(sin(dot(p + seed * 3.31, vec2(269.5, 183.3))) * 43758.5453123); }
+
+float vnoise(vec2 p){
+vec2 i = floor(p);
+vec2 f = fract(p);
+f = f * f * (3.0 - 2.0 * f);
+return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x),
+           mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+// Polynomial smooth minimum. This is the whole effect: a plain min() would give
+// hard Voronoi cells, smooth-min lets two blobs fuse with a fillet between them.
+float smin(float a, float b, float k){
+float h = clamp(0.5 + 0.5 * (b - a) / max(k, 1.0e-4), 0.0, 1.0);
+return mix(b, a, h) - k * h * (1.0 - h);
+}
+
+// F1, F2 and the winning cell id, packed. Returning the id instead of using an
+// out-parameter keeps the whole search in one function.
+vec4 blobField(vec2 p){
+vec2 i = floor(p);
+vec2 f = fract(p);
+float d1 = 8.0;
+float d2 = 8.0;
+vec2  bid = i;
+for (int j = -1; j <= 1; j++){
+for (int m = -1; m <= 1; m++){
+vec2 n  = vec2(float(m), float(j));
+vec2 c  = i + n;
+vec2 pt = n + vec2(0.5) + (vec2(h21(c), h22(c)) - 0.5) * 0.80;
+float d = length(pt - f);
+if (d < d1){ d2 = d1; d1 = d; bid = c; }
+else if (d < d2){ d2 = d; }
+}
+}
+return vec4(d1, d2, bid);
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float a  = max(src.a, 1e-4);
+vec3 sc  = src.rgb / a;
+
+float asp   = acLayerSize.x / max(acLayerSize.y, 1.0);
+float cells = max(acLayerSize.y / max(scale, 1.0), 1.0);
+vec2  p     = vec2(lp.x * asp, lp.y) * cells;
+
+vec4  F   = blobField(p);
+float d1  = F.x;
+float d2  = F.y;
+vec2  bid = F.zw;
+vec2  bc  = bid + vec2(0.5) + (vec2(h21(bid), h22(bid)) - 0.5) * 0.80;
+vec2  f   = fract(p);
+
+// The blob's own colour, read from the layer at the blob centre.
+vec2  blp = (bid + bc) / cells;
+blp.x /= asp;
+vec3  bcol = strL(blp);
+
+// Boundary wobble: push the distance around with a noise field so the blob edge
+// is organic rather than a perfect circle.
+float d1w = d1;
+if (wobble > 0.001){
+d1w += (vnoise(p * wobbleScale + bid * 1.7) - 0.5) * wobble * 0.28;
+}
+
+// Radius comes from the layer's brightness as well as the size control, so dark
+// areas shrink and bright areas swell - the blobs follow the picture.
+float rad = blobSize * 0.55 * (0.70 + 0.60 * lum(bcol));
+
+// Merge: smooth-min against the second-nearest cell. At 0 this is a plain
+// Voronoi; at 1 the blobs flow into each other.
+float sd = d1w - rad;
+if (merge > 0.001){
+sd = smin(d1w - rad, d2 - rad, merge * 0.75);
+}
+
+float inside = 1.0 - smoothstep(-0.012, 0.012, sd);
+
+// Dome profile - 1 at the blob centre, 0 at its rim. Drives both the shading
+// and the refraction, so they always agree.
+float rr   = clamp(d1w / max(rad, 1.0e-4), 0.0, 1.0);
+float dome = sqrt(max(1.0 - rr * rr, 0.0));
+
+// ---- refraction ---------------------------------------------------------
+// Bend the lookup outward from the blob centre, strongest at the rim. This is
+// what gives the liquid look at the seams between blobs.
+vec3 c = bcol;
+if (refractAmt > 0.0005){
+vec2 nrm = bc - f;
+float nl = length(nrm);
+nrm = (nl < 1.0e-4) ? vec2(0.0) : nrm / nl;
+vec2 dpos = lp + nrm * refractAmt * (1.0 - dome);
+c = strL(dpos);
+}
+
+// ---- shading ------------------------------------------------------------
+float sh = mix(1.0, 0.55 + 0.85 * dome, clamp(depth, 0.0, 1.0));
+c *= sh;
+
+// Gloss: a tight highlight where the dome faces the viewer, offset upward so it
+// reads as a reflection rather than as a centre brightening.
+if (gloss > 0.001){
+float sp = pow(dome, mix(14.0, 2.0, clamp(glossSharp, 0.0, 1.0)));
+c += vec3(sp * gloss * 0.75);
+}
+
+// Edge darkening: the rim of every blob drops toward the blob's own shadow.
+if (edge > 0.001){
+float rim = smoothstep(0.55, 1.0, rr);
+c *= 1.0 - rim * edge * 0.65;
+}
+
+// Mode tweaks. Cells keeps a hard edge, Liquid Voronoi leans on the seams,
+// Wax pushes the dome the hardest.
+if (blobMode >= 3 && blobMode <= 3){
+c = mix(c, bcol * (0.72 + 0.55 * dome), 0.25);
+}
+if (blobMode >= 2 && blobMode <= 2){
+c *= 1.0 - (1.0 - dome) * 0.28;
+}
+if (blobMode >= 4){
+c *= 0.70 + 0.70 * dome;
+}
+
+c = sat3v(c);
+
+// Outside every blob, fall back to the source darkened - so the effect reads as
+// blobs sitting in the picture, not as a full-frame replace.
+vec3 bg = sc * 0.32;
+vec3 v  = mix(bg, c, inside);
+
+vec3  col = mix(sc, v, mixAmt);
+float oA  = src.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

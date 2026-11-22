@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/lensflare3d.webp" id="com.goldmotion.effects.v51.lensflare3d" name="GM Lens Flare 3D"
+desc="Camera-authentic ghosts, aperture halo, anamorphic streak and chromatic optical dispersion."
+category="procedural" tags="gm,lens,flare,3d,optical,ghost" overdraw="true" max-overdraw="0.4" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<point id="lightPosition" default="0.25,0.3" min="-1,-1" max="2,2" step="0.005" label="Light Position" />
+<spinner id="brightness" default="1.4" min="0" max="12" step="0.05" label="Brightness" />
+<spinner id="ghostCount" default="6" min="1" max="10" step="1" label="Ghosts" />
+<spinner id="ghostSize" default="0.07" min="0.005" max="0.35" step="0.002" label="Ghost Size" />
+<spinner id="haloSize" default="0.23" min="0.02" max="1" step="0.005" label="Halo Size" />
+<spinner id="streak" default="0.55" min="0" max="1" step="0.01" label="Anamorphic Streak" />
+<spinner id="dispersion" default="0.45" min="0" max="2" step="0.01" label="Dispersion" />
+<color id="flareColor" default="#FFFFC985" label="Flare Color" alpha="false" />
+<spinner id="mixAmount" default="1" min="0" max="1" step="0.01" label="Mix" type="percent" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[float gmRing(float d,float r,float w){return exp(-abs(d-r)/max(w,0.0001));}
+void main(){
+vec2 uv=acScreenNorm, aspect=vec2(acScreenSize.x/max(acScreenSize.y,1.0),1.0); vec2 p=(uv-lightPosition)*aspect;
+float d=length(p); float core=0.004/max(d*d,0.0008); float halo=gmRing(d,haloSize,haloSize*0.16)*0.28;
+float streakMask=exp(-abs(p.y)/(0.003+0.018*(1.0-streak)))*exp(-abs(p.x)*1.7)*streak;
+vec3 flare=(core+halo+streakMask)*flareColor.rgb; vec2 axis=(vec2(0.5)-lightPosition)*aspect;
+for(int i=0;i<10;i++){
+float enabled=step(float(i)+0.5,ghostCount); float fi=float(i)+1.0; vec2 center=axis*(fi/(ghostCount+1.0))*1.8;
+float gd=length((uv-vec2(0.5))*aspect-center); float disk=1.0-smoothstep(ghostSize*(0.45+fi*0.08),ghostSize*(0.65+fi*0.08),gd);
+vec3 spectral=0.55+0.45*cos(vec3(0.0,2.1,4.2)+fi*dispersion); flare+=disk*spectral*flareColor.rgb*enabled/(1.0+fi*0.35);
+}
+flare*=brightness; vec4 src=texture2DCv(inputImg.texture,uv); vec3 screen=1.0-(1.0-src.rgb)*(1.0-clamp(flare,0.0,1.0));
+gl_FragColor=vec4(mix(src.rgb,screen,mixAmount),src.a+clamp(max(max(flare.r,flare.g),flare.b),0.0,1.0)*mixAmount*(1.0-src.a));
+gl_FragColor *= texture2DCv(inputImg.texture, acScreenNorm).a;
+}]]></shader>
+</effect>

@@ -1,0 +1,187 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_organic"
+name="GM Organic"
+desc="Grows a living cellular structure over the layer. A jittered cellular field gives the cells, the F2-F1 border between them becomes the vein network, and a band just inside each wall becomes the membrane. The source is then pulled outward from every cell centre so the tissue bulges, and the whole field can breathe. Six presets: tissue, a vein-dominant network, a membrane-dominant skin, pulsing cells, an irregular fungal growth and an elongated sinew. Cell size, size variation, field complexity, distortion, pulse rate, vein width, vein glow, membrane strength, an organic colour shift and the cell and vein colours are all separate. Layer space throughout."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.45"
+thumb="thumb/gm_organic.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Structure" />
+<selector id="organicMode" style="dropdown" default="0" label="Growth">
+<choice value="0" label="Tissue" />
+<choice value="1" label="Vein Network" />
+<choice value="2" label="Membrane" />
+<choice value="3" label="Pulsing Cells" />
+<choice value="4" label="Fungal" />
+<choice value="5" label="Sinew" />
+</selector>
+<spinner id="scale" default="16.0" min="2.0" max="60.0" step="0.5" label="Cell Size (px)" />
+<spinner id="cellVar" default="0.55" min="0.0" max="1.0" step="0.01" label="Cell Variation" />
+<spinner id="complexity" default="2" min="1" max="6" step="1" type="integer" label="Field Complexity" />
+<spinner id="seed" default="4.0" min="0.0" max="64.0" step="0.5" label="Seed" />
+<section text="Motion" />
+<spinner id="distortion" default="0.030" min="0.0" max="0.150" step="0.001" label="Tissue Distortion" />
+<spinner id="pulse" default="0.30" min="0.0" max="1.0" step="0.01" label="Pulse" />
+<spinner id="pulseSpeed" default="0.9" min="0.1" max="4.0" step="0.05" label="Pulse Speed" />
+<section text="Veins" />
+<spinner id="veinWidth" default="0.035" min="0.005" max="0.150" step="0.001" label="Vein Width" />
+<spinner id="veinGlow" default="0.55" min="0.0" max="1.0" step="0.01" label="Vein Glow" />
+<spinner id="membrane" default="0.40" min="0.0" max="1.0" step="0.01" label="Membrane" />
+<section text="Colour" />
+<spinner id="colourShift" default="0.55" min="0.0" max="1.0" step="0.01" label="Organic Shift" />
+<color id="cellCol" default="#2a1418" label="Cell Colour" alpha="true" />
+<color id="veinCol" default="#c0403c" label="Vein Colour" alpha="true" />
+<section text="Output" />
+<spinner id="mixAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Effect Strength" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec3 sat3v(vec3 c){ return clamp(c, vec3(0.0), vec3(1.0)); }
+float lum(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+// LAYER -> SCREEN. The cellular field is built in layer space, so the tissue is
+// grown from the layer's own pixels and travels with it.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+vec3 strL(vec2 lp){ vec4 s = fetchL(lp); return s.rgb / max(s.a, 1e-4); }
+
+float h21(vec2 p){ return fract(sin(dot(p + seed * 1.61, vec2(127.1, 311.7))) * 43758.5453123); }
+float h22(vec2 p){ return fract(sin(dot(p + seed * 1.61, vec2(269.5, 183.3))) * 43758.5453123); }
+
+float vnoise(vec2 p){
+vec2 i = floor(p);
+vec2 f = fract(p);
+f = f * f * (3.0 - 2.0 * f);
+return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x),
+           mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+float fbm(vec2 p){
+float s = 0.0;
+float amp = 0.5;
+for (int i = 0; i < 6; i++){
+if (float(i) >= complexity) break;
+s += amp * vnoise(p);
+p *= 2.05;
+amp *= 0.5;
+}
+return s;
+}
+
+// F1, F2 and the winning cell, packed so the whole search stays in one call.
+vec4 cellField(vec2 p){
+vec2 i = floor(p);
+vec2 f = fract(p);
+float d1 = 8.0;
+float d2 = 8.0;
+vec2  bid = i;
+for (int j = -1; j <= 1; j++){
+for (int k = -1; k <= 1; k++){
+vec2 n  = vec2(float(k), float(j));
+vec2 c  = i + n;
+vec2 pt = n + vec2(0.5) + (vec2(h21(c), h22(c)) - 0.5) * 0.85;
+float d = length(pt - f);
+if (d < d1){ d2 = d1; d1 = d; bid = c; }
+else if (d < d2){ d2 = d; }
+}
+}
+return vec4(d1, d2, bid);
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float al = max(src.a, 1.0e-4);
+vec3 sc = src.rgb / al;
+
+float asp = acLayerSize.x / max(acLayerSize.y, 1.0);
+
+// ---- field --------------------------------------------------------------
+// Pulse stretches the whole lattice, which is what makes it breathe rather than
+// just fade - the cells genuinely change size.
+float pulseF = 1.0 + sin(acTime * pulseSpeed) * clamp(pulse, 0.0, 1.0) * 0.25;
+float cells  = max(acLayerSize.y / max(scale, 1.0), 1.0) * pulseF;
+
+vec2 g = vec2(lp.x * asp, lp.y) * cells;
+
+// Sinew stretches the lattice along one axis so the cells become long fibres.
+if (organicMode >= 5){
+g.y *= 3.2;
+}
+
+// Complexity folds low-frequency noise into the lattice, which breaks the
+// regularity of the jitter without needing a bigger search.
+if (complexity > 1.0){
+g += vec2(fbm(g * 0.5), fbm(g * 0.5 + 7.7)) * (complexity - 1.0) * 0.14;
+}
+
+vec4  W = cellField(g);
+float d1 = W.x;
+float d2 = W.y;
+vec2  bid = W.zw;
+
+vec2 jit = (vec2(h21(bid), h22(bid)) - 0.5) * 0.85;
+vec2 bc  = bid + vec2(0.5) + jit;
+vec2 f   = fract(g);
+vec2 rel = f - (bc - floor(g));
+
+// ---- veins and membrane -------------------------------------------------
+// F2 - F1 is zero exactly on a cell wall and grows inward, so it is a distance
+// field to the wall that needs no extra taps.
+float border = max(d2 - d1, 0.0);
+float vw = veinWidth * (1.0 + (h21(bid) - 0.5) * cellVar * 1.6);
+float vein = 1.0 - smoothstep(0.0, max(vw, 0.002), border);
+float mem  = smoothstep(0.0, 0.05, border) * (1.0 - smoothstep(0.05, 0.18, border));
+
+// ---- tissue distortion --------------------------------------------------
+// Pull the source outward from the cell centre. Veins pull hardest, so the
+// walls read as thicker tissue rather than as drawn lines.
+vec2 dpos = lp;
+if (distortion > 0.0005){
+vec2 dir = rel / max(cells, 1.0e-4);
+dpos = lp + dir * distortion * (1.0 + vein * 1.8);
+}
+
+vec3 base = strL(dpos);
+
+// ---- shade and colour ---------------------------------------------------
+float dome = sqrt(max(1.0 - clamp(d1 * 2.0, 0.0, 1.0), 0.0));
+base *= 0.62 + 0.62 * dome;
+
+vec3 tint = mix(cellCol.rgb, veinCol.rgb, vein);
+base = mix(base, tint * (0.55 + 0.85 * lum(base)), clamp(colourShift, 0.0, 1.0));
+
+base += veinCol.rgb * vein * veinGlow * 0.85;
+base += vec3(mem * membrane * 0.55);
+
+// Mode tweaks: lean on whichever element the preset is named after.
+if (organicMode >= 1 && organicMode <= 1){
+base += veinCol.rgb * vein * 0.35;
+}
+if (organicMode >= 2 && organicMode <= 2){
+base += vec3(mem * 0.55);
+}
+if (organicMode >= 3 && organicMode <= 3){
+base *= 1.0 + vein * 0.25;
+}
+if (organicMode >= 4 && organicMode <= 4){
+base *= 0.85 + 0.45 * fbm(g * 1.7);
+}
+
+base = sat3v(base);
+vec3  col = mix(sc, base, mixAmt);
+float oA  = src.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

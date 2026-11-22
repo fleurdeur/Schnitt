@@ -1,0 +1,121 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_text_casewave"
+name="GM Text Case Wave"
+desc="A travelling wave of typography. A sine wave is laid along the line and wherever its crest passes, the characters change - they can invert their current case, force caps, force lower case, alternate one by one, randomise, double themselves, or dissolve into blank space. The wave is a function of the character's position along the line AND of time, so it genuinely travels. Direction picks the spatial coordinate: Forward and Backward run the crest end to end, Center Out starts at the middle and sweeps both ways, Edges In does the reverse, and Random hashes each character so the change boils instead of sweeping. Band Width sets how many characters are caught at once and Band Sharpness decides whether the band has soft shoulders or hard ones."
+category="text"
+tags="gm,text,case,wave,kinetic,typography,rhythm"
+affinity="text!" type="text"
+experimental="false"
+thumb="thumb/gm_text_casewave.webp">
+<params>
+<section text="Wave" />
+<selector id="mode" style="dropdown" default="0" label="Change">
+<choice value="0" label="Invert Case" />
+<choice value="1" label="To UPPERCASE" />
+<choice value="2" label="To lowercase" />
+<choice value="3" label="Alternate Case" />
+<choice value="4" label="Random Case" />
+<choice value="5" label="Double Character" />
+<choice value="6" label="Erase to Space" />
+</selector>
+<spinner id="waveLength" default="4.0" min="0.25" max="24.0" step="0.01" label="Wave Length" />
+<spinner id="speed" default="1.0" min="-8.0" max="8.0" step="0.01" label="Wave Speed" />
+<selector id="direction" style="dropdown" default="0" label="Direction">
+<choice value="0" label="Forward" />
+<choice value="1" label="Backward" />
+<choice value="2" label="Center Out" />
+<choice value="3" label="Edges In" />
+<choice value="4" label="Random" />
+</selector>
+<spinner id="phase" default="0.0" min="-1.0" max="1.0" step="0.001" type="percent" label="Phase" />
+<spinner id="contrast" default="0.35" min="0.0" max="1.0" step="0.01" type="percent" label="Band Sharpness" />
+<spinner id="strength" default="0.35" min="0.0" max="1.0" step="0.01" type="percent" label="Band Width" />
+<switch id="invert" default="false" label="Invert Band" />
+<section text="Range" />
+<spinner id="start" default="0.0" min="0.0" max="1.0" step="0.001" type="percent" label="Start" />
+<spinner id="end" default="1.0" min="0.0" max="1.0" step="0.001" type="percent" label="End" />
+<section text="Type" />
+<switch id="preserveSpace" default="true" label="Keep Spaces" />
+<spinner id="seed" default="0.0" min="0.0" max="20.0" step="0.01" label="Seed" />
+<section text="MOD BY PNKJ" />
+</params>
+<script lang="js"><![CDATA[function hash11(x){
+let s = Math.sin(x * 127.1 + 311.7) * 43758.5453123;
+return s - Math.floor(s);
+}
+
+function animate(env, el, p){
+let base = el.text;
+let n = base.length;
+if( n < 1 ) return el;
+
+let t = env.time * env.duration;
+
+let a0 = Math.min(p.start, p.end);
+let a1 = Math.max(p.start, p.end);
+let lo = Math.floor(n * a0);
+let hi = Math.ceil(n * a1);
+if( hi <= lo ) return el;
+let span = Math.max(1, hi - lo - 1);
+
+let wl  = Math.max(0.25, p.waveLength);
+let spd = p.speed;
+let dir = Math.round(p.direction);
+let ctr = Math.max(0.0, p.contrast);
+let str = Math.max(0.0, Math.min(1.0, p.strength));
+let md  = Math.round(p.mode);
+let ps  = p.preserveSpace;
+
+let out = "";
+for( let i = 0; i < n; i = i + 1 ){
+let ch = base.charAt(i);
+if( i >= lo && i < hi ){
+// Position along the range, 0..1.
+let u = (i - lo) / span;
+
+// Direction is a choice of SPATIAL COORDINATE, not just a sign flip. Taking
+// the distance from the centre (or from the edges) is what makes the crest
+// travel outward or inward instead of merely reversing.
+let x;
+if( dir < 1 ){ x = u; }
+else if( dir < 2 ){ x = 1.0 - u; }
+else if( dir < 3 ){ x = Math.abs(u * 2.0 - 1.0); }
+else if( dir < 4 ){ x = 1.0 - Math.abs(u * 2.0 - 1.0); }
+else { x = hash11(i * 1.7 + p.seed * 9.1); }
+
+let s = x * (n / wl) - t * spd + p.phase;
+let w = 0.5 + 0.5 * Math.sin(s * 6.2831853);
+
+// Band Sharpness pushes the sine toward a square wave, so the affected run
+// of characters gets crisp ends instead of trailing off.
+let band = 0.5 + (w - 0.5) * (1.0 + ctr * 14.0);
+band = Math.max(0.0, Math.min(1.0, band));
+let on = band > (1.0 - str);
+if( p.invert ){ on = !on; }
+
+if( on && !(ps && ch == " ") ){
+// Invert Case is the default because it is the only one that is ALWAYS visible:
+// forcing caps on text that is already caps does nothing at all.
+if( md < 1 ){ out = out + (ch == ch.toUpperCase() ? ch.toLowerCase() : ch.toUpperCase()); }
+else if( md < 2 ){ out = out + ch.toUpperCase(); }
+else if( md < 3 ){ out = out + ch.toLowerCase(); }
+else if( md < 4 ){ out = out + (i % 2 == 0 ? ch.toUpperCase() : ch.toLowerCase()); }
+else if( md < 5 ){
+let r = hash11(i * 3.3 + p.seed * 4.7);
+out = out + (r < 0.5 ? ch.toUpperCase() : ch.toLowerCase());
+}
+else if( md < 6 ){ out = out + ch + ch; }
+else { out = out + " "; }
+} else {
+out = out + ch;
+}
+} else {
+out = out + ch;
+}
+}
+
+el.text = out;
+return el;
+}]]></script>
+</effect>
+

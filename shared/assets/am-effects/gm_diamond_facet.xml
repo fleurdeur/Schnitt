@@ -1,0 +1,85 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.goldmotion.effects.diamondfacet" name="GM Diamond Facet &amp; Caustics" desc="Multi-faceted cut diamond crystal refraction with rainbow spectral dispersion (IOR) and shimmering internal caustics." category="distort" tags="gm,diamond,crystal,facet,glass,refraction,caustics,luxury" thumb="thumb/GM Diamond facet.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Facet Geometry" />
+<spinner id="facetDensity" label="Facet Count" default="8.0" min="2.0" max="25.0" step="0.5" />
+<spinner id="iorStrength" label="Refraction Index" default="0.06" min="0.0" max="0.2" step="0.005" />
+<spinner id="bevelSharpness" label="Bevel Sharpness" default="0.75" min="0.1" max="2.0" step="0.05" />
+<spinner id="facetAngle" label="Facet Rotation" default="0.0" min="-180.0" max="180.0" step="1.0" type="angle" />
+<section text="Spectral &amp; Caustics" />
+<spinner id="dispersion" label="Rainbow Spectral Split" default="0.02" min="0.0" max="0.08" step="0.002" />
+<spinner id="caustics" label="Internal Caustic Shine" default="1.2" min="0.0" max="4.0" step="0.1" />
+<spinner id="shimmerSpeed" label="Sparkle Speed" default="1.5" min="0.0" max="5.0" step="0.1" />
+<color id="sparkleColor" default="#FFFFFFFF" label="Sparkle Tint" alpha="true" />
+<section text="Blend Mode" />
+<spinner id="alpha" default="1.0" min="0.0" max="1.0" step="0.01" label="Opacity" type="percent" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="medium"><![CDATA[#define PI 3.14159265359
+vec2 hash22(vec2 p) {
+vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+p3 += dot(p3, p3.yzx + 33.33);
+return fract((p3.xx + p3.yz) * p3.zy);
+}
+mat2 rot(float a) {
+float s = sin(a);
+float c = cos(a);
+return mat2(c, -s, s, c);
+}
+void main() {
+vec2 uv = acScreenNorm;
+float aspect = acScreenSize.x / max(acScreenSize.y, 1.0);
+vec2 st = (uv - 0.5) * vec2(aspect, 1.0);
+st *= rot(facetAngle * 0.0174532925);
+vec2 gv = st * facetDensity;
+vec2 id = floor(gv);
+vec2 fv = fract(gv);
+float minDist = 100.0;
+vec2 minCell = vec2(0.0);
+vec2 minDiff = vec2(0.0);
+for(int y = -1; y <= 1; y++) {
+for(int x = -1; x <= 1; x++) {
+vec2 neighbor = vec2(float(x), float(y));
+vec2 pt = hash22(id + neighbor);
+vec2 diff = neighbor + pt - fv;
+float dist = length(diff);
+if (dist < minDist) {
+minDist = dist;
+minCell = id + neighbor;
+minDiff = diff;
+}
+}
+}
+float minEdge = 100.0;
+for(int y = -1; y <= 1; y++) {
+for(int x = -1; x <= 1; x++) {
+vec2 neighbor = vec2(float(x), float(y));
+vec2 pt = hash22(id + neighbor);
+vec2 diff = neighbor + pt - fv;
+if (dot(minDiff - diff, minDiff - diff) > 0.00001) {
+float d = dot(0.5 * (minDiff + diff), normalize(diff - minDiff));
+minEdge = min(minEdge, d);
+}
+}
+}
+vec2 cellRand = hash22(minCell) - 0.5;
+vec2 facetTilt = cellRand * 2.0;
+float edgeNorm = smoothstep(0.0, 0.15, minEdge);
+vec2 facetNormal = normalize(minDiff + facetTilt * 0.5) * (1.0 - edgeNorm * bevelSharpness);
+vec2 dispVec = (facetNormal * iorStrength) * vec2(1.0 / aspect, 1.0);
+vec2 dispChroma = (facetNormal * dispersion) * vec2(1.0 / aspect, 1.0);
+vec4 colR = texture2DCv(inputImg.texture, clamp(uv + dispVec + dispChroma, 0.0, 1.0));
+vec4 colG = texture2DCv(inputImg.texture, clamp(uv + dispVec, 0.0, 1.0));
+vec4 colB = texture2DCv(inputImg.texture, clamp(uv + dispVec - dispChroma, 0.0, 1.0));
+vec3 refracted = vec3(colR.r, colG.g, colB.b);
+float causticLine = smoothstep(0.04, 0.0, minEdge) * 1.5;
+float shimmer = sin(acTime * shimmerSpeed * 3.0 + dot(minCell, vec2(12.7, 31.1))) * 0.5 + 0.5;
+shimmer = pow(shimmer, 4.0);
+vec3 causticGlow = sparkleColor.rgb * (causticLine + shimmer * 0.8) * caustics * sparkleColor.a;
+refracted += causticGlow;
+vec4 original = texture2DCv(inputImg.texture, uv);
+vec4 finalColor = vec4(clamp(refracted, 0.0, 1.0), colG.a);
+gl_FragColor = mix(original, finalColor, alpha);
+}]]></shader>
+</effect>

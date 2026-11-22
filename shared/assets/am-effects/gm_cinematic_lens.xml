@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/Lens_suite.webp"
+id="com.goldmotion.effects.v51.cinematiclens"
+name="GM Cinematic Lens Suite"
+desc="Unified radial lens distortion, spectral fringing, vignette and thresholded anamorphic streaks."
+category="distort"
+tags="lens,distortion,anamorphic,vignette,aberration"
+experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Lens Geometry" />
+<point id="centerOffset" label="Optical Center" />
+<spinner id="barrel" default="0.0" min="-1.5" max="1.5" step="0.005" label="Barrel Distortion" />
+<spinner id="secondary" default="0.0" min="-1.0" max="1.0" step="0.005" label="Secondary Curvature" />
+<spinner id="zoom" default="1.0" min="0.5" max="2.0" step="0.005" label="Lens Zoom" />
+<spinner id="dispersionPx" default="1.5" min="0.0" max="20.0" step="0.1" label="Spectral Fringing" />
+<section text="Anamorphic Streak" />
+<spinner id="streakStrength" default="0.35" min="0.0" max="4.0" step="0.01" label="Streak Strength" />
+<spinner id="streakLengthPx" default="80.0" min="0.0" max="500.0" step="1.0" label="Streak Length" />
+<spinner id="threshold" default="0.7" min="0.0" max="1.0" step="0.01" label="Highlight Threshold" />
+<color id="streakColor" default="#FF65A8FF" label="Streak Color" alpha="false" />
+<section text="Finishing" />
+<spinner id="vignette" default="0.25" min="0.0" max="1.0" step="0.01" label="Vignette" type="percent" />
+<spinner id="vignetteSoftness" default="0.45" min="0.05" max="1.0" step="0.01" label="Vignette Softness" />
+<slider id="mixAmount" default="1.0" min="0.0" max="1.0" step="0.01" label="Mix" type="percent" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[const vec3 gmLuma = vec3(0.2126, 0.7152, 0.0722);
+void main() {
+vec2 uv = acScreenNorm;
+vec2 texSize = max(inputImg.size, vec2(1.0));
+float aspect = texSize.x / texSize.y;
+vec2 center = vec2(0.5 + centerOffset.x / 500.0, 0.5 - centerOffset.y / 500.0);
+vec2 q = (uv - center) * vec2(aspect, 1.0) / max(zoom, 0.0001);
+float r2 = dot(q, q);
+float radialScale = 1.0 + barrel * r2 + secondary * r2 * r2;
+vec2 distortedUv = center + q * radialScale / vec2(aspect, 1.0);
+vec2 radialDirection = q / max(length(q), 0.0001) / vec2(aspect, 1.0);
+vec2 chromaOffset = radialDirection * dispersionPx / texSize;
+vec4 src = texture2DCv(inputImg.texture, uv);
+vec4 redSample = texture2DCv(inputImg.texture, clamp(distortedUv + chromaOffset, 0.0, 1.0));
+vec4 greenSample = texture2DCv(inputImg.texture, clamp(distortedUv, 0.0, 1.0));
+vec4 blueSample = texture2DCv(inputImg.texture, clamp(distortedUv - chromaOffset, 0.0, 1.0));
+vec3 lensColor = vec3(redSample.r, greenSample.g, blueSample.b);
+vec3 streak = vec3(0.0);
+float streakWeight = 0.0;
+for (int i = 0; i < 12; i++) {
+float t = (float(i) - 5.5) / 5.5;
+vec2 sampleUv = clamp(distortedUv + vec2(t * streakLengthPx / texSize.x, 0.0), 0.0, 1.0);
+vec4 sampleColor = texture2DCv(inputImg.texture, sampleUv);
+float highlight = smoothstep(threshold, 1.0, dot(sampleColor.rgb, gmLuma));
+float weight = (1.0 - abs(t)) * highlight;
+streak += sampleColor.rgb * weight;
+streakWeight += weight;
+}
+streak = streak / max(streakWeight, 0.0001) * streakColor.rgb * streakStrength * clamp(streakWeight / 6.0, 0.0, 1.0);
+lensColor = 1.0 - (1.0 - lensColor) * (1.0 - clamp(streak, 0.0, 1.0));
+float normalizedRadius = length(q) * 1.41421356;
+float vignetteMask = smoothstep(1.0 - vignetteSoftness, 1.0, normalizedRadius);
+lensColor *= 1.0 - vignette * vignetteMask;
+gl_FragColor = vec4(mix(src.rgb, lensColor, clamp(mixAmount, 0.0, 1.0)), src.a);
+}]]></shader>
+</effect>

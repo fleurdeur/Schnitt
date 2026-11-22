@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.gm.quantizeflux" name="GM Quantize Flux" desc="Digital compression artifact and quantize posterization." category="glitch" tags="glitch,pixel,sort" thumb="thumb/GM_QUANTIZE_FLUX.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="steps" default="8.0" min="2.0" max="64.0" step="1.0" label="Quantize Steps" />
+<spinner id="flux" default="0.5" min="0.0" max="2.0" step="0.01" label="Flux Intensity" />
+<spinner id="chroma" default="1.0" min="0.0" max="3.0" step="0.05" label="Chroma Split" />
+  <section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[void main() {
+vec2 uv = acScreenNorm;
+vec2 d = vec2(flux * 0.01 * sin(uv.y * 50.0 + acTime), 0.0);
+float r = floor(texture2DCv(inputImg.texture, uv - d * chroma).r * steps) / steps;
+float g = floor(texture2DCv(inputImg.texture, uv).g * steps) / steps;
+float b = floor(texture2DCv(inputImg.texture, uv + d * chroma).b * steps) / steps;
+gl_FragColor = vec4(r, g, b, texture2DCv(inputImg.texture, uv).a);
+}]]></shader>
+</effect>

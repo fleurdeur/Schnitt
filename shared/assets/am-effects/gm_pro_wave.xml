@@ -1,0 +1,181 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_pro_wave"
+name="GM Pro Wave"
+desc="A layered wave warp. Seven waveforms - sine, triangle, square, sawtooth, noise, damped ripple and flag - can be stacked up to four harmonics deep with a decay between them, so the wave is never a plain sine. The displacement direction is separate from the phase direction: horizontal, vertical, radial, angular or diagonal, with the diagonal angle as its own control. A cross wave on the other axis, turbulence, an edge taper and clamp/mirror/wrap sampling finish it. Built in layer space, so the wave runs through the layer's own pixels."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.40"
+thumb="thumb/gm_pro_wave.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Waveform" />
+<selector id="waveShape" style="dropdown" default="0" label="Waveform">
+<choice value="0" label="Sine" />
+<choice value="1" label="Triangle" />
+<choice value="2" label="Square" />
+<choice value="3" label="Sawtooth" />
+<choice value="4" label="Noise" />
+<choice value="5" label="Damped Ripple" />
+<choice value="6" label="Flag" />
+</selector>
+<selector id="waveAxis" style="dropdown" default="0" label="Direction">
+<choice value="0" label="Horizontal" />
+<choice value="1" label="Vertical" />
+<choice value="2" label="Radial" />
+<choice value="3" label="Angular" />
+<choice value="4" label="Diagonal" />
+</selector>
+<spinner id="amplitude" default="0.045" min="0.0" max="0.25" step="0.001" label="Amplitude" />
+<spinner id="wavelength" default="0.35" min="0.02" max="2.00" step="0.01" label="Wavelength" />
+<spinner id="speed" default="0.30" min="-2.0" max="2.0" step="0.01" label="Speed" />
+<spinner id="phase" default="0.0" min="0.0" max="360.0" step="1.0" type="angle" label="Phase" />
+<spinner id="angle" default="45.0" min="0.0" max="360.0" step="1.0" type="angle" label="Diagonal Angle" />
+<section text="Harmonics" />
+<spinner id="harmonics" default="1" min="1" max="4" step="1" type="integer" label="Harmonic Count" />
+<spinner id="harmonicFall" default="0.45" min="0.05" max="1.0" step="0.01" label="Harmonic Decay" />
+<spinner id="crossWave" default="0.0" min="0.0" max="1.0" step="0.01" label="Cross Wave" />
+<section text="Character" />
+<spinner id="turbulence" default="0.0" min="0.0" max="1.0" step="0.01" label="Turbulence" />
+<spinner id="taper" default="0.0" min="0.0" max="1.0" step="0.01" label="Edge Taper" />
+<point id="centre" default="0.5,0.5" label="Wave Centre" />
+<section text="Sampling" />
+<selector id="edgeMode" style="dropdown" default="0" label="Edge Handling">
+<choice value="0" label="Clamp" />
+<choice value="1" label="Mirror" />
+<choice value="2" label="Wrap" />
+</selector>
+<section text="Output" />
+<spinner id="mixAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Effect Strength" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec3 sat3v(vec3 c){ return clamp(c, vec3(0.0), vec3(1.0)); }
+
+// LAYER -> SCREEN. The wave is generated from layer coordinates and every read
+// comes back through the layer transform, so it deforms the layer itself.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+
+float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+float vnoise(vec2 p){
+vec2 i = floor(p);
+vec2 f = fract(p);
+f = f * f * (3.0 - 2.0 * f);
+return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x),
+           mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+// One period of each waveform, all returning -1..1 so they can be summed.
+float waveEval(float ph){
+if (waveShape <= 0) return sin(ph);
+if (waveShape <= 1) return 0.6366198 * asin(clamp(sin(ph), -1.0, 1.0));
+if (waveShape <= 2) return sign(sin(ph));
+if (waveShape <= 3) return 2.0 * fract(ph / 6.2831853) - 1.0;
+if (waveShape <= 4) return vnoise(vec2(ph * 0.35, 0.0)) * 2.0 - 1.0;
+if (waveShape <= 5) return sin(ph) * exp(-abs(ph) * 0.20);
+return sin(ph);
+}
+
+vec2 edgeFix(vec2 lp){
+if (edgeMode <= 0) return clamp(lp, 0.0, 1.0);
+if (edgeMode <= 1){
+vec2 m = mod(lp, vec2(2.0, 2.0));
+return abs(m - vec2(1.0, 1.0)) * -1.0 + vec2(1.0);
+}
+return fract(lp);
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float a  = max(src.a, 1e-4);
+vec3 sc  = src.rgb / a;
+
+float asp = acLayerSize.x / max(acLayerSize.y, 1.0);
+vec2  c0  = centre - vec2(0.5);
+c0.x *= asp;
+vec2  q   = lp - vec2(0.5);
+q.x *= asp;
+q -= c0;
+
+// ---- direction and phase coordinate ------------------------------------
+// These are deliberately separate: a radial wave displaces outward but its
+// phase runs on the radius, an angular wave displaces tangentially but its
+// phase runs on the angle. Coupling them would make half the combinations
+// impossible to express.
+float coord;
+vec2  dir;
+if (waveAxis <= 0){
+coord = lp.y;
+dir   = vec2(1.0, 0.0);
+} else if (waveAxis <= 1){
+coord = lp.x;
+dir   = vec2(0.0, 1.0);
+} else if (waveAxis <= 2){
+coord = length(q);
+float ql = max(length(q), 1.0e-4);
+dir = q / ql;
+} else if (waveAxis <= 3){
+coord = atan(q.y, q.x) / 6.2831853;
+float ql = max(length(q), 1.0e-4);
+dir = vec2(-q.y, q.x) / ql;
+} else {
+float ra = radians(angle);
+vec2  ax = vec2(cos(ra), sin(ra));
+coord = dot(q, ax);
+dir   = vec2(-ax.y, ax.x);
+}
+
+float ph = (coord * wavelength + phase / 360.0 + acTime * speed) * 6.2831853;
+
+// ---- harmonic stack -----------------------------------------------------
+float acc  = 0.0;
+float wsum = 0.0;
+float amp  = 1.0;
+float k    = 1.0;
+for (int i = 0; i < 4; i++){
+if (float(i) >= float(harmonics)) break;
+acc  += amp * waveEval(ph * k);
+wsum += amp;
+amp  *= max(harmonicFall, 0.05);
+k    += 1.0;
+}
+float d = acc / max(wsum, 1.0e-4);
+
+// ---- cross wave ---------------------------------------------------------
+if (crossWave > 0.001){
+float coord2 = (waveAxis <= 0) ? lp.x : lp.y;
+float ph2 = (coord2 * wavelength * 1.7 - acTime * speed * 1.3) * 6.2831853;
+d += waveEval(ph2) * crossWave * 0.6;
+}
+
+// ---- turbulence / taper / flag -----------------------------------------
+if (turbulence > 0.001){
+d += (vnoise(lp * 6.0 + vec2(acTime * 0.20, acTime * 0.13)) - 0.5) * turbulence * 0.60;
+}
+if (waveShape >= 6){
+// Flag: anchored at the left edge, so amplitude grows across the layer.
+d *= clamp(lp.x, 0.0, 1.0);
+}
+d *= 1.0 - taper * smoothstep(0.0, 0.5, abs(lp.x - 0.5) * 2.0);
+d *= amplitude;
+
+vec2 dpos = lp + dir * d;
+vec4 got  = texture2DCv(inputImg.texture, clamp(lpToScreen(edgeFix(dpos)), 0.0, 1.0));
+float ga  = max(got.a, 1.0e-4);
+vec3 gc   = got.rgb / ga;
+
+vec3  col = mix(sc, gc, mixAmt);
+float oA  = got.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

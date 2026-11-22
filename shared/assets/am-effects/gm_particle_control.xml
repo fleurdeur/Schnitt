@@ -1,0 +1,184 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_particle_control"
+name="GM Particle Control"
+desc="A real particle system built in layer space. One particle per lattice cell, each with its own jittered start position, its own size, its own phase and its own colour taken from the layer underneath it, so the particles are made of the layer's own pixels. Six behaviours: dissolve outward, rise, explode, swirl, fall, and orbit. Gravity, turbulence, a spread control, size variation, an anisotropic trail stretch, a soft glow halo, colour boost, a per-particle birth and death cycle and the lattice density are all independent. The lattice centre is a layer point, so the whole system rides the layer."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.50"
+thumb="thumb/gm_particle_control.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Lattice" />
+<spinner id="density" default="14" min="4" max="40" step="1" type="integer" label="Particle Density" />
+<spinner id="spread" default="0.60" min="0.0" max="1.0" step="0.01" label="Start Spread" />
+<spinner id="seed" default="3.0" min="0.0" max="64.0" step="0.5" label="Seed" />
+<section text="Behaviour" />
+<selector id="particleMode" style="dropdown" default="0" label="Motion">
+<choice value="0" label="Dissolve" />
+<choice value="1" label="Rise" />
+<choice value="2" label="Explode" />
+<choice value="3" label="Swirl" />
+<choice value="4" label="Fall" />
+<choice value="5" label="Orbit" />
+</selector>
+<spinner id="speed" default="0.60" min="0.0" max="2.0" step="0.01" label="Speed" />
+<spinner id="gravity" default="0.0" min="-1.0" max="1.0" step="0.01" label="Gravity" />
+<spinner id="turbulence" default="0.35" min="0.0" max="1.0" step="0.01" label="Turbulence" />
+<section text="Particle" />
+<spinner id="size" default="0.010" min="0.002" max="0.060" step="0.001" label="Particle Size" />
+<spinner id="sizeVar" default="0.60" min="0.0" max="1.0" step="0.01" label="Size Variation" />
+<spinner id="trails" default="0.30" min="0.0" max="1.0" step="0.01" label="Motion Trails" />
+<spinner id="glow" default="0.45" min="0.0" max="1.0" step="0.01" label="Glow Halo" />
+<spinner id="colourBoost" default="1.25" min="0.0" max="2.0" step="0.01" label="Colour Boost" />
+<section text="Life Cycle" />
+<spinner id="lifetime" default="3.0" min="0.2" max="12.0" step="0.1" label="Particle Lifetime (s)" />
+<spinner id="background" default="0.30" min="0.0" max="1.0" step="0.01" label="Layer Behind" />
+<point id="centre" default="0.5,0.5" label="Lattice Centre" />
+<section text="Output" />
+<spinner id="mixAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Effect Strength" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[float gT = 0.0;
+
+vec3 sat3v(vec3 c){ return clamp(c, vec3(0.0), vec3(1.0)); }
+
+// LAYER -> SCREEN. The lattice is built in layer space, so the particles are
+// cut from the layer's own pixels and follow the layer's transform.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+vec3 strL(vec2 lp){ vec4 s = fetchL(lp); return s.rgb / max(s.a, 1e-4); }
+
+float h21(vec2 p){ return fract(sin(dot(p + seed * 2.77, vec2(127.1, 311.7))) * 43758.5453123); }
+float h22(vec2 p){ return fract(sin(dot(p + seed * 2.77, vec2(269.5, 183.3))) * 43758.5453123); }
+
+vec2 rot2(vec2 p, float a){ float c = cos(a); float s = sin(a); return vec2(p.x * c - p.y * s, p.x * s + p.y * c); }
+
+// One particle's displacement, in cell units. Every mode shares the gravity and
+// turbulence tail so those two controls work whatever behaviour is selected.
+vec2 particleMotion(vec2 c, vec2 h){
+vec2 d = normalize(c - vec2(0.5) + vec2(1.0e-4));
+vec2 m = vec2(0.0);
+
+if (particleMode <= 0){
+m = d * gT * speed * 0.30;
+} else if (particleMode <= 1){
+m = vec2(0.0, -gT * speed * 0.30);
+} else if (particleMode <= 2){
+m = d * gT * speed * 0.55;
+} else if (particleMode <= 3){
+m = vec2(-d.y, d.x) * gT * speed * 0.28;
+} else if (particleMode <= 4){
+m = vec2(0.0, gT * speed * 0.45);
+} else {
+m = rot2(d, gT * speed * 0.90) * 0.16;
+}
+
+m += vec2(0.0, gravity * gT * gT * 0.20);
+
+if (turbulence > 0.001){
+m += vec2(sin(gT * 1.30 + h.x * 6.2831853),
+          cos(gT * 1.10 + h.y * 6.2831853)) * turbulence * 0.12;
+}
+return m;
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float al = max(src.a, 1.0e-4);
+vec3 sc = src.rgb / al;
+
+gT = acTime;
+
+float asp = acLayerSize.x / max(acLayerSize.y, 1.0);
+vec2  c0  = centre - vec2(0.5);
+c0.x *= asp;
+vec2  q   = lp - vec2(0.5);
+q.x *= asp;
+q -= c0;
+
+float cells = max(density, 4.0);
+vec2  g = q * cells;
+vec2  id = floor(g);
+vec2  f  = fract(g);
+
+// ---- nearest particle over the 3x3 neighbourhood -----------------------
+float bd  = 9.0;
+vec2  bid = id;
+for (int j = -1; j <= 1; j++){
+for (int i = -1; i <= 1; i++){
+vec2 n  = vec2(float(i), float(j));
+vec2 c  = id + n;
+vec2 h  = vec2(h21(c), h22(c));
+vec2 pt = n + vec2(0.5) + (h - 0.5) * spread + particleMotion(c, h);
+float d = length(pt - f);
+if (d < bd){ bd = d; bid = c; }
+}
+}
+
+// ---- this particle's own values ----------------------------------------
+vec2 hb   = vec2(h21(bid), h22(bid));
+vec2 bpos = (bid - id) + vec2(0.5) + (hb - 0.5) * spread + particleMotion(bid, hb);
+vec2 mdir = particleMotion(bid, hb);
+
+float hv = hb.x;
+float rad = size * cells * (1.0 + (hv - 0.5) * sizeVar);
+
+// ---- anisotropic trail --------------------------------------------------
+// Squash the distance along the direction of travel: that is a streak. The
+// squared term is written out by hand because pow() with a negative base is
+// undefined in GLSL ES.
+vec2 rel = f - bpos;
+float dEff = bd;
+if (trails > 0.001){
+float ml = length(mdir);
+if (ml > 1.0e-4){
+vec2  md    = mdir / ml;
+float along = dot(rel, md) / (1.0 + trails * 5.0);
+float perp  = dot(rel, vec2(-md.y, md.x));
+dEff = sqrt(perp * perp + along * along);
+}
+}
+
+float aa  = 0.004;
+float cov = 1.0 - smoothstep(rad - aa, rad + aa, dEff);
+float halo = 1.0 - smoothstep(rad, rad + max(glow, 0.001) * 0.09, dEff);
+
+// ---- birth / death ------------------------------------------------------
+// Each particle has its own phase, so they do not all pop in together.
+float age  = fract(gT / max(lifetime, 0.1) + hv);
+float live = smoothstep(0.0, 0.12, age) * (1.0 - smoothstep(0.65, 1.0, age));
+
+// ---- colour ------------------------------------------------------------
+// Back to layer space: undo the aspect correction on x and re-add the lattice
+// centre, so the particle's colour is read from where it actually sits.
+vec2 plp = (bid + vec2(0.5)) / cells;
+plp.x /= asp;
+plp += centre;
+vec3 pcol = strL(plp) * colourBoost * (0.65 + 0.75 * hv);
+
+vec3 pv = pcol * cov * live;
+pv += pcol * halo * glow * 0.35 * live;
+
+// ---- composite ----------------------------------------------------------
+// The layer stays behind at a controlled strength so the effect reads as the
+// picture breaking into particles rather than as particles on a black plate.
+vec3 bg = sc * background;
+vec3 v  = bg + pv;
+
+v = sat3v(v);
+vec3  col = mix(sc, v, mixAmt);
+float oA  = src.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

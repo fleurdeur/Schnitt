@@ -1,0 +1,102 @@
+{
+  "id": "hairflow",
+  "name": "Hair Flow",
+  "category": "distort",
+  "description": "Sways the hair region around a root-to-tip guide. Drag the root and tip points over the hair, then tune width, sway, strands, root anchor and curl.",
+  "params": [
+    {
+      "id": "root",
+      "label": "Root",
+      "type": "point",
+      "default": [
+        0.5,
+        0.16
+      ],
+      "min": 0,
+      "max": 1,
+      "step": 0.001
+    },
+    {
+      "id": "tip",
+      "label": "Tip",
+      "type": "point",
+      "default": [
+        0.55,
+        0.86
+      ],
+      "min": 0,
+      "max": 1,
+      "step": 0.001
+    },
+    {
+      "id": "width",
+      "label": "Hair Width",
+      "type": "float",
+      "default": 0.32,
+      "min": 0.01,
+      "max": 1,
+      "step": 0.001,
+      "percent": true
+    },
+    {
+      "id": "sway",
+      "label": "Sway",
+      "type": "float",
+      "default": 0.055,
+      "min": 0,
+      "max": 0.3,
+      "step": 0.001,
+      "percent": true
+    },
+    {
+      "id": "speed",
+      "label": "Speed",
+      "type": "float",
+      "default": 1.1,
+      "min": 0.05,
+      "max": 8,
+      "step": 0.01,
+      "unit": "Hz"
+    },
+    {
+      "id": "phase",
+      "label": "Phase",
+      "type": "float",
+      "default": 0,
+      "min": 0,
+      "max": 1,
+      "step": 0.001,
+      "percent": true
+    },
+    {
+      "id": "strands",
+      "label": "Strands",
+      "type": "float",
+      "default": 3,
+      "min": 0.5,
+      "max": 12,
+      "step": 0.01
+    },
+    {
+      "id": "anchor",
+      "label": "Root Anchor",
+      "type": "float",
+      "default": 0.75,
+      "min": 0,
+      "max": 1,
+      "step": 0.001,
+      "percent": true
+    },
+    {
+      "id": "curl",
+      "label": "Curl",
+      "type": "float",
+      "default": 0.25,
+      "min": 0,
+      "max": 1,
+      "step": 0.001,
+      "percent": true
+    }
+  ],
+  "sksl": "uniform shader image;\nuniform float2 size;\nuniform float time;\nuniform float2 root;\nuniform float2 tip;\nuniform float width;\nuniform float sway;\nuniform float speed;\nuniform float phase;\nuniform float strands;\nuniform float anchor;\nuniform float curl;\n\nhalf4 main(float2 coord) {\n    float2 a = root * size;\n    float2 b = tip * size;\n    float2 ab = b - a;\n    float len2 = max(dot(ab, ab), 1.0);\n    float t = clamp(dot(coord - a, ab) / len2, 0.0, 1.0);\n    float2 p = a + ab * t;\n    float2 perp = normalize(float2(-ab.y, ab.x) + float2(0.0001, 0.0));\n    float across = dot(coord - p, perp);\n    float w = width * min(size.x, size.y) * 0.5;\n    float m = 1.0 - smoothstep(w * 0.55, w, abs(across));\n    if (m <= 0.001) return image.eval(coord);\n    float lock = mix(1.0, t, anchor);\n    float grow = pow(t, 1.6) * lock;\n    float wave = sin(time * speed * 6.2831853 + t * strands * 6.2831853 + phase * 6.2831853 + across * 0.02);\n    float swing = wave * sway * min(size.x, size.y) * grow * m;\n    float twist = sin(t * strands * 3.1415927 + phase * 6.2831853) * curl * min(size.x, size.y) * grow * m;\n    float2 src = coord - perp * swing + normalize(ab) * twist * 0.35;\n    return image.eval(src);\n}\n"
+}

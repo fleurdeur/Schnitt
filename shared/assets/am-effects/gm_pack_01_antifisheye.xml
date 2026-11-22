@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.shaderpack.antifisheye" name="GM AntiFishEye" desc="Aspect-correct fisheye and anti-fisheye lens warp with movable optical centre." category="distort" tags="gm,shader,procedural,distort" thumb="thumb/gmantifisheye.webp" overdraw="true" max-overdraw="0.3" experimental="false" deprecated="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Lens" />
+<spinner id="lensStrength" default="-0.25" min="-0.49" max="0.49" step="0.005" label="Anti-Fisheye / Fisheye" />
+<spinner id="lensCenterX" default="0.5" min="0" max="1" step="0.005" label="Center X" />
+<spinner id="lensCenterY" default="0.5" min="0" max="1" step="0.005" label="Center Y" />
+<spinner id="lensRadius" default="1" min="0.2" max="2" step="0.01" label="Lens Radius" />
+<section text="Composite" />
+<spinner id="gmMix" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<switch id="gmClip" default="true" label="Clip to Layer" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[#define iTime (0.0)
+#define iResolution vec3(acScreenSize, 1.0)
+#define iDate vec4(0.0, 0.0, 0.0, iTime)
+#define iMouse vec4(acScreenSize * 0.5, 0.0, 0.0)
+void gmGeneratedMainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+vec2 p = fragCoord.xy / iResolution.x;
+float prop = iResolution.x / iResolution.y;
+vec2 m = vec2(lensCenterX, lensCenterY / prop);
+vec2 d = p - m;
+float r = sqrt(dot(d, d));
+float power = ( 2.0 * 3.141592 / (2.0 * sqrt(dot(m, m))) ) *
+lensStrength;
+float bind;
+if (power > 0.0) bind = sqrt(dot(m, m));
+else {if (prop < 1.0) bind = m.x; else bind = m.y;} bind *= lensRadius;
+vec2 uv;
+if (power > 0.0)
+uv = m + d / max(length(d), 0.00001) * tan(r * power) * bind / tan( bind * power);
+else if (power < 0.0)
+uv = m + d / max(length(d), 0.00001) * atan(r * -power * 10.0) * bind / atan(-power * bind * 10.0);
+else uv = p;
+vec3 col = texture2DCv(inputImg.texture, vec2(uv.x, uv.y * prop)).xyz;
+fragColor = vec4(col, 1.0);
+}
+void main(){
+vec4 gmGenerated=vec4(0.0);
+gmGeneratedMainImage(gmGenerated,acScreenNorm*acScreenSize);
+vec4 gmSource=texture2DCv(inputImg.texture,acScreenNorm);
+float gmAlpha=gmClip?gmSource.a:gmGenerated.a;
+vec4 gmResult=vec4(gmGenerated.rgb*gmAlpha,gmAlpha);
+gl_FragColor=mix(gmSource,gmResult,gmMix);
+}]]></shader>
+</effect>

@@ -1,0 +1,44 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.goldmotion.effects.sharpenpro" name="GM Sharpen Pro" desc="Advanced unsharp mask and edge enhancement filter." category="color" tags="gm,sharpen,edge,enhance,pro,color" thumb="thumb/GM_SHARPEN_PRO.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Sharpen Controls" />
+<spinner id="amount" label="Sharpen Amount" default="1.5" min="0.0" max="5.0" step="0.05" />
+<spinner id="radius" label="Sharpen Radius" default="1.0" min="0.1" max="5.0" step="0.1" />
+<spinner id="threshold" label="Threshold" default="0.05" min="0.0" max="0.5" step="0.01" />
+<section text="Edge Protection" />
+<switch id="protectShadows" default="true" label="Protect Shadows" />
+<switch id="protectHighlights" default="false" label="Protect Highlights" />
+<section text="Blend Mode" />
+<spinner id="alpha" default="1.0" min="0.0" max="1.0" step="0.01" label="Opacity" type="percent" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="medium"><![CDATA[float getLuma(vec3 color) {
+return dot(color, vec3(0.299, 0.587, 0.114));
+}
+void main() {
+vec2 uv = acScreenNorm;
+vec4 originalColor = texture2DCv(inputImg.texture, uv);
+vec2 texelSize = vec2(radius) / acScreenSize;
+vec3 top = texture2DCv(inputImg.texture, uv + vec2(0.0, -texelSize.y)).rgb;
+vec3 bottom = texture2DCv(inputImg.texture, uv + vec2(0.0, texelSize.y)).rgb;
+vec3 left = texture2DCv(inputImg.texture, uv + vec2(-texelSize.x, 0.0)).rgb;
+vec3 right = texture2DCv(inputImg.texture, uv + vec2(texelSize.x, 0.0)).rgb;
+vec3 blur = (top + bottom + left + right) * 0.25;
+vec3 diff = originalColor.rgb - blur;
+float diffLuma = abs(getLuma(diff));
+float threshMask = smoothstep(threshold, threshold + 0.02, diffLuma);
+vec3 sharpened = originalColor.rgb + (diff * amount * threshMask);
+float origLuma = getLuma(originalColor.rgb);
+float protection = 1.0;
+if (protectShadows) {
+protection *= smoothstep(0.0, 0.2, origLuma);
+}
+if (protectHighlights) {
+protection *= smoothstep(1.0, 0.8, origLuma);
+}
+vec3 finalRgb = mix(originalColor.rgb, sharpened, protection);
+vec4 finalColor = vec4(clamp(finalRgb, 0.0, 1.0), originalColor.a);
+gl_FragColor = mix(originalColor, finalColor, alpha);
+}]]></shader>
+</effect>

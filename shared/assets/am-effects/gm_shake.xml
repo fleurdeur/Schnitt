@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/shake.webp" id="com.goldmotion.effects.v51.shake" name="GM Shake"
+desc="Organic sub-frame camera shake with smooth fractal noise, rotation, zoom and integrated blur."
+category="transform" tags="gm,shake,camera,handheld,impact" overdraw="true" max-overdraw="0.35" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="amountPx" default="18" min="0" max="400" step="1" label="Position Amount" />
+<spinner id="rotationAmount" default="1.2" min="0" max="45" step="0.1" label="Rotation Amount" />
+<spinner id="zoomAmount" default="0.015" min="0" max="0.5" step="0.002" label="Zoom Amount" />
+<spinner id="frequency" default="3" min="0.05" max="30" step="0.05" label="Frequency" />
+<spinner id="roughness" default="0.55" min="0" max="1" step="0.01" label="Roughness" />
+<spinner id="seed" default="1" min="0" max="100" step="0.1" label="Seed" />
+<spinner id="blurSamples" default="8" min="1" max="16" step="1" label="Motion Blur Samples" />
+<spinner id="blurAmount" default="0.65" min="0" max="2" step="0.01" label="Motion Blur" />
+<selector id="edgeMode" default="1" style="dropdown" label="Edges"><choice label="Clamp" value="0" /><choice label="Mirror" value="1" /><choice label="Tile" value="2" /></selector>
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[const float GM_PI=3.14159265359;
+float gmHash(float n){return fract(sin(n)*43758.5453123);}
+float gmNoise(float x){float i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);return mix(gmHash(i),gmHash(i+1.0),f)*2.0-1.0;}
+float gmFbm(float x){float n=gmNoise(x);n+=gmNoise(x*2.03+17.1)*0.5*roughness;n+=gmNoise(x*4.07+41.7)*0.25*roughness*roughness;return n/1.75;}
+vec2 gmEdge(vec2 uv){if(edgeMode==1)return 1.0-abs(mod(uv,2.0)-1.0);if(edgeMode==2)return fract(uv);return clamp(uv,0.0,1.0);}
+vec4 gmShakeSample(vec2 uv,float time){float n=time*frequency+seed*19.19;vec2 move=vec2(gmFbm(n),gmFbm(n+31.7))*amountPx/max(acScreenSize,vec2(1.0));float a=gmFbm(n+73.4)*rotationAmount*GM_PI/180.0;float z=1.0+gmFbm(n+113.8)*zoomAmount;vec2 q=(uv-0.5)/max(z,0.1);float c=cos(a),s=sin(a);q=mat2(c,-s,s,c)*q;return texture2DCv(inputImg.texture,gmEdge(0.5+q+move));}
+void main(){vec2 uv=acScreenNorm;float count=clamp(floor(blurSamples+0.5),1.0,16.0);vec4 sum=vec4(0.0);float wsum=0.0;for(int i=0;i<16;i++){if(float(i)>=count)break;float t=(float(i)+0.5)/count-0.5;float w=0.5+0.5*cos(t*GM_PI);sum+=gmShakeSample(uv,acTime+t*blurAmount/max(frequency,0.05))*w;wsum+=w;}gl_FragColor=sum/max(wsum,0.0001);}]]></shader>
+</effect>

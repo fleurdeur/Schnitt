@@ -1,0 +1,116 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_hue_shift_fan"
+name="GM Hue Shift Fan"
+desc="A hue rotation arranged as a fan around a point. The angle around the centre is divided into blades and each blade carries its own hue offset, so the colour sweeps round the layer like a colour wheel instead of shifting all at once. Blade count, hue per blade, a global hue rotation, spin, a spiral twist that bends the blades as they travel outward, a radius limit and a falloff that fades the shift with distance are all independent, and the blades can be feathered so the fan reads as a smooth sweep rather than as segments. Layer space, so the fan centre rides the layer."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.35"
+thumb="thumb/gm_hue_shift_fan.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Fan" />
+<spinner id="blades" default="6" min="1" max="16" step="1" type="integer" label="Blade Count" />
+<spinner id="huePerBlade" default="45.0" min="-180.0" max="180.0" step="1.0" type="angle" label="Hue Per Blade" />
+<spinner id="hueRepeat" default="1.0" min="0.5" max="4.0" step="0.05" label="Hue Repeat" />
+<spinner id="globalHue" default="0.0" min="0.0" max="360.0" step="1.0" type="angle" label="Global Hue Shift" />
+<spinner id="softness" default="0.45" min="0.0" max="1.0" step="0.01" label="Blade Softness" />
+<section text="Motion" />
+<spinner id="spin" default="0.15" min="-1.0" max="1.0" step="0.01" label="Spin" />
+<spinner id="twist" default="0.0" min="-1.0" max="1.0" step="0.01" label="Spiral Twist" />
+<section text="Extent" />
+<point id="centre" default="0.5,0.5" label="Fan Centre" />
+<spinner id="radius" default="0.75" min="0.10" max="1.50" step="0.01" label="Fan Radius" />
+<spinner id="falloff" default="0.45" min="0.0" max="1.0" step="0.01" label="Radius Falloff" />
+<section text="Colour" />
+<spinner id="saturation" default="1.0" min="0.0" max="2.0" step="0.01" label="Saturation" />
+<spinner id="brightness" default="1.0" min="0.0" max="2.0" step="0.01" label="Brightness" />
+<section text="Output" />
+<spinner id="mixAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Effect Strength" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec3 sat3v(vec3 c){ return clamp(c, vec3(0.0), vec3(1.0)); }
+float lum(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+// LAYER -> SCREEN. The fan is measured in layer space around a layer point, so
+// it is welded to the layer and inherits its transform.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+
+vec3 rgb2hsv(vec3 c){
+vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+float d = q.x - min(q.w, q.y);
+float e = 1.0e-10;
+return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+vec3 hsv2rgb(vec3 c){
+vec3 rgb = clamp(abs(mod(c.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+rgb = rgb * rgb * (3.0 - 2.0 * rgb);
+return c.z * mix(vec3(1.0), rgb, clamp(c.y, 0.0, 1.0));
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float al = max(src.a, 1.0e-4);
+vec3 sc = src.rgb / al;
+
+float asp = acLayerSize.x / max(acLayerSize.y, 1.0);
+vec2  c0  = centre - vec2(0.5);
+c0.x *= asp;
+vec2  q   = lp - vec2(0.5);
+q.x *= asp;
+q -= c0;
+
+float r   = length(q);
+float ang = atan(q.y, q.x) / 6.2831853 + 0.5;
+
+// ---- spin + spiral ------------------------------------------------------
+ang = fract(ang + acTime * spin * 0.15);
+
+// Spiral: the blade boundary advances with the radius, so the blades curve
+// outward like a pinwheel instead of staying straight spokes.
+ang += r * twist * 2.0;
+
+// ---- blade structure ----------------------------------------------------
+float bl  = max(blades, 1.0);
+float bf  = ang * bl;
+float bi  = floor(bf);
+float bff = bf - bi;
+
+// Feather only inside the top half of each blade, so softness 0 leaves crisp
+// segments and softness 1 makes a continuous sweep.
+float edge   = smoothstep(0.5, 1.0, bff);
+float offA   = (bi + 1.0) * huePerBlade;
+float offB   = (bi + 2.0) * huePerBlade;
+float hueOff = mix(offA, offB, edge * clamp(softness, 0.0, 1.0));
+
+// ---- extent -------------------------------------------------------------
+float fade = 1.0 - falloff * smoothstep(0.0, max(radius, 0.05), r);
+hueOff *= fade * max(hueRepeat, 0.05);
+
+// ---- apply --------------------------------------------------------------
+vec3 hsv = rgb2hsv(sc);
+hsv.x = fract(hsv.x + (hueOff + globalHue) / 360.0);
+hsv.y = clamp(hsv.y * max(saturation, 0.0), 0.0, 1.0);
+hsv.z = clamp(hsv.z * brightness, 0.0, 1.0);
+
+vec3 c = sat3v(hsv2rgb(hsv));
+
+vec3  col = mix(sc, c, mixAmt);
+float oA  = src.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

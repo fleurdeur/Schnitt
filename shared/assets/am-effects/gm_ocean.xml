@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect
+id="com.goldmotion.effects.v53.gm3d.ocean"
+name="GM Ocean"
+desc="Interactive procedural ocean with orbit camera, editable waves, lighting and mobile-safe quality modes."
+category="3d"
+tags="gm,3d,ocean,sea,water,waves,procedural,raymarch,shadertoy,camera"
+thumb="thumb/gm-ocean.webp"
+overdraw="true"
+max-overdraw="0.35"
+experimental="false"
+deprecated="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="3D Camera" />
+<spinner id="orbitYaw" default="0" min="-3600" max="3600" step="0.25" ticks="-180,-90,0,90,180" type="angle" label="Orbit Left / Right" />
+<spinner id="orbitPitch" default="12" min="-35" max="80" step="0.25" ticks="0,15,30,45,60" type="angle" label="Orbit Up / Down" />
+<spinner id="cameraDistance" default="6.5" min="2.0" max="20.0" step="0.05" label="Camera Distance" />
+<spinner id="cameraHeight" default="1.2" min="0.2" max="8.0" step="0.05" label="Camera Height" />
+<spinner id="targetHeight" default="0.35" min="-0.5" max="3.0" step="0.02" label="Look Height" />
+<spinner id="fieldOfView" default="55" min="20" max="100" step="0.5" label="Field of View" />
+<spinner id="cameraRoll" default="0" min="-3600" max="3600" step="0.25" ticks="-90,0,90" type="angle" label="Camera Roll" />
+<spinner id="panX" default="0" min="-10" max="10" step="0.02" label="Camera Pan" />
+<section text="Ocean Motion" />
+<spinner id="evolution" default="0" min="-1000" max="1000" step="0.01" label="Wave Evolution" />
+<switch id="autoMotion" default="true" label="Auto Animate" />
+<spinner id="motionSpeed" default="0.8" min="-4.0" max="4.0" step="0.01" label="Wave Speed" />
+<spinner id="travelSpeed" default="0.55" min="-5.0" max="5.0" step="0.01" label="Camera Travel" />
+<section text="Wave Shape" />
+<spinner id="waveHeight" default="0.6" min="0.05" max="2.0" step="0.01" label="Wave Height" />
+<spinner id="waveChoppy" default="4.0" min="0.5" max="8.0" step="0.05" label="Choppiness" />
+<spinner id="waveFrequency" default="0.16" min="0.04" max="0.6" step="0.005" label="Wave Frequency" />
+<spinner id="waveScale" default="1.0" min="0.25" max="4.0" step="0.01" label="Ocean Scale" />
+<spinner id="waveStretch" default="0.75" min="0.3" max="1.5" step="0.01" label="Wave Stretch" />
+<section text="Water and Sky" />
+<color id="deepColor" default="#FF00172E" label="Deep Water" alpha="false" />
+<color id="waterColor" default="#FF7A8A5C" label="Wave Light" alpha="false" />
+<color id="skyHorizon" default="#FFFFC987" label="Sky Horizon" alpha="false" />
+<color id="skyZenith" default="#FF367FC1" label="Sky Zenith" alpha="false" />
+<spinner id="reflection" default="0.72" min="0.0" max="1.5" step="0.01" label="Reflection" />
+<spinner id="fogAmount" default="0.32" min="0.0" max="1.0" step="0.01" label="Horizon Fog" />
+<section text="Lighting" />
+<spinner id="lightAzimuth" default="55" min="-3600" max="3600" step="0.5" type="angle" label="Light Direction" />
+<spinner id="lightElevation" default="48" min="3" max="89" step="0.5" type="angle" label="Light Height" />
+<spinner id="specularStrength" default="0.8" min="0.0" max="2.0" step="0.01" label="Sun Reflection" />
+<spinner id="sunGlow" default="0.35" min="0.0" max="2.0" step="0.01" label="Sky Sun Glow" />
+<spinner id="exposure" default="1.0" min="0.25" max="3.0" step="0.01" label="Exposure" />
+<spinner id="toneGamma" default="0.65" min="0.35" max="1.4" step="0.01" label="Tone" />
+<section text="Rendering" />
+<selector id="quality" style="dropdown" default="0" label="Render Quality">
+<choice label="Performance" value="0" />
+<choice label="Balanced" value="1" />
+<choice label="High Detail" value="2" />
+</selector>
+<spinner id="normalDetail" default="1.0" min="0.5" max="2.0" step="0.01" label="Surface Detail" />
+<spinner id="mixAmount" default="1.0" min="0.0" max="1.0" step="0.01" type="percent" label="Mix" />
+<switch id="clipToLayer" default="true" label="Clip to Layer" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[#define GM_PI 3.14159265359
+#define GM_EPSILON 0.001
+mat2 gmOctaveMatrix(){
+return mat2(1.6, 1.2, -1.2, 1.6);
+}
+float gmHash(vec2 p){
+return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+float gmNoise(vec2 p){
+vec2 i = floor(p);
+vec2 f = fract(p);
+vec2 u = f * f * (3.0 - 2.0 * f);
+return -1.0 + 2.0 * mix(
+mix(gmHash(i), gmHash(i + vec2(1.0, 0.0)), u.x),
+mix(gmHash(i + vec2(0.0, 1.0)), gmHash(i + vec2(1.0, 1.0)), u.x),
+u.y
+);
+}
+float gmSeaOctave(vec2 uv, float choppy){
+uv += gmNoise(uv);
+vec2 wave = 1.0 - abs(sin(uv));
+vec2 swell = abs(cos(uv));
+wave = mix(wave, swell, wave);
+return pow(max(1.0 - pow(max(wave.x * wave.y, 0.0), 0.65), 0.0), choppy);
+}
+float gmMapOcean(vec3 p, float seaTime, int geometrySteps){
+float frequency = waveFrequency;
+float amplitude = waveHeight;
+float choppy = waveChoppy;
+vec2 uv = p.xz * waveScale;
+uv.x *= waveStretch;
+float h = 0.0;
+for(int i = 0; i < 3; i++){
+if(i >= geometrySteps) break;
+float d = gmSeaOctave((uv + vec2(seaTime)) * frequency, choppy);
+d += gmSeaOctave((uv - vec2(seaTime)) * frequency, choppy);
+h += d * amplitude;
+uv = gmOctaveMatrix() * uv;
+frequency *= 1.9;
+amplitude *= 0.22;
+choppy = mix(choppy, 1.0, 0.2);
+}
+return p.y - h;
+}
+float gmMapDetailed(vec3 p, float seaTime, int detailSteps){
+float frequency = waveFrequency;
+float amplitude = waveHeight;
+float choppy = waveChoppy;
+vec2 uv = p.xz * waveScale;
+uv.x *= waveStretch;
+float h = 0.0;
+for(int i = 0; i < 5; i++){
+if(i >= detailSteps) break;
+float d = gmSeaOctave((uv + vec2(seaTime)) * frequency, choppy);
+d += gmSeaOctave((uv - vec2(seaTime)) * frequency, choppy);
+h += d * amplitude;
+uv = gmOctaveMatrix() * uv;
+frequency *= 1.9;
+amplitude *= 0.22;
+choppy = mix(choppy, 1.0, 0.2);
+}
+return p.y - h;
+}
+vec3 gmSkyColor(vec3 direction, vec3 lightDirection){
+float skyHeight = clamp(direction.y * 0.5 + 0.5, 0.0, 1.0);
+vec3 sky = mix(skyHorizon.rgb, skyZenith.rgb, pow(skyHeight, 0.65));
+float sun = pow(max(dot(direction, lightDirection), 0.0), 180.0);
+float halo = pow(max(dot(direction, lightDirection), 0.0), 12.0);
+sky += vec3(1.0, 0.78, 0.46) * (sun * 1.4 + halo * 0.12) * sunGlow;
+return sky;
+}
+float gmDiffuse(vec3 normal, vec3 lightDirection, float power){
+return pow(max(dot(normal, lightDirection) * 0.4 + 0.6, 0.0), power);
+}
+float gmSpecular(vec3 normal, vec3 lightDirection, vec3 eyeDirection, float shine){
+float normalization = (shine + 8.0) / (GM_PI * 8.0);
+return pow(max(dot(reflect(eyeDirection, normal), lightDirection), 0.0), shine) * normalization;
+}
+vec3 gmNormal(vec3 p, float epsilon, float seaTime, int detailSteps){
+float center = gmMapDetailed(p, seaTime, detailSteps);
+vec3 normal;
+normal.x = gmMapDetailed(vec3(p.x + epsilon, p.y, p.z), seaTime, detailSteps) - center;
+normal.z = gmMapDetailed(vec3(p.x, p.y, p.z + epsilon), seaTime, detailSteps) - center;
+normal.y = epsilon;
+return normalize(normal);
+}
+float gmTraceOcean(
+vec3 origin,
+vec3 direction,
+float seaTime,
+int traceSteps,
+int geometrySteps,
+out vec3 hitPoint
+){
+float nearDistance = 0.0;
+float farDistance = 350.0;
+float nearHeight = gmMapOcean(origin, seaTime, geometrySteps);
+float farHeight = gmMapOcean(origin + direction * farDistance, seaTime, geometrySteps);
+if(farHeight > 0.0){
+hitPoint = origin + direction * farDistance;
+return -1.0;
+}
+float distanceValue = 0.0;
+for(int i = 0; i < 20; i++){
+if(i >= traceSteps) break;
+float denominator = nearHeight - farHeight;
+float ratio = abs(denominator) > 0.00001 ? nearHeight / denominator : 0.5;
+distanceValue = mix(nearDistance, farDistance, clamp(ratio, 0.0, 1.0));
+hitPoint = origin + direction * distanceValue;
+float middleHeight = gmMapOcean(hitPoint, seaTime, geometrySteps);
+if(middleHeight < 0.0){
+farDistance = distanceValue;
+farHeight = middleHeight;
+}else{
+nearDistance = distanceValue;
+nearHeight = middleHeight;
+}
+if(abs(middleHeight) < GM_EPSILON) break;
+}
+return distanceValue;
+}
+vec3 gmSeaColor(
+vec3 p,
+vec3 normal,
+vec3 lightDirection,
+vec3 eyeDirection,
+vec3 distanceVector
+){
+float fresnel = clamp(1.0 - dot(normal, -eyeDirection), 0.0, 1.0);
+fresnel = min(fresnel * fresnel * fresnel, 0.65) * reflection;
+vec3 reflected = gmSkyColor(reflect(eyeDirection, normal), lightDirection);
+vec3 refracted = deepColor.rgb + gmDiffuse(normal, lightDirection, 80.0) * waterColor.rgb * 0.12;
+vec3 color = mix(refracted, reflected, clamp(fresnel, 0.0, 1.0));
+float distanceSquared = max(dot(distanceVector, distanceVector), 0.0001);
+float attenuation = max(1.0 - distanceSquared * 0.001, 0.0);
+color += waterColor.rgb * (p.y - waveHeight) * 0.18 * attenuation;
+float shine = max(12.0, 520.0 * inversesqrt(distanceSquared));
+color += vec3(gmSpecular(normal, lightDirection, eyeDirection, shine)) * specularStrength;
+return max(color, vec3(0.0));
+}
+void main(){
+vec4 source = texture2DCv(inputImg.texture, acScreenNorm);
+int traceSteps = 10;
+int geometrySteps = 2;
+int detailSteps = 3;
+if(quality == 0){
+traceSteps = 10;
+geometrySteps = 2;
+detailSteps = 3;
+}else if(quality == 1){
+traceSteps = 14;
+geometrySteps = 2;
+detailSteps = 4;
+}else if(quality == 2){
+traceSteps = 20;
+geometrySteps = 3;
+detailSteps = 5;
+}
+float animationTime = evolution;
+if(autoMotion) animationTime += acTime * motionSpeed;
+float seaTime = 1.0 + animationTime;
+float travel = animationTime * travelSpeed;
+float cosPitch = cos(orbitPitch);
+vec3 target = vec3(panX, targetHeight, travel);
+vec3 origin = target + vec3(
+sin(orbitYaw) * cosPitch * cameraDistance,
+cameraHeight + sin(orbitPitch) * cameraDistance,
+cos(orbitYaw) * cosPitch * cameraDistance
+);
+origin.y = max(origin.y, waveHeight + 0.18);
+vec3 front = normalize(target - origin);
+vec3 right = normalize(cross(front, vec3(0.0, 1.0, 0.0)));
+vec3 up = normalize(cross(right, front));
+vec3 rolledRight = right * cos(cameraRoll) + up * sin(cameraRoll);
+vec3 rolledUp = -right * sin(cameraRoll) + up * cos(cameraRoll);
+vec2 screen = acScreenNorm * 2.0 - 1.0;
+screen.x *= acScreenSize.x / max(acScreenSize.y, 1.0);
+float fovRadians = clamp(radians(fieldOfView), 0.35, 1.75);
+float focalLength = 1.0 / tan(fovRadians * 0.5);
+vec3 direction = normalize(front * focalLength + rolledRight * screen.x + rolledUp * screen.y);
+vec3 lightDirection = normalize(vec3(
+cos(lightElevation) * cos(lightAzimuth),
+sin(lightElevation),
+cos(lightElevation) * sin(lightAzimuth)
+));
+vec3 hitPoint;
+float hitDistance = gmTraceOcean(origin, direction, seaTime, traceSteps, geometrySteps, hitPoint);
+vec3 color = gmSkyColor(direction, lightDirection);
+if(hitDistance >= 0.0){
+vec3 distanceVector = hitPoint - origin;
+float distanceSquared = dot(distanceVector, distanceVector);
+float epsilon = max(0.0015, distanceSquared * (0.075 / max(acScreenSize.x, 1.0)) * normalDetail);
+vec3 normal = gmNormal(hitPoint, epsilon, seaTime, detailSteps);
+vec3 water = gmSeaColor(hitPoint, normal, lightDirection, direction, distanceVector);
+float horizonMask = pow(1.0 - smoothstep(-0.035, 0.025, direction.y), 0.22);
+float distanceFog = 1.0 - exp(-hitDistance * 0.012 * fogAmount);
+water = mix(water, skyHorizon.rgb, clamp(distanceFog, 0.0, 0.88));
+color = mix(color, water, horizonMask);
+}
+color = pow(max(color * exposure, vec3(0.0)), vec3(toneGamma));
+color = clamp(color, 0.0, 1.0);
+vec3 mixedColor = mix(source.rgb, color, mixAmount);
+float outputAlpha = clipToLayer ? source.a : 1.0;
+gl_FragColor = vec4(mixedColor * outputAlpha, outputAlpha);
+}]]></shader>
+</effect>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.gm3d.waveterrain" name="GM Wave Terrain 3D" desc="Turns the layer into a lit rolling surface using dual-axis wave depth and camera-style projection." category="3d" tags="gm,3d,wave,terrain,surface,cloth" thumb="thumb/wave_terrain_3d.webp" overdraw="true" max-overdraw="0.3" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="frequency" default="5.5" min="1" max="20" step="0.1" label="Wave Frequency" />
+<spinner id="amplitude" default="0.055" min="-0.2" max="0.2" step="0.001" label="Wave Height" />
+<spinner id="direction" default="18" min="-3600" max="3600" step="0.5" type="angle" label="Direction" />
+<spinner id="phase" default="0" min="-20" max="20" step="0.01" label="Phase" />
+<spinner id="lighting" default="0.65" min="0" max="1" step="0.01" label="Surface Lighting" />
+<spinner id="mixAmount" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[void main(){
+vec2 uv=acScreenNorm,p=uv-0.5; float c=cos(direction),s=sin(direction);
+vec2 a=mat2(c,-s,s,c)*p;
+float wx=a.x*frequency*6.2831853+phase, wy=a.y*frequency*4.4428829-phase*0.7;
+float z=(sin(wx)+0.55*cos(wy))*amplitude;
+vec2 warped=a+vec2(cos(wx),-sin(wy))*z*0.48;
+vec2 q=mat2(c,s,-s,c)*warped+0.5;
+float valid=step(0.0,q.x)*step(q.x,1.0)*step(0.0,q.y)*step(q.y,1.0);
+vec4 src=texture2DCv(inputImg.texture,uv),dst=texture2DCv(inputImg.texture,clamp(q,0.0,1.0));
+vec2 slope=vec2(cos(wx),-0.55*sin(wy))*amplitude*frequency;
+float light=clamp(0.76+dot(normalize(vec3(-slope,1.0)),normalize(vec3(-0.4,-0.5,1.0)))*0.42,0.35,1.35);
+dst.rgb*=mix(1.0,light,lighting);
+gl_FragColor=mix(src,dst,mixAmount*valid);
+}]]></shader>
+</effect>

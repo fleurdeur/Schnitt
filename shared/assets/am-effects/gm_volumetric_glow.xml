@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/deep_volumetric_glow.webp"
+id="com.goldmotion.effects.v51.volumetricglow"
+name="GM Deep Volumetric Glow"
+desc="Linear-light multi-radius Gaussian bloom with alpha-aware text extraction."
+category="color"
+tags="deep,glow,bloom,gaussian,text"
+overdraw="true"
+max-overdraw="0.25"
+experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<texture id="extractBuf" srcType="buffer" downsample="2" />
+<texture id="narrowH" srcType="buffer" downsample="2" />
+<texture id="narrowV" srcType="buffer" downsample="2" />
+<texture id="midH" srcType="buffer" downsample="4" />
+<texture id="midV" srcType="buffer" downsample="4" />
+<texture id="wideH" srcType="buffer" downsample="8" />
+<texture id="wideV" srcType="buffer" downsample="8" />
+<section text="Glow Source" />
+<selector id="sourceMode" default="2" style="dropdown" label="Source">
+<choice label="Luminance" value="0" />
+<choice label="Alpha" value="1" />
+<choice label="Luminance + Alpha" value="2" />
+</selector>
+<spinner id="threshold" default="0.18" min="0.0" max="1.0" step="0.005" label="Threshold" />
+<spinner id="softKnee" default="0.22" min="0.001" max="0.75" step="0.005" label="Threshold Softness" />
+<section text="Deep Blur" />
+<spinner id="radiusPx" default="14.0" min="0.5" max="80.0" step="0.5" label="Inner Radius" />
+<spinner id="spread" default="3.0" min="1.25" max="8.0" step="0.05" label="Outer Spread" />
+<spinner id="innerGain" default="0.9" min="0.0" max="4.0" step="0.01" label="Inner Glow" />
+<spinner id="outerGain" default="1.35" min="0.0" max="5.0" step="0.01" label="Outer Glow" />
+<spinner id="intensity" default="1.35" min="0.0" max="8.0" step="0.01" label="Intensity" />
+<section text="Color" />
+<color id="glowColor" default="#FFFFC84A" label="Glow Color" alpha="false" />
+<spinner id="colorMix" default="0.35" min="0.0" max="1.0" step="0.01" label="Color Mix" type="percent" />
+<selector id="blendMode" default="0" style="dropdown" label="Blend Mode">
+<choice label="Add" value="0" />
+<choice label="Screen" value="1" />
+<choice label="Behind" value="2" />
+</selector>
+<slider id="mixAmount" default="1.0" min="0.0" max="1.0" step="0.01" label="Mix" type="percent" />
+<section text="MOD BY PNKJ" />
+</params>
+<passes>
+<pass target="extractBuf" />
+<pass target="narrowH" />
+<pass target="narrowV" />
+<pass target="midH" />
+<pass target="midV" />
+<pass target="wideH" />
+<pass target="wideV" />
+<pass />
+</passes>
+<shader type="fragment" precision="high"><![CDATA[const vec3 GM_LUMA = vec3(0.2126, 0.7152, 0.0722);
+vec3 srgbToLinear(vec3 value) {
+vec3 low = value / 12.92;
+vec3 high = pow((value + 0.055) / 1.055, vec3(2.4));
+return mix(low, high, step(vec3(0.04045), value));
+}
+vec3 linearToSrgb(vec3 value) {
+value = max(value, 0.0);
+vec3 low = value * 12.92;
+vec3 high = 1.055 * pow(value, vec3(1.0 / 2.4)) - 0.055;
+return mix(low, high, step(vec3(0.0031308), value));
+}
+vec4 safeSample(sampler2D tex, vec2 uv) {
+if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return vec4(0.0);
+return texture2DCv(tex, uv);
+}
+vec4 gaussianBlur(sampler2D tex, vec2 uv, vec2 texel, float radius) {
+float support = max(radius, 0.5);
+float stridePx = max(support / 32.0, 1.0);
+float sigma = max(support / 3.0, 0.35);
+vec4 sum = safeSample(tex, uv);
+float weightSum = 1.0;
+for (float i = 1.0; i <= 32.0; i++) {
+float offsetPx = i * stridePx;
+if (offsetPx > support) break;
+float weight = exp(-0.5 * offsetPx * offsetPx / (sigma * sigma));
+sum += (safeSample(tex, uv + texel * offsetPx) +
+safeSample(tex, uv - texel * offsetPx)) * weight;
+weightSum += 2.0 * weight;
+}
+return sum / max(weightSum, 0.00001);
+}
+float sourceSignal(vec4 sampleValue, vec3 linearColor) {
+float luminance = dot(linearColor, GM_LUMA);
+if (sourceMode == 0) return luminance;
+if (sourceMode == 1) return sampleValue.a;
+return max(luminance, sampleValue.a);
+}
+float thresholdMask(float signal) {
+float lower = threshold - softKnee;
+float upper = threshold + softKnee;
+return smoothstep(lower, max(upper, lower + 0.0001), signal);
+}
+void main() {
+vec2 uv = acScreenNorm;
+vec2 inputSize = max(inputImg.size, vec2(1.0));
+if (acPass == 0) {
+vec2 texel = 1.0 / inputSize;
+float bestEnergy = 0.0;
+float bestAlpha = 0.0;
+vec3 bestLinear = vec3(0.0);
+for (float y = -2.0; y <= 2.0; y++) {
+for (float x = -2.0; x <= 2.0; x++) {
+vec4 sampleValue = safeSample(inputImg.texture, uv + vec2(x, y) * texel);
+vec3 straight = sampleValue.rgb / max(sampleValue.a, 0.00001);
+vec3 linearColor = srgbToLinear(clamp(straight, 0.0, 1.0));
+float signal = sourceSignal(sampleValue, linearColor);
+float energy = thresholdMask(signal);
+if (energy > bestEnergy) {
+bestEnergy = energy;
+bestAlpha = sampleValue.a;
+bestLinear = linearColor;
+}
+}
+}
+vec3 tintLinear = srgbToLinear(glowColor.rgb);
+vec3 sourceColor = mix(bestLinear, tintLinear, clamp(colorMix, 0.0, 1.0));
+float coverage = (sourceMode == 0) ? max(bestAlpha, bestEnergy) : bestEnergy;
+gl_FragColor = vec4(sourceColor * bestEnergy, coverage);
+return;
+}
+if (acPass == 1) {
+vec2 sourceSize = max(extractBuf.size, vec2(1.0));
+float radius = radiusPx * 0.65 * sourceSize.x / inputSize.x;
+gl_FragColor = gaussianBlur(extractBuf.texture, uv,
+vec2(1.0 / sourceSize.x, 0.0), radius);
+return;
+}
+if (acPass == 2) {
+vec2 sourceSize = max(narrowH.size, vec2(1.0));
+float radius = radiusPx * 0.65 * sourceSize.y / inputSize.y;
+gl_FragColor = gaussianBlur(narrowH.texture, uv,
+vec2(0.0, 1.0 / sourceSize.y), radius);
+return;
+}
+if (acPass == 3) {
+vec2 sourceSize = max(narrowV.size, vec2(1.0));
+float radius = radiusPx * spread * sourceSize.x / inputSize.x;
+gl_FragColor = gaussianBlur(narrowV.texture, uv,
+vec2(1.0 / sourceSize.x, 0.0), radius);
+return;
+}
+if (acPass == 4) {
+vec2 sourceSize = max(midH.size, vec2(1.0));
+float radius = radiusPx * spread * sourceSize.y / inputSize.y;
+gl_FragColor = gaussianBlur(midH.texture, uv,
+vec2(0.0, 1.0 / sourceSize.y), radius);
+return;
+}
+if (acPass == 5) {
+vec2 sourceSize = max(midV.size, vec2(1.0));
+float radius = radiusPx * spread * 2.5 * sourceSize.x / inputSize.x;
+gl_FragColor = gaussianBlur(midV.texture, uv,
+vec2(1.0 / sourceSize.x, 0.0), radius);
+return;
+}
+if (acPass == 6) {
+vec2 sourceSize = max(wideH.size, vec2(1.0));
+float radius = radiusPx * spread * 2.5 * sourceSize.y / inputSize.y;
+gl_FragColor = gaussianBlur(wideH.texture, uv,
+vec2(0.0, 1.0 / sourceSize.y), radius);
+return;
+}
+vec4 src = safeSample(inputImg.texture, uv);
+vec4 core = safeSample(narrowV.texture, uv);
+vec4 middle = safeSample(midV.texture, uv);
+vec4 tail = safeSample(wideV.texture, uv);
+vec3 glowLinear = core.rgb * (0.58 * innerGain) +
+middle.rgb * (0.29 * outerGain) +
+tail.rgb * (0.13 * outerGain);
+glowLinear *= max(intensity, 0.0);
+glowLinear = 1.0 - exp(-max(glowLinear, 0.0));
+vec3 sourceStraight = src.rgb / max(src.a, 0.00001);
+vec3 sourceLinear = srgbToLinear(clamp(sourceStraight, 0.0, 1.0));
+vec3 compositeLinear;
+if (blendMode == 1) {
+compositeLinear = 1.0 - (1.0 - sourceLinear) * (1.0 - clamp(glowLinear, 0.0, 1.0));
+} else if (blendMode == 2) {
+compositeLinear = sourceLinear + glowLinear * (1.0 - src.a);
+} else {
+compositeLinear = sourceLinear + glowLinear;
+}
+vec3 compositeSrgb = linearToSrgb(compositeLinear);
+vec3 baseSrgb = src.rgb;
+vec3 resultRgb = mix(baseSrgb, compositeSrgb, clamp(mixAmount, 0.0, 1.0));
+float glowAlpha = clamp((core.a * 0.58 * innerGain +
+middle.a * 0.29 * outerGain +
+tail.a * 0.13 * outerGain) * intensity, 0.0, 1.0);
+float resultAlpha = max(src.a, glowAlpha * clamp(mixAmount, 0.0, 1.0));
+gl_FragColor = vec4(resultRgb, resultAlpha);
+}]]></shader>
+</effect>

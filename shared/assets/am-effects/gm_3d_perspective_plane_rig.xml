@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.gm3d.perspectiveplanerig" name="GM Perspective Plane Rig" desc="Camera-style X/Y plane tilt with perspective projection, lighting and safe edge handling." category="3d" tags="gm,3d,perspective,plane,camera,tilt" thumb="thumb/perspective_plane_rig.webp" overdraw="true" max-overdraw="0.3" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="tiltX" default="-18" min="-80" max="80" step="0.5" type="angle" label="Tilt X" />
+<spinner id="tiltY" default="22" min="-80" max="80" step="0.5" type="angle" label="Tilt Y" />
+<spinner id="perspective" default="0.65" min="0" max="2" step="0.01" label="Perspective" />
+<spinner id="zoom" default="0.88" min="0.2" max="2" step="0.01" label="Zoom" />
+<spinner id="lighting" default="0.45" min="0" max="1" step="0.01" label="3D Lighting" />
+<spinner id="mixAmount" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[void main(){
+vec2 uv=acScreenNorm,p=uv-0.5;
+float cx=cos(tiltX),sx=sin(tiltX),cy=cos(tiltY),sy=sin(tiltY);
+float den=max(0.18,1.0+(p.x*sy-p.y*sx)*perspective);
+vec2 q=vec2(p.x/max(abs(cy),0.08),p.y/max(abs(cx),0.08))/(den*max(zoom,0.05))+0.5;
+float valid=step(0.0,q.x)*step(q.x,1.0)*step(0.0,q.y)*step(q.y,1.0);
+vec4 src=texture2DCv(inputImg.texture,uv);
+vec4 dst=texture2DCv(inputImg.texture,clamp(q,0.0,1.0));
+float face=clamp(abs(cx*cy),0.0,1.0);
+float directional=clamp(0.72+0.28*(p.x*sy-p.y*sx)+0.25*face,0.25,1.25);
+dst.rgb*=mix(1.0,directional,lighting);
+gl_FragColor=mix(src,dst,mixAmount*valid);
+}]]></shader>
+</effect>

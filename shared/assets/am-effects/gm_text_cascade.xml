@@ -1,0 +1,220 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_text_cascade"
+name="GM Text Cascade"
+desc="A time driven build-on and tear-down. Every character is given an ORDER KEY along the line, and the build progress sweeps those keys one after another - so the text assembles itself. Order can run Forward, Backward, start at the Center and work Out, start at the Edges and work In, go Random, or assemble Word by Word. Stagger sets how far apart the characters are; at zero the whole line lands together, at maximum it becomes a long per-character cascade. Three reveal styles: Typewriter simply withholds the character, Placeholder Wipe parks a chosen glyph in its slot so the layout never reflows, and Scramble boils unrevealed characters through a glyph pool. Reverse Out collapses the finished line again from the end, on its own clock, so one effect covers both the in and the out."
+category="text"
+tags="gm,text,cascade,reveal,typewriter,stagger,kinetic,build"
+affinity="text!" type="text"
+experimental="false"
+thumb="thumb/gm_text_cascade.webp">
+<params>
+<section text="Timing" />
+<spinner id="buildTime" default="1.5" min="0.05" max="30.0" step="0.01" label="Build Time" />
+<spinner id="delay" default="0.0" min="0.0" max="1.0" step="0.001" type="percent" label="Start Delay" />
+<spinner id="stagger" default="0.55" min="0.0" max="0.95" step="0.01" type="percent" label="Stagger" />
+<selector id="ease" style="dropdown" default="1" label="Ease">
+<choice value="0" label="Linear" />
+<choice value="1" label="Smooth" />
+<choice value="2" label="Ease In" />
+<choice value="3" label="Ease Out" />
+<choice value="4" label="Snap" />
+</selector>
+<section text="Order" />
+<selector id="order" style="dropdown" default="0" label="Assembly Order">
+<choice value="0" label="Forward" />
+<choice value="1" label="Backward" />
+<choice value="2" label="Center Out" />
+<choice value="3" label="Edges In" />
+<choice value="4" label="Random" />
+<choice value="5" label="Word by Word" />
+</selector>
+<spinner id="seed" default="0.0" min="0.0" max="20.0" step="0.01" label="Seed" />
+<section text="Reveal" />
+<selector id="revealMode" style="dropdown" default="1" label="Reveal Style">
+<choice value="0" label="Typewriter" />
+<choice value="1" label="Placeholder Wipe" />
+<choice value="2" label="Scramble" />
+</selector>
+<selector id="fillChar" style="dropdown" default="3" label="Placeholder">
+<choice value="0" label="Space" />
+<choice value="1" label="Dot" />
+<choice value="2" label="Underscore" />
+<choice value="3" label="Block" />
+<choice value="4" label="Asterisk" />
+<choice value="5" label="Hash" />
+<choice value="6" label="Random Letters" />
+<choice value="7" label="Random Digits" />
+</selector>
+<selector id="scrambleCharset" style="dropdown" default="0" label="Scramble Pool">
+<choice value="0" label="Letters" />
+<choice value="1" label="Digits" />
+<choice value="2" label="Hex" />
+<choice value="3" label="Blocks" />
+<choice value="4" label="Symbols" />
+</selector>
+<switch id="cursor" default="false" label="Typewriter Cursor" />
+<selector id="cursorChar" style="dropdown" default="1" label="Cursor Shape">
+<choice value="0" label="None" />
+<choice value="1" label="Underscore" />
+<choice value="2" label="Block" />
+<choice value="3" label="Half Block" />
+<choice value="4" label="Bar" />
+<choice value="5" label="Hollow" />
+</selector>
+<section text="Range" />
+<spinner id="start" default="0.0" min="0.0" max="1.0" step="0.001" type="percent" label="Start" />
+<spinner id="end" default="1.0" min="0.0" max="1.0" step="0.001" type="percent" label="End" />
+<section text="Reverse Out" />
+<switch id="reverseOut" default="false" label="Collapse at the End" />
+<spinner id="outStart" default="0.6" min="0.0" max="1.0" step="0.001" type="percent" label="Collapse Start" />
+<spinner id="outDur" default="1.0" min="0.05" max="30.0" step="0.01" label="Collapse Time" />
+<section text="MOD BY PNKJ" />
+</params>
+<script lang="js"><![CDATA[function hash11(x){
+let s = Math.sin(x * 127.1 + 311.7) * 43758.5453123;
+return s - Math.floor(s);
+}
+
+function clamp01(x){
+if( x < 0.0 ) return 0.0;
+if( x > 1.0 ) return 1.0;
+return x;
+}
+
+function animate(env, el, p){
+let base = el.text;
+let n = base.length;
+if( n < 1 ) return el;
+
+// ---- build progress -----------------------------------------------------
+let t   = env.time * env.duration;
+let t0  = p.delay * env.duration;
+let dur = Math.max(1e-3, p.buildTime);
+let u = clamp01((t - t0) / dur);
+
+// Stagger spreads the per-character windows across the build. The LAST key
+// always lands exactly at u = 1, so Build Time is the true total duration
+// whatever the stagger.
+let st  = Math.max(0.0, Math.min(0.95, p.stagger));
+let win = Math.max(1e-3, 1.0 - st);
+
+let a0 = Math.min(p.start, p.end);
+let a1 = Math.max(p.start, p.end);
+let lo = Math.floor(n * a0);
+let hi = Math.ceil(n * a1);
+if( hi <= lo ) return el;
+let span = Math.max(1, hi - lo - 1);
+
+let ord = Math.round(p.order);
+let ez  = Math.round(p.ease);
+let rm  = Math.round(p.revealMode);
+let fc  = Math.round(p.fillChar);
+let scr = Math.round(p.scrambleCharset);
+let cc  = Math.round(p.cursorChar);
+
+// ---- glyph pools --------------------------------------------------------
+let scs = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+if( scr == 1 ){ scs = "0123456789"; }
+else if( scr == 2 ){ scs = "0123456789ABCDEF"; }
+else if( scr == 3 ){ scs = "\u2588\u2593\u2592\u2591\u25A0\u25AA\u25AB"; }
+else if( scr == 4 ){ scs = "!@#$%^&*()_+-=<>/\\|"; }
+
+let fch = " ";
+if( fc == 1 ){ fch = "\u00B7"; }
+else if( fc == 2 ){ fch = "_"; }
+else if( fc == 3 ){ fch = "\u2588"; }
+else if( fc == 4 ){ fch = "*"; }
+else if( fc == 5 ){ fch = "#"; }
+
+let cursorChar = "";
+if( cc == 1 ){ cursorChar = "_"; }
+else if( cc == 2 ){ cursorChar = "\u2588"; }
+else if( cc == 3 ){ cursorChar = "\u258C"; }
+else if( cc == 4 ){ cursorChar = "|"; }
+else if( cc == 5 ){ cursorChar = "\u25AF"; }
+
+// ---- reverse out --------------------------------------------------------
+// u is already clamped to 1, so subtracting the collapse gives a clean
+// tear-down after the hold.
+let prog = u;
+if( p.reverseOut ){
+let v = clamp01((t - p.outStart * env.duration) / Math.max(1e-3, p.outDur));
+prog = clamp01(u - v);
+}
+
+// ---- word map (needed by Word by Word) ----------------------------------
+let wid = [];
+let words = 0;
+let prevSpace = true;
+for( let i = 0; i < n; i = i + 1 ){
+let sp = base.charAt(i) == " ";
+if( !sp && prevSpace ){ words = words + 1; }
+wid.push(words > 0 ? words - 1 : 0);
+prevSpace = sp;
+}
+let wtot = Math.max(1, words);
+
+let out = "";
+for( let i = 0; i < n; i = i + 1 ){
+let ch = base.charAt(i);
+if( i >= lo && i < hi ){
+// Order key: where this character sits in the assembly sequence.
+let uu = (i - lo) / span;
+let o;
+if( ord < 1 ){ o = uu; }
+else if( ord < 2 ){ o = 1.0 - uu; }
+else if( ord < 3 ){ o = Math.abs(uu * 2.0 - 1.0); }
+else if( ord < 4 ){ o = 1.0 - Math.abs(uu * 2.0 - 1.0); }
+else if( ord < 5 ){ o = hash11(i * 3.7 + p.seed * 11.3); }
+else { o = wid[i] / wtot; }
+
+let local = clamp01((prog - o * st) / win);
+
+if( ez == 1 ){ local = local * local * (3.0 - 2.0 * local); }
+else if( ez == 2 ){ local = local * local; }
+else if( ez == 3 ){ local = 1.0 - (1.0 - local) * (1.0 - local); }
+else if( ez == 4 ){ local = local < 0.5 ? 0.0 : 1.0; }
+
+if( local > 0.999 ){
+out = out + ch;
+} else if( ch == " " ){
+out = out + " ";
+} else if( rm < 1 ){
+// Typewriter - the slot is simply empty.
+} else if( rm < 2 ){
+// Placeholder Wipe - a glyph holds the slot so nothing reflows.
+if( fc == 6 ){
+out = out + scs.charAt(Math.floor(hash11(i * 5.1 + p.seed) * scs.length) % scs.length);
+} else if( fc == 7 ){
+out = out + scs.charAt(Math.floor(hash11(i * 5.1 + p.seed) * 10.0) % 10);
+} else {
+out = out + fch;
+}
+} else {
+// Scramble - unrevealed slots boil through the pool on a fixed frame clock.
+let fr = Math.floor(t * 24.0);
+let gi = Math.floor(hash11(i * 7.9 + p.seed * 3.3 + fr) * scs.length);
+if( gi > scs.length - 1 ){ gi = scs.length - 1; }
+if( gi < 0 ){ gi = 0; }
+out = out + scs.charAt(gi);
+}
+} else {
+out = out + ch;
+}
+}
+
+// ---- cursor -------------------------------------------------------------
+if( p.cursor && rm < 1 && cursorChar.length > 0 ){
+let tail = out.replace(/\s+$/, "");
+if( tail.length < 1 || tail.charAt(tail.length - 1) != cursorChar ){
+out = tail + cursorChar;
+} else {
+out = tail;
+}
+}
+
+el.text = out;
+return el;
+}]]></script>
+</effect>
+

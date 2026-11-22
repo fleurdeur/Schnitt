@@ -1706,6 +1706,15 @@
     <string name="ai_model_download_wrong">The download was not the AI model</string>
     <string name="ai_runtime_unavailable">The AI tools are not available in this build</string>
     <string name="ai_enhance">Enhance</string>
+    <string name="smooth_twixor">Twixtor</string>
+    <string name="ai_dfr">Remove dead frames</string>
+    <string name="ai_dfr_frames">%1$s dead of %2$s frames</string>
+    <string name="ai_enhance_gm_anime">GM Anime X4</string>
+    <string name="ai_enhance_gm_anime_hint">GM Anime neural upscale, 4x scale</string>
+    <string name="ai_enhance_gm_anime_help">A four-times upscale tuned for anime lines and flat colour, based on the offline Real-ESRGAN anime model. Best on short clips and small source frames.</string>
+    <string name="ai_enhance_gm_soul">GM Soul X4</string>
+    <string name="ai_enhance_gm_soul_hint">GM Soul neural upscale, 4x scale</string>
+    <string name="ai_enhance_gm_soul_help">A four-times upscale tuned for texture and skin detail, based on the offline Real-ESRGAN general model. Best on short clips and small source frames.</string>
     <string name="ai_enhance_upscale2">Upscale 2x</string>
     <string name="ai_enhance_upscale2_hint">Twice the size, for clips up to 720p</string>
     <string name="ai_enhance_upscale2_help">Doubles the width and height of the clip and draws in new detail. Works on clips up to 720p. On a recent top phone, 10 seconds of 540p video take about 5 to 10 minutes; mid-range and older phones take much longer. Best on recent phones with a strong graphics chip.</string>
@@ -1723,6 +1732,7 @@
     <string name="ai_enhance_quick_note">Adds the Sharpen effect to the clip. You can change or remove it in the effects list.</string>
     <string name="ai_enhance_cartoon">Cartoon or animation</string>
     <string name="ai_enhance_grain">Keep film grain</string>
+    <string name="ai_enhance_gm_missing">The GM upscale model is missing from this build.</string>
     <string name="ai_enhance_cap">%1$s works on clips up to %2$sp. This clip is bigger.</string>
     <string name="ai_download_once">Downloads %1$s once</string>
     <string name="ai_download_and_start">Download and start</string>

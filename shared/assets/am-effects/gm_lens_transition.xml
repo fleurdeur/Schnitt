@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/lens_transition.webp" id="com.goldmotion.effects.v51.lenstransition" name="GM Lens Transition"
+desc="Rack-focus bokeh wipe between the current layer and composition below, with chromatic lens breathing."
+category="blur" tags="gm,lens,transition,bokeh,focus,wipe" overdraw="true" max-overdraw="0.55" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" /><texture id="comp" srcType="comp" />
+<spinner id="progress" default="0" min="0" max="1" step="0.005" label="Progress" type="percent" />
+<spinner id="angle" default="0" min="-3600" max="3600" step="0.5" type="angle" label="Direction" />
+<spinner id="softness" default="0.22" min="0.01" max="1" step="0.01" label="Wipe Softness" />
+<spinner id="blurPx" default="32" min="0" max="180" step="1" label="Defocus" />
+<spinner id="bokehShape" default="0.55" min="0" max="1" step="0.01" label="Bokeh Character" />
+<spinner id="chromatic" default="2.5" min="0" max="30" step="0.1" label="Chromatic Breathing" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec4 gmBokeh(sampler2D tex,vec2 uv,vec2 size,float radius,float phase){vec4 sum=vec4(0.0);float w=0.0;for(int i=0;i<16;i++){float a=6.2831853*(float(i)/16.0+phase);float r=radius*(0.35+0.65*fract(float(i)*0.618));float k=1.0+0.35*bokehShape*cos(a*6.0);sum+=texture2DCv(tex,clamp(uv+vec2(cos(a),sin(a))*r*k/size,0.0,1.0));w+=1.0;}return sum/w;}
+void main(){vec2 uv=acScreenNorm;float c=cos(angle),s=sin(angle);float axis=dot(uv-0.5,vec2(c,s))+0.5;float edge=mix(-softness,1.0+softness,progress);float mask=1.0-smoothstep(edge-softness,edge+softness,axis);float focus=sin(clamp(progress,0.0,1.0)*3.14159265);vec2 size=max(acScreenSize,vec2(1.0));
+vec4 a=gmBokeh(inputImg.texture,uv,size,blurPx*focus,0.0),b=gmBokeh(comp.texture,uv,size,blurPx*focus,0.17);vec2 ca=vec2(chromatic/size.x,0.0)*focus;
+a.r=texture2DCv(inputImg.texture,clamp(uv+ca,0.0,1.0)).r;b.b=texture2DCv(comp.texture,clamp(uv-ca,0.0,1.0)).b;gl_FragColor=mix(a,b,mask);}]]></shader>
+</effect>

@@ -1,0 +1,148 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_text_marquee"
+name="GM Text Marquee"
+desc="An endless ticker. The line is joined into a ring with a gap of your choosing and then scrolled through a fixed window, so the text never runs out and never jumps - it wraps seamlessly. Three motion modes: Loop runs the ring forever, Ping-Pong runs it out and brings it back, and Reveal Once travels a single pass then holds at the far end. The window is a fraction of the original line, the anchor decides where the window sits inside the frame, and the whole thing can run on the layer's own clock or on absolute timeline time so several tickers can share one scroll."
+category="text"
+tags="gm,text,marquee,ticker,scroll,news,kinetic,broadcast"
+affinity="text!" type="text"
+experimental="false"
+thumb="thumb/gm_text_marquee.webp">
+<params>
+<section text="Scroll" />
+<spinner id="speed" default="0.35" min="0.0" max="8.0" step="0.01" label="Scroll Speed" />
+<selector id="direction" style="dropdown" default="0" label="Direction">
+<choice value="0" label="Left" />
+<choice value="1" label="Right" />
+</selector>
+<selector id="mode" style="dropdown" default="0" label="Motion">
+<choice value="0" label="Loop" />
+<choice value="1" label="Ping-Pong" />
+<choice value="2" label="Reveal Once" />
+</selector>
+<spinner id="travel" default="4.0" min="0.05" max="30.0" step="0.01" label="Travel Time" />
+<spinner id="hold" default="0.0" min="0.0" max="4.0" step="0.01" type="percent" label="End Hold" />
+<spinner id="phase" default="0.0" min="0.0" max="1.0" step="0.001" type="percent" label="Phase" />
+<selector id="timeSource" style="dropdown" default="0" label="Time Source">
+<choice value="0" label="Layer Time" />
+<choice value="1" label="Absolute Time" />
+</selector>
+<section text="Window" />
+<spinner id="window" default="0.55" min="0.02" max="1.0" step="0.01" type="percent" label="Visible Window" />
+<selector id="anchor" style="dropdown" default="0" label="Anchor">
+<choice value="0" label="Left" />
+<choice value="1" label="Center" />
+<choice value="2" label="Right" />
+</selector>
+<spinner id="gap" default="4" min="0" max="12" step="1" type="integer" label="Gap Width" />
+<selector id="gapChar" style="dropdown" default="1" label="Gap Character">
+<choice value="0" label="Space" />
+<choice value="1" label="Dot" />
+<choice value="2" label="Dash" />
+<choice value="3" label="Bullet" />
+<choice value="4" label="Slash" />
+<choice value="5" label="Bar" />
+<choice value="6" label="Star" />
+<choice value="7" label="Square" />
+</selector>
+<section text="Type" />
+<selector id="caseMode" style="dropdown" default="0" label="Case">
+<choice value="0" label="Original" />
+<choice value="1" label="UPPERCASE" />
+<choice value="2" label="lowercase" />
+</selector>
+<switch id="trimSpaces" default="false" label="Trim Edges" />
+<section text="MOD BY PNKJ" />
+</params>
+<script lang="js"><![CDATA[function pingpong(x){
+let f = x - Math.floor(x);
+if( f < 0.5 ) return f * 2.0;
+return (1.0 - f) * 2.0;
+}
+
+function animate(env, el, p){
+let base = el.text;
+let n = base.length;
+if( n < 1 ) return el;
+
+// ---- gap character ------------------------------------------------------
+let gc = " ";
+let g = Math.round(p.gapChar);
+if( g < 1 ) gc = " ";
+else if( g < 2 ) gc = "\u00B7";
+else if( g < 3 ) gc = "-";
+else if( g < 4 ) gc = "\u2022";
+else if( g < 5 ) gc = "/";
+else if( g < 6 ) gc = "|";
+else if( g < 7 ) gc = "*";
+else gc = "\u25AA";
+
+let gn = Math.max(0, Math.round(p.gap));
+let gap = "";
+for( let k = 0; k < gn; k = k + 1 ){ gap = gap + gc; }
+
+// The ring is the line plus its gap. Everything downstream is measured in
+// characters on this ring, which is why the scroll can never run dry.
+let ring = base + gap;
+let rn = ring.length;
+if( rn < 1 ) return el;
+
+// ---- clock --------------------------------------------------------------
+let t;
+if( Math.round(p.timeSource) < 1 ){ t = env.time * env.duration; }
+else { t = env.absTime; }
+
+let rev = Math.round(p.direction) > 0;
+let spd = rev ? -p.speed : p.speed;
+
+let md = Math.round(p.mode);
+let pos = 0.0;
+if( md < 1 ){
+// Loop - the ring wraps forever.
+pos = t * spd + p.phase;
+pos = pos - Math.floor(pos);
+pos = pos * rn;
+} else if( md < 2 ){
+// Ping-Pong - runs out, comes back, no seam at either end.
+pos = pingpong(t * spd + p.phase) * rn;
+} else {
+// Reveal Once - one pass, then hold.
+let dur = Math.max(1e-3, p.travel);
+let u = t / dur;
+if( u > 1.0 ) u = 1.0;
+if( u < 0.0 ) u = 0.0;
+let hd = Math.max(0.0, p.hold);
+pos = u * (1.0 + hd) * rn;
+if( rev ){ pos = -pos; }
+}
+
+// ---- window -------------------------------------------------------------
+let win = Math.max(0.02, Math.min(1.0, p.window));
+let vis = Math.max(1, Math.round(n * win));
+
+let anc = Math.round(p.anchor);
+pos = pos + anc * 0.5 * vis;
+
+// Repeat the ring enough times that a full window is always available, then
+// slice - no padding, no short last frame.
+let reps = Math.ceil((vis + rn + 4) / rn) + 1;
+let big = "";
+for( let k = 0; k < reps; k = k + 1 ){ big = big + ring; }
+
+let start = Math.floor(pos) % rn;
+if( start < 0 ){ start = start + rn; }
+let s = big.substr(start, vis);
+while( s.length < vis ){ s = s + gc; }
+
+// ---- type ---------------------------------------------------------------
+let cm = Math.round(p.caseMode);
+if( cm == 1 ){ s = s.toUpperCase(); }
+else if( cm == 2 ){ s = s.toLowerCase(); }
+if( p.trimSpaces ){
+s = s.replace(/^\s+/, "").replace(/\s+$/, "");
+}
+
+el.text = s;
+return el;
+}]]></script>
+</effect>
+

@@ -590,6 +590,7 @@ object AmEffectImporter {
     private fun translate(source: String, params: List<EffectParam>, textures: Set<String>): String? {
         var s = expandMacros(source)
         s = common(s)
+        s = specializeSampler(s)
         s = convertBody(s, "coord", emptyMap(), textures)
         s = s.replace(Regex("""void\s+main\s*\(\s*\)"""), "half4 main(float2 coord)")
         if (!s.contains("half4 main")) return null
@@ -671,22 +672,40 @@ object AmEffectImporter {
         return s
     }
 
-    /** Turns a helper that takes sampler2D into a helper that reads the one
-     *  buffer used by this pass. SkSL has no sampler function parameters, but
-     *  Alight uses that pattern for gaussian-style blur helpers. */
+    /** Turns a helper that takes sampler2D into a concrete helper per source
+     *  buffer. SkSL has no sampler function parameters, but Alight uses that
+     *  pattern for gaussian-style blur and average helpers. The old version
+     *  only handled one buffer; effects such as GM Color Link pass two. */
     private fun specializeSampler(source: String): String {
         if (!source.contains("sampler2D")) return source
-        val call = Regex("""(\w+)\s*\(\s*(\w+)\.texture\s*,""").find(source) ?: return source
-        val helper = call.groupValues[1]
-        val sampler = call.groupValues[2]
         var s = source
-        s = Regex("""sampler2D\s+${Regex.escape(sampler)}\s*,""").replace(s, "")
-        s = Regex("""${Regex.escape(helper)}\s*\(\s*${Regex.escape(sampler)}\.texture\s*,""").replace(s, "$helper(")
-        s = Regex("""\b${Regex.escape(sampler)}\b""").replace(s, sampler.let { call.groupValues[2] })
-        // The sampler variable name and the buffer name are sometimes the same
-        // (texture), so move the actual child name in from the call.
-        s = Regex("""texture2DCv\s*\(\s*${Regex.escape(call.groupValues[2])}\s*,""").replace(s, "texture2DCv(${call.groupValues[2]}.texture,")
-        s = Regex("""texture2D\s*\(\s*${Regex.escape(call.groupValues[2])}\s*,""").replace(s, "texture2D(${call.groupValues[2]}.texture,")
+        val signature = Regex("""\b(vec3|vec4|float|float3|float4)\s+(\w+)\s*\(\s*sampler2D\s+(\w+)\s*(?:,\s*([^)]*))?\)\s*\{""")
+        while (true) {
+            val match = signature.find(s) ?: break
+            val returnType = match.groupValues[1]
+            val helper = match.groupValues[2]
+            val sampler = match.groupValues[3]
+            val extras = match.groupValues[4].trim()
+            val open = match.range.last
+            val close = matchingBrace(s, open) ?: break
+            val body = s.substring(open + 1, close)
+            val tail = s.substring(close + 1)
+            val sources = Regex("""\b${Regex.escape(helper)}\s*\(\s*(\w+)\.texture""")
+                .findAll(tail).map { it.groupValues[1] }.distinct().toList()
+            val defs = StringBuilder()
+            for (buffer in sources) {
+                val concrete = Regex("""\b${Regex.escape(sampler)}\b""").replace(body, buffer)
+                val args = extras.split(',').map { it.trim() }.filter { it.isNotEmpty() }.joinToString(", ") { it.substringAfterLast(' ') }
+                defs.append("\n").append(returnType).append(' ').append(helper).append('_').append(buffer)
+                    .append('(').append(args).append(") {").append(concrete).append("}\n")
+            }
+            var rewritten = tail
+            for (buffer in sources) {
+                rewritten = Regex("""\b${Regex.escape(helper)}\s*\(\s*${Regex.escape(buffer)}\.texture\s*(,\s*)?""")
+                    .replace(rewritten) { m -> helper + "_" + buffer + "(" + m.groupValues[1] }
+            }
+            s = s.substring(0, match.range.first) + defs + rewritten
+        }
         return s
     }
 
@@ -819,7 +838,7 @@ object AmEffectImporter {
      *  only unrolls constant loops, so turn each one into a bounded integer
      *  loop and break on the original condition. */
     private fun boundedLoops(source: String): String {
-        val pattern = Regex("""for\s*\(\s*float\s+(\w+)\s*=\s*([^;]+);\s*\1\s*(<=|>=|<|>)\s*([^;]+);\s*\1\s*([+\-])=\s*([^)]+)\)\s*\{""")
+        val pattern = Regex("""for\s*\(\s*float\s+(\w+)\s*=\s*([^;]+);\s*\1\s*(<=|>=|<|>)\s*([^;]+);\s*\1\s*(\+\+|--|[+\-]=\s*[^)]+)\)\s*\{""")
         var out = source
         var serial = 0
         while (true) {
@@ -828,8 +847,15 @@ object AmEffectImporter {
             val start = match.groupValues[2].trim()
             val op = match.groupValues[3]
             val end = match.groupValues[4].trim()
-            val sign = match.groupValues[5]
-            val step = match.groupValues[6].trim()
+            val update = match.groupValues[5].replace(" ", "")
+            val sign = if (update.startsWith("-")) "-" else ""
+            val step = when {
+                update == "++" -> "1.0"
+                update == "--" -> "1.0"
+                update.startsWith("+=") -> update.removePrefix("+=")
+                update.startsWith("-=") -> update.removePrefix("-=")
+                else -> "1.0"
+            }
             val open = match.range.last
             var depth = 0
             var close = -1

@@ -1,0 +1,183 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_gradient_map"
+name="GM Gradient Map"
+desc="A four-stop colour ramp mapped onto any channel of the layer. Pick what drives the ramp - luminance, a single channel, alpha, hue, saturation or lightness - then set the four colours and where the two middle stops sit. The ramp can be interpolated in RGB, in HSV (shortest hue path, so a red-to-blue ramp goes through magenta rather than through grey) or in luma-preserved mode, which keeps the layer's own brightness and takes only the ramp's colour. A bias curve, a contrast curve, dithering and five blend modes finish it. Layer space, so the ramp rides the layer."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.30"
+thumb="thumb/gm_gradient_map.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Ramp Driver" />
+<selector id="mapInput" style="dropdown" default="0" label="Map Input">
+<choice value="0" label="Luminance" />
+<choice value="1" label="Red" />
+<choice value="2" label="Green" />
+<choice value="3" label="Blue" />
+<choice value="4" label="Alpha" />
+<choice value="5" label="Hue" />
+<choice value="6" label="Saturation" />
+<choice value="7" label="Lightness" />
+</selector>
+<section text="Ramp Stops" />
+<color id="stop0" default="#0a0f2e" label="Stop 0 (Shadow)" alpha="true" />
+<color id="stop1" default="#2f6fd0" label="Stop 1" alpha="true" />
+<color id="stop2" default="#ff9f43" label="Stop 2" alpha="true" />
+<color id="stop3" default="#fff3d6" label="Stop 3 (Highlight)" alpha="true" />
+<spinner id="pos1" default="0.34" min="0.02" max="0.86" step="0.01" label="Stop 1 Position" />
+<spinner id="pos2" default="0.68" min="0.14" max="0.98" step="0.01" label="Stop 2 Position" />
+<section text="Interpolation" />
+<selector id="rampSpace" style="dropdown" default="0" label="Ramp Space">
+<choice value="0" label="RGB" />
+<choice value="1" label="HSV" />
+<choice value="2" label="Luma Preserved" />
+</selector>
+<spinner id="bias" default="0.0" min="-1.0" max="1.0" step="0.01" label="Midtone Bias" />
+<spinner id="contrast" default="0.0" min="-1.0" max="2.0" step="0.01" label="Ramp Contrast" />
+<spinner id="dither" default="0.0" min="0.0" max="1.0" step="0.01" label="Ramp Dither" />
+<section text="Composite" />
+<selector id="blendMode" style="dropdown" default="0" label="Blend Mode">
+<choice value="0" label="Replace" />
+<choice value="1" label="Multiply" />
+<choice value="2" label="Screen" />
+<choice value="3" label="Add" />
+<choice value="4" label="Soft Light" />
+</selector>
+<spinner id="blendAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Ramp Opacity" />
+<section text="Output" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec3 sat3v(vec3 c){ return clamp(c, vec3(0.0), vec3(1.0)); }
+float lum(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+
+float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+
+vec3 rgb2hsv(vec3 c){
+vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+float d = q.x - min(q.w, q.y);
+float e = 1.0e-10;
+return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+vec3 hsv2rgb(vec3 c){
+vec3 rgb = clamp(abs(mod(c.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+rgb = rgb * rgb * (3.0 - 2.0 * rgb);
+return c.z * mix(vec3(1.0), rgb, clamp(c.y, 0.0, 1.0));
+}
+
+// Hue interpolates along the SHORTER arc, so a red->blue stop pair passes
+// through magenta instead of desaturating through grey.
+vec3 mixCol(vec3 a, vec3 b, float t, float isHsv){
+if (isHsv > 0.5){
+float dh = b.x - a.x;
+if (dh > 0.5) dh -= 1.0;
+if (dh < -0.5) dh += 1.0;
+return vec3(fract(a.x + dh * t), mix(a.y, b.y, t), mix(a.z, b.z, t));
+}
+return mix(a, b, t);
+}
+
+// Four stops, three segments. pos1/pos2 come from the params and are guarded
+// so a user crossing them cannot divide by zero.
+vec3 rampAt(float t){
+t = clamp(t, 0.0, 1.0);
+float isHsv = 0.0;
+if (rampSpace >= 1 && rampSpace <= 1) isHsv = 1.0;
+
+vec3 a0 = stop0.rgb;
+vec3 a1 = stop1.rgb;
+vec3 a2 = stop2.rgb;
+vec3 a3 = stop3.rgb;
+if (isHsv > 0.5){
+a0 = rgb2hsv(a0); a1 = rgb2hsv(a1); a2 = rgb2hsv(a2); a3 = rgb2hsv(a3);
+}
+
+vec3 c;
+if (t < pos1){
+c = mixCol(a0, a1, t / max(pos1, 1e-4), isHsv);
+} else if (t < pos2){
+c = mixCol(a1, a2, (t - pos1) / max(pos2 - pos1, 1e-4), isHsv);
+} else {
+c = mixCol(a2, a3, (t - pos2) / max(1.0 - pos2, 1e-4), isHsv);
+}
+
+if (isHsv > 0.5) c = hsv2rgb(c);
+return c;
+}
+
+// Whatever channel is driving the ramp.
+float mapVal(vec3 c, float av){
+if (mapInput <= 0) return lum(c);
+if (mapInput <= 1) return c.r;
+if (mapInput <= 2) return c.g;
+if (mapInput <= 3) return c.b;
+if (mapInput <= 4) return av;
+vec3 hsv = rgb2hsv(c);
+if (mapInput <= 5) return hsv.x;
+if (mapInput <= 6) return hsv.y;
+return hsv.z;
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float a  = max(src.a, 1e-4);
+vec3 sc  = src.rgb / a;
+float l  = lum(sc);
+
+// ---- ramp coordinate ----------------------------------------------------
+float t = clamp(mapVal(sc, src.a), 0.0, 1.0);
+t = pow(t, pow(2.0, -bias * 2.0));
+t = clamp((t - 0.5) * (1.0 + contrast) + 0.5, 0.0, 1.0);
+if (dither > 0.001){
+t += (h21(floor(lp * max(acLayerSize.y, 1.0) * 0.5)) - 0.5) * dither * 0.10;
+t = clamp(t, 0.0, 1.0);
+}
+
+vec3 mapped = rampAt(t);
+
+// Luma Preserved - the ramp supplies the colour, the layer keeps its own
+// brightness. Without this a dark area mapped to a bright stop turns into a
+// blown patch.
+if (rampSpace >= 2){
+mapped = sat3v(mapped * (l / max(lum(mapped), 1e-4)));
+}
+
+// ---- composite ----------------------------------------------------------
+vec3 blended;
+if (blendMode <= 0){
+blended = mapped;
+} else if (blendMode <= 1){
+blended = sc * mapped * 2.0;
+} else if (blendMode <= 2){
+blended = vec3(1.0) - (vec3(1.0) - sc) * (vec3(1.0) - mapped);
+} else if (blendMode <= 3){
+blended = sc + mapped;
+} else {
+vec3 m = smoothstep(vec3(0.45), vec3(0.55), mapped);
+blended = mix(2.0 * sc * mapped + sc * sc * (1.0 - 2.0 * mapped),
+              sqrt(max(sc, vec3(0.0))) * (2.0 * mapped - 1.0) + 2.0 * sc * (1.0 - mapped),
+              m);
+}
+blended = sat3v(blended);
+
+vec3  col = mix(sc, blended, clamp(blendAmt, 0.0, 1.0));
+float oA  = src.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

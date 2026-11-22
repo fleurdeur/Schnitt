@@ -1,0 +1,185 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_warpchroma"
+name="GM Warpchroma"
+desc="Warps the red, green and blue channels through the same field by three different amounts, so the colour separation follows the deformation instead of being a fixed offset - which is what separates this from a plain chromatic aberration. Six warp fields: a divergence-free noise curl that swirls rather than squashes, a crossed wave pair, a twist, a bulge, a damped ripple and a radial zoom. On top of the per-channel split there is a dispersion term that grows the separation with distance from a movable centre, a directional and a rotational split mode, a falloff mask, octave control, evolution and clamp/mirror/wrap sampling. Layer space throughout."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.45"
+thumb="thumb/gm_warpchroma.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Warp Field" />
+<selector id="warpType" style="dropdown" default="0" label="Field">
+<choice value="0" label="Noise Curl" />
+<choice value="1" label="Cross Wave" />
+<choice value="2" label="Twist" />
+<choice value="3" label="Bulge" />
+<choice value="4" label="Ripple" />
+<choice value="5" label="Radial Zoom" />
+</selector>
+<spinner id="amount" default="0.035" min="-0.20" max="0.20" step="0.001" label="Warp Amount" />
+<spinner id="scale" default="3.5" min="0.25" max="20.0" step="0.05" label="Field Scale" />
+<spinner id="complexity" default="4" min="1" max="6" step="1" type="integer" label="Noise Octaves" />
+<spinner id="angle" default="0.0" min="0.0" max="360.0" step="1.0" type="angle" label="Field Angle" />
+<spinner id="speed" default="0.15" min="-1.0" max="1.0" step="0.01" label="Evolution" />
+<spinner id="seed" default="13.0" min="0.0" max="64.0" step="0.5" label="Seed" />
+<section text="Channel Split" />
+<selector id="chromaMode" style="dropdown" default="0" label="Split Mode">
+<choice value="0" label="Per Channel" />
+<choice value="1" label="Radial Dispersion" />
+<choice value="2" label="Directional" />
+<choice value="3" label="Rotational" />
+</selector>
+<spinner id="rScale" default="1.00" min="-2.0" max="2.0" step="0.01" label="Red Offset" />
+<spinner id="gScale" default="0.00" min="-2.0" max="2.0" step="0.01" label="Green Offset" />
+<spinner id="bScale" default="-1.00" min="-2.0" max="2.0" step="0.01" label="Blue Offset" />
+<spinner id="dispersion" default="0.0" min="0.0" max="1.0" step="0.01" label="Dispersion" />
+<point id="centre" default="0.5,0.5" label="Split Centre" />
+<section text="Falloff" />
+<spinner id="falloff" default="0.0" min="0.0" max="1.0" step="0.01" label="Falloff Amount" />
+<spinner id="falloffWidth" default="0.50" min="0.05" max="1.0" step="0.01" label="Falloff Width" />
+<section text="Sampling" />
+<selector id="edgeMode" style="dropdown" default="1" label="Edge Handling">
+<choice value="0" label="Clamp" />
+<choice value="1" label="Mirror" />
+<choice value="2" label="Wrap" />
+</selector>
+<section text="Output" />
+<spinner id="mixAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Effect Strength" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[float gAsp = 1.0;
+float gT   = 0.0;
+
+vec3 sat3v(vec3 c){ return clamp(c, vec3(0.0), vec3(1.0)); }
+
+// LAYER -> SCREEN. The field and the falloff are both measured in layer space,
+// so the split deforms the layer's own pixels and follows it around.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+
+vec2 edgeFix(vec2 lp){
+if (edgeMode <= 0) return clamp(lp, 0.0, 1.0);
+if (edgeMode <= 1){
+vec2 m = mod(lp, vec2(2.0, 2.0));
+return abs(m - vec2(1.0, 1.0)) * -1.0 + vec2(1.0);
+}
+return fract(lp);
+}
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(edgeFix(lp)), 0.0, 1.0)); }
+
+float h21(vec2 p){ return fract(sin(dot(p + seed * 3.7, vec2(127.1, 311.7))) * 43758.5453123); }
+float vnoise2(vec2 p){
+vec2 i = floor(p);
+vec2 f = fract(p);
+f = f * f * (3.0 - 2.0 * f);
+return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x),
+           mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+float fbm2(vec2 p){
+float s = 0.0;
+float amp = 0.5;
+for (int i = 0; i < 6; i++){
+if (float(i) >= float(complexity)) break;
+s += amp * vnoise2(p);
+p *= 2.07;
+amp *= 0.5;
+}
+return s;
+}
+
+// The warp field, returned in aspect-corrected layer units.
+vec2 warpAt(vec2 p){
+float ra = radians(angle);
+vec2  ax = vec2(cos(ra), sin(ra));
+vec2  ay = vec2(-ax.y, ax.x);
+vec2  q  = vec2(dot(p, ax), dot(p, ay));
+
+if (warpType <= 0){
+// Curl of the fbm. Taking the perpendicular of the gradient gives a field with
+// no divergence, so it swirls and folds instead of squashing everything into
+// sinks - that is what makes the separation read as dispersion.
+float e  = 0.012;
+float fx = fbm2((p + vec2(e, 0.0)) * scale + gT) - fbm2((p - vec2(e, 0.0)) * scale + gT);
+float fy = fbm2((p + vec2(0.0, e)) * scale + gT) - fbm2((p - vec2(0.0, e)) * scale + gT);
+return vec2(fy, -fx) / max(e, 1.0e-5) * 0.02;
+} else if (warpType <= 1){
+return vec2(sin(q.y * scale * 3.0 + gT * 2.0),
+            sin(q.x * scale * 2.2 - gT * 1.4)) * 0.5;
+} else if (warpType <= 2){
+float r = max(length(q), 1.0e-4);
+return (vec2(-q.y, q.x) / r) * sin(r * scale * 2.0 + gT * 2.0) * smoothstep(0.0, 0.3, r);
+} else if (warpType <= 3){
+float r = max(length(q), 1.0e-4);
+return (q / r) * exp(-r * r * scale * 1.2) * (0.6 + 0.4 * sin(gT));
+} else if (warpType <= 4){
+float r = max(length(q), 1.0e-4);
+return (q / r) * sin(r * scale * 4.0 - gT * 3.0) * exp(-r * 1.6);
+}
+float r = max(length(q), 1.0e-4);
+return (q / r) * r * 0.5;
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float al = max(src.a, 1.0e-4);
+vec3 sc = src.rgb / al;
+
+gAsp = acLayerSize.x / max(acLayerSize.y, 1.0);
+gT   = speed * acTime;
+
+vec2 p = lp - vec2(0.5);
+p.x *= gAsp;
+
+vec2 c0 = centre - vec2(0.5);
+c0.x *= gAsp;
+vec2 rel = p - c0;
+
+vec2 w = warpAt(p);
+
+// ---- split mode ---------------------------------------------------------
+// Every mode ends up as one extra displacement vector, so the per-channel
+// multipliers below stay the single place where the split is decided.
+vec2 extra = vec2(0.0);
+if (chromaMode >= 1 && chromaMode <= 1){
+// Radial dispersion: separation grows with distance from the centre, the way a
+// real lens spreads the channels toward the corners.
+float rl = max(length(rel), 1.0e-4);
+extra = (rel / rl) * rl * dispersion;
+} else if (chromaMode >= 2 && chromaMode <= 2){
+extra = vec2(1.0, 0.0) * dispersion;
+} else if (chromaMode >= 3){
+float rl = max(length(rel), 1.0e-4);
+extra = (vec2(-rel.y, rel.x) / rl) * rl * dispersion;
+}
+
+// ---- falloff ------------------------------------------------------------
+float d    = length(rel);
+float gain = 1.0 - falloff * smoothstep(0.0, max(falloffWidth, 0.02), d);
+
+vec2 disp = (w * gain + extra);
+
+// ---- per-channel displacement ------------------------------------------
+// One field, three multipliers. Green at zero keeps one channel anchored, so
+// the fringing reads as dispersion rather than as three copies of the picture.
+vec4 got;
+got.r = fetchL(lp + disp * amount * rScale).r;
+got.g = fetchL(lp + disp * amount * gScale).g;
+got.b = fetchL(lp + disp * amount * bScale).b;
+got.a = fetchL(lp).a;
+
+vec3 col = sat3v(mix(sc, got.rgb, mixAmt));
+float oA = src.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

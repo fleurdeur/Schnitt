@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/Film_grunge.webp" id="com.goldmotion.effects.v51.filmdamage" name="GM Film Grunge / Damage"
+desc="Authentic dust, hairs, scratches, grain, projector flicker and gate weave in one film pass."
+category="drawing" tags="gm,film,damage,grunge,dust,scratches" overdraw="true" max-overdraw="0.1" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="grain" default="0.18" min="0" max="1" step="0.01" label="Grain" />
+<spinner id="dust" default="0.35" min="0" max="1" step="0.01" label="Dust" />
+<spinner id="scratches" default="0.3" min="0" max="1" step="0.01" label="Scratches" />
+<spinner id="flicker" default="0.12" min="0" max="1" step="0.01" label="Projector Flicker" />
+<spinner id="gateWeave" default="2.5" min="0" max="30" step="0.1" label="Gate Weave" />
+<spinner id="age" default="0.55" min="0" max="1" step="0.01" label="Age" />
+<spinner id="evolution" default="0" min="-100" max="100" step="0.01" label="Evolution" />
+<color id="stainColor" default="#FFFFD09A" label="Film Base" alpha="false" />
+<spinner id="mixAmount" default="1" min="0" max="1" step="0.01" label="Mix" type="percent" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[float gmHash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+void main(){
+vec2 size=max(inputImg.size,vec2(1.0)); float frame=floor(acTime*24.0+evolution*17.0); vec2 uv=acScreenNorm;
+uv+=(vec2(gmHash(vec2(frame,1.0)),gmHash(vec2(frame,2.0)))-0.5)*gateWeave/size;
+vec4 src=texture2DCv(inputImg.texture,clamp(uv,0.0,1.0)); float n=gmHash(floor(acScreenNorm*size)+frame)-0.5;
+float col=floor(acScreenNorm.x*220.0); float scratchSeed=gmHash(vec2(col,floor(frame*0.12))); float sx=abs(fract(acScreenNorm.x*220.0+scratchSeed)-0.5);
+float scratch=step(1.0-scratches*0.08,scratchSeed)*(1.0-smoothstep(0.015,0.06,sx));
+vec2 dustCell=floor(acScreenNorm*vec2(90.0,55.0)); float dr=gmHash(dustCell+frame*0.37); vec2 dl=fract(acScreenNorm*vec2(90.0,55.0))-0.5;
+float dustMask=step(1.0-dust*0.08,dr)*(1.0-smoothstep(0.08,0.45,length(dl)));
+float pulse=1.0+(gmHash(vec2(frame,9.0))-0.5)*flicker; vec3 aged=mix(src.rgb,src.rgb*stainColor.rgb,age*0.38)*pulse;
+aged+=n*grain; aged=mix(aged,vec3(0.96),scratch*0.75); aged=mix(aged,vec3(0.03),dustMask*0.65);
+gl_FragColor=vec4(mix(src.rgb,aged,mixAmount),src.a);
+}]]></shader>
+</effect>

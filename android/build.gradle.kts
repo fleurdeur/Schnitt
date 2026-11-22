@@ -219,6 +219,7 @@ dependencies {
     implementation("androidx.media3:media3-datasource-okhttp:1.6.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
+    implementation("org.tensorflow:tensorflow-lite:2.16.1")
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
     implementation("org.mozilla:rhino:1.7.15")

@@ -1,0 +1,79 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.goldmotion.effects.shatterbreak" name="GM Shatter Break" desc="Shatters the image into glass-like fragments." category="distort" tags="gm,shatter,break,glass,voronoi,distort" thumb="thumb/GM_SHATTER_BREAK.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Shatter Controls" />
+<spinner id="progress" label="Shatter Progress" default="0.0" min="0.0" max="1.0" step="0.01" />
+<spinner id="pieces" label="Piece Density" default="15.0" min="5.0" max="50.0" step="1.0" />
+<spinner id="spread" label="Spread Amount" default="0.5" min="0.0" max="2.0" step="0.01" />
+<section text="Edge Highlighting" />
+<color id="edgeColor" default="#FFFFFFFF" label="Edge Tint" alpha="true" />
+<spinner id="edgeWidth" label="Edge Width" default="0.02" min="0.0" max="0.1" step="0.01" />
+<section text="Transform" />
+<point id="center" label="Shatter Center" default="0.5, 0.5" />
+<section text="Blend Mode" />
+<spinner id="alpha" default="1.0" min="0.0" max="1.0" step="0.01" label="Opacity" type="percent" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="medium"><![CDATA[vec2 hash22(vec2 p) {
+vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+p3 += dot(p3, p3.yzx + 33.33);
+return fract((p3.xx + p3.yz) * p3.zy);
+}
+void main() {
+vec2 uv = acScreenNorm;
+float aspect = acScreenSize.x / max(acScreenSize.y, 1.0);
+vec2 st = uv;
+st.x *= aspect;
+vec2 c = vec2(center.x * aspect, center.y);
+vec2 gv = st * pieces;
+vec2 id = floor(gv);
+vec2 fv = fract(gv);
+float minDist = 100.0;
+vec2 minCell = vec2(0.0);
+vec2 minDiff = vec2(0.0);
+for(int y = -1; y <= 1; y++) {
+for(int x = -1; x <= 1; x++) {
+vec2 neighbor = vec2(float(x), float(y));
+vec2 pt = hash22(id + neighbor);
+vec2 diff = neighbor + pt - fv;
+float dist = length(diff);
+if (dist < minDist) {
+minDist = dist;
+minCell = id + neighbor;
+minDiff = diff;
+}
+}
+}
+float minEdge = 100.0;
+for(int y = -1; y <= 1; y++) {
+for(int x = -1; x <= 1; x++) {
+vec2 neighbor = vec2(float(x), float(y));
+vec2 pt = hash22(id + neighbor);
+vec2 diff = neighbor + pt - fv;
+if (dot(minDiff - diff, minDiff - diff) > 0.00001) {
+float d = dot(0.5 * (minDiff + diff), normalize(diff - minDiff));
+minEdge = min(minEdge, d);
+}
+}
+}
+vec2 cellCenter = (minCell + hash22(minCell)) / pieces;
+cellCenter.x /= aspect;
+float distToCenter = length(cellCenter - vec2(center.x, center.y));
+vec2 dir = cellCenter - vec2(center.x, center.y);
+dir = normalize(dir + 0.001);
+float push = smoothstep(progress, progress - 0.2, distToCenter);
+vec2 pieceOffset = dir * spread * progress * (1.0 - push);
+vec2 sampleUv = uv - pieceOffset;
+vec4 texColor = texture2DCv(inputImg.texture, clamp(sampleUv, 0.0, 1.0));
+float originalAlpha = texture2DCv(inputImg.texture, uv).a;
+if (sampleUv.x < 0.0 || sampleUv.x > 1.0 || sampleUv.y < 0.0 || sampleUv.y > 1.0) {
+texColor = vec4(0.0);
+}
+if (minEdge < edgeWidth && texColor.a > 0.0) {
+texColor.rgb = mix(texColor.rgb, edgeColor.rgb, edgeColor.a);
+}
+vec4 finalOutput = mix(vec4(0.0), texColor, alpha);
+gl_FragColor = vec4(finalOutput.rgb, finalOutput.a);
+}]]></shader>
+</effect>

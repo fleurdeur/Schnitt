@@ -7336,6 +7336,85 @@
     "macro-pixels": "Macro Pixels",
     "dust-focus": "Dust Focus"
    }
+  },
+  "eyeblink": {
+   "name": "Eye Blink",
+   "description": "Closes one or both eyes by pulling the surrounding skin over the eye area, with a soft eyelid crease. Place the eye center and distance for human or anime faces.",
+   "params": {
+    "center": {
+     "label": "Eye Center"
+    },
+    "spacing": {
+     "label": "Eye Distance"
+    },
+    "width": {
+     "label": "Eye Width"
+    },
+    "height": {
+     "label": "Eye Height"
+    },
+    "tilt": {
+     "label": "Eye Tilt"
+    },
+    "blink": {
+     "label": "Blink"
+    },
+    "mode": {
+     "label": "Blink Mode",
+     "options": [
+      "Manual",
+      "Automatic"
+     ]
+    },
+    "speed": {
+     "label": "Blink Speed"
+    },
+    "phase": {
+     "label": "Phase"
+    },
+    "softness": {
+     "label": "Softness"
+    },
+    "line": {
+     "label": "Crease Strength"
+    },
+    "lid": {
+     "label": "Crease Color"
+    }
+   }
+  },
+  "hairflow": {
+   "name": "Hair Flow",
+   "description": "Sways the hair region around a root-to-tip guide. Drag the root and tip points over the hair, then tune width, sway, strands, root anchor and curl.",
+   "params": {
+    "root": {
+     "label": "Root"
+    },
+    "tip": {
+     "label": "Tip"
+    },
+    "width": {
+     "label": "Hair Width"
+    },
+    "sway": {
+     "label": "Sway"
+    },
+    "speed": {
+     "label": "Speed"
+    },
+    "phase": {
+     "label": "Phase"
+    },
+    "strands": {
+     "label": "Strands"
+    },
+    "anchor": {
+     "label": "Root Anchor"
+    },
+    "curl": {
+     "label": "Curl"
+    }
+   }
   }
  }
 }

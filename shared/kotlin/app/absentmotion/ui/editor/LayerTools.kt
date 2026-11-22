@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.rememberCoroutineScope
 import app.absentmotion.ai.AiAction
+import app.absentmotion.ai.aiMarks
 import app.absentmotion.ai.reverseMark
 import app.absentmotion.ui.editor.effects.AiProgressDialog
 import androidx.compose.ui.semantics.selected
@@ -265,6 +266,7 @@ fun LayerTools(state: EditorState, modifier: Modifier = Modifier, side: Boolean 
             if (app.absentmotion.platform.PlatformFeatures.ai && still?.mediaFill != null) Tile(AiTools) { openEffectBrowser(state, "ai") } else null,
             if (app.absentmotion.platform.PlatformFeatures.ai && video) Tile(CaptionTools) { state.playing = false; captions = true } else null,
             if (app.absentmotion.platform.PlatformFeatures.ai && video) Tile(ReverseTool, enabled = ai.running == null, active = still.reverseMark != null) { state.playing = false; ai.apply(AiAction.Reverse) } else null,
+            if (app.absentmotion.platform.PlatformFeatures.ai && video) Tile(DfrTool, enabled = ai.running == null, active = still.aiMarks.any { it.kind == app.absentmotion.ai.AiKind.Dfr } == true) { state.playing = false; ai.apply(app.absentmotion.ai.AiAction.Dfr) } else null,
             if (app.absentmotion.platform.PlatformFeatures.ai && video) Tile(DepthMapTool, enabled = ai.running == null,
                 active = app.absentmotion.ai.DepthAnything.installed(context)) { depthSetup = still } else null,
             Tile(LayerPlugins) { state.pluginOpen = true },
@@ -398,6 +400,7 @@ private val EditGroup = Tool(R.string.layer_tool_edit_group, SelectionIcons.Ente
 private val FramePick = Tool(R.string.layer_tool_frame, app.absentmotion.ui.home.HomeIcons.FrameRate, 18.1f)
 private val CutoutEdge = Tool(R.string.cutout_edge, PanelIcons.TabBorder, 18.1f)
 private val ReverseTool = Tool(R.string.speed_reverse, PanelIcons.Reverse, 19.4f)
+private val DfrTool = Tool(R.string.ai_dfr, PanelIcons.KeyframeRemove, 19.4f)
 private val DepthMapTool = Tool(R.string.depth_map, PanelIcons.Brightness, 19.4f)
 private val ScreenshotTool = Tool(R.string.layer_tool_screenshot, PanelIcons.Screenshot, 19.4f)
 private val LayerPlugins = Tool(R.string.home_tab_plugins, app.absentmotion.ui.home.HomeIcons.Plugins, 19.4f)

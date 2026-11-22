@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/DepthMap.webp"
+id="com.goldmotion.effects.v51.depthmapbokeh"
+name="GM Depth Map Bokeh"
+desc="Depth-aware circular bokeh blur using the composition luminance as a controllable depth map."
+category="blur"
+tags="depth,bokeh,blur,focus,lens"
+experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<texture id="comp" srcType="comp" />
+<section text="Depth Focus" />
+<spinner id="focusDepth" default="0.5" min="0.0" max="1.0" step="0.005" label="Focus Depth" type="percent" />
+<spinner id="focusRange" default="0.08" min="0.0" max="0.5" step="0.005" label="Focus Range" type="percent" />
+<switch id="invertDepth" default="false" label="Invert Depth" />
+<section text="Lens" />
+<spinner id="maxBlurPx" default="18.0" min="0.0" max="80.0" step="0.5" label="Maximum Blur" />
+<spinner id="edgeProtection" default="18.0" min="0.0" max="60.0" step="0.5" label="Depth Edge Protection" />
+<spinner id="highlightBoost" default="0.25" min="0.0" max="2.0" step="0.01" label="Highlight Bokeh" />
+<slider id="mixAmount" default="1.0" min="0.0" max="1.0" step="0.01" label="Mix" type="percent" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[const vec3 gmLuma = vec3(0.2126, 0.7152, 0.0722);
+float gmDepth(vec2 uv) {
+vec4 d = texture2DCv(comp.texture, clamp(uv, 0.0, 1.0));
+float value = dot(d.rgb, gmLuma);
+return invertDepth ? 1.0 - value : value;
+}
+void main() {
+vec2 uv = acScreenNorm;
+vec2 texSize = max(inputImg.size, vec2(1.0));
+vec4 src = texture2DCv(inputImg.texture, uv);
+float centerDepth = gmDepth(uv);
+float depthDistance = abs(centerDepth - focusDepth);
+float coc = smoothstep(focusRange, 1.0, depthDistance);
+float radiusPx = maxBlurPx * coc;
+const mat2 goldenTurn = mat2(-0.7373689, -0.6754903, 0.6754903, -0.7373689);
+vec2 direction = vec2(1.0, 0.0);
+vec4 sum = src;
+float weightSum = 1.0;
+for (int i = 0; i < 20; i++) {
+float radial = sqrt((float(i) + 0.5) / 20.0);
+vec2 offset = direction * radial * radiusPx / texSize;
+vec2 sampleUv = clamp(uv + offset, 0.0, 1.0);
+float sampleDepth = gmDepth(sampleUv);
+float depthWeight = exp(-abs(sampleDepth - centerDepth) * edgeProtection);
+vec4 sampleColor = texture2DCv(inputImg.texture, sampleUv);
+float highlight = max(dot(sampleColor.rgb, gmLuma) - 0.65, 0.0);
+sampleColor.rgb *= 1.0 + highlight * highlightBoost;
+sum += sampleColor * depthWeight;
+weightSum += depthWeight;
+direction = goldenTurn * direction;
+}
+vec4 blurred = sum / max(weightSum, 0.0001);
+gl_FragColor = mix(src, blurred, clamp(mixAmount, 0.0, 1.0));
+}]]></shader>
+</effect>

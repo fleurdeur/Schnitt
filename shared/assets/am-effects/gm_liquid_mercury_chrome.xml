@@ -1,0 +1,83 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.goldmotion.effects.liquidmercurychrome" name="GM Liquid Mercury Chrome" desc="Transforms layers into 3D molten liquid silver and chrome with rainbow iridescent reflections." category="color" tags="gm,chrome,mercury,liquid,metal,silver,iridescent,3d" thumb="thumb/GM_LIQUID_MERCURY_CHROME.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Fluid &amp; Melt" />
+<spinner id="fluidSpeed" label="Fluid Motion Speed" default="1.0" min="0.0" max="5.0" step="0.05" />
+<spinner id="waveScale" label="Wave Scale" default="4.0" min="0.5" max="15.0" step="0.1" />
+<spinner id="reliefDepth" label="3D Relief Depth" default="2.0" min="0.1" max="8.0" step="0.05" />
+<section text="Chrome &amp; Light" />
+<spinner id="polish" label="Surface Polish" default="0.85" min="0.1" max="1.0" step="0.01" />
+<spinner id="lightAngle" label="Light Direction" default="45.0" min="-180.0" max="180.0" step="1.0" type="angle" />
+<color id="chromeColor" default="#FFE4EAF5" label="Chrome Tint" alpha="true" />
+<section text="Rainbow Iridescence" />
+<spinner id="iridAmount" label="Rainbow Shine" default="0.75" min="0.0" max="2.0" step="0.02" />
+<spinner id="iridBands" label="Color Frequency" default="3.5" min="0.5" max="10.0" step="0.1" />
+<section text="Blend Mode" />
+<spinner id="alpha" default="1.0" min="0.0" max="1.0" step="0.01" label="Opacity" type="percent" />
+<selector id="blendMode" style="dropdown" default="0" label="Blend Mode">
+<choice label="Normal" value="0" />
+<choice label="Overlay" value="1" />
+<choice label="Screen" value="2" />
+<choice label="Add" value="3" />
+</selector>
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="medium"><![CDATA[#define PI 3.14159265359
+float getLuma(vec3 c) {
+return dot(c, vec3(0.299, 0.587, 0.114));
+}
+vec3 rainbowPal(float t) {
+vec3 a = vec3(0.5, 0.5, 0.5);
+vec3 b = vec3(0.5, 0.5, 0.5);
+vec3 c = vec3(1.0, 1.0, 1.0);
+vec3 d = vec3(0.0, 0.33, 0.67);
+return a + b * cos(2.0 * PI * (c * t + d));
+}
+void main() {
+vec2 uv = acScreenNorm;
+vec4 src = texture2DCv(inputImg.texture, uv);
+vec2 texel = 1.0 / max(acScreenSize, vec2(1.0));
+float aspect = acScreenSize.x / max(acScreenSize.y, 1.0);
+vec2 p = uv * vec2(aspect, 1.0);
+float t = acTime * fluidSpeed;
+float waveX = sin(p.y * waveScale + t) * cos(p.x * waveScale * 0.7 - t * 0.8) * 0.015;
+float waveY = cos(p.x * waveScale + t * 0.9) * sin(p.y * waveScale * 0.8 + t * 0.7) * 0.015;
+vec2 sampUv = uv + vec2(waveX, waveY);
+float hC = getLuma(texture2DCv(inputImg.texture, sampUv).rgb);
+float hR = getLuma(texture2DCv(inputImg.texture, sampUv + vec2(texel.x * 2.0, 0.0)).rgb);
+float hL = getLuma(texture2DCv(inputImg.texture, sampUv - vec2(texel.x * 2.0, 0.0)).rgb);
+float hT = getLuma(texture2DCv(inputImg.texture, sampUv + vec2(0.0, texel.y * 2.0)).rgb);
+float hB = getLuma(texture2DCv(inputImg.texture, sampUv - vec2(0.0, texel.y * 2.0)).rgb);
+vec3 normal = normalize(vec3((hL - hR) * reliefDepth, (hB - hT) * reliefDepth, 0.35));
+float rad = lightAngle * 0.0174532925;
+vec3 lightDir = normalize(vec3(cos(rad), sin(rad), 0.75));
+vec3 viewDir = vec3(0.0, 0.0, 1.0);
+vec3 halfDir = normalize(lightDir + viewDir);
+float NdotL = max(dot(normal, lightDir), 0.0);
+float specPower = mix(16.0, 128.0, polish);
+float NdotH = max(dot(normal, halfDir), 0.0);
+float specular = pow(NdotH, specPower) * (1.0 + polish * 2.0);
+vec3 refVec = reflect(-viewDir, normal);
+float envFresnel = pow(1.0 - max(dot(normal, viewDir), 0.0), 2.5);
+vec3 envColor = mix(vec3(0.12, 0.15, 0.2), vec3(0.85, 0.9, 0.95), refVec.y * 0.5 + 0.5);
+envColor += pow(max(refVec.y, 0.0), 4.0) * vec3(0.4, 0.45, 0.5);
+float iridPhase = (normal.x + normal.y) * iridBands + t * 0.2;
+vec3 rainbow = rainbowPal(iridPhase) * iridAmount;
+vec3 chromeBase = mix(envColor, chromeColor.rgb, 0.5);
+vec3 metalRgb = (chromeBase * (NdotL * 0.5 + 0.5) + rainbow + vec3(specular)) * (1.0 + envFresnel * 0.6);
+vec4 result;
+if (blendMode == 0) {
+result = vec4(metalRgb, src.a);
+} else if (blendMode == 1) {
+vec3 overlay = mix(2.0 * src.rgb * metalRgb, 1.0 - 2.0 * (1.0 - src.rgb) * (1.0 - metalRgb), step(0.5, src.rgb));
+result = vec4(overlay, src.a);
+} else if (blendMode == 2) {
+result = vec4(1.0 - (1.0 - src.rgb) * (1.0 - metalRgb), src.a);
+} else {
+result = vec4(src.rgb + metalRgb, src.a);
+}
+result = clamp(result, 0.0, 1.0);
+gl_FragColor = mix(src, result, alpha);
+}]]></shader>
+</effect>

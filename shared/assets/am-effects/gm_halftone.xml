@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/halftone.webp" id="com.goldmotion.effects.v51.halftone" name="GM Halftone"
+desc="Print-authentic RGB/CMYK dots, lines and diamond screens with source-aware ink coverage."
+category="drawing" tags="gm,halftone,print,cmyk,dots,lines" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<selector id="pattern" default="0" style="dropdown" label="Pattern"><choice label="Dots" value="0" /><choice label="Lines" value="1" /><choice label="Diamond" value="2" /><choice label="CMYK" value="3" /></selector>
+<spinner id="frequency" default="42" min="4" max="250" step="1" label="Frequency" />
+<spinner id="angle" default="45" min="-3600" max="3600" step="0.5" type="angle" label="Angle" />
+<spinner id="dotGain" default="1" min="0.1" max="3" step="0.01" label="Ink Gain" />
+<spinner id="softness" default="0.08" min="0.005" max="0.5" step="0.005" label="Edge Softness" />
+<color id="paperColor" default="#FFFFFFFF" label="Paper" alpha="false" />
+<color id="inkColor" default="#FF101014" label="Ink" alpha="false" />
+<spinner id="sourceColor" default="0.35" min="0" max="1" step="0.01" label="Source Color" type="percent" />
+<spinner id="mixAmount" default="1" min="0" max="1" step="0.01" label="Mix" type="percent" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[float gmScreen(vec2 uv,float a,float lum){float c=cos(a),s=sin(a);vec2 p=mat2(c,-s,s,c)*(uv-0.5)*frequency;vec2 f=fract(p)-0.5;float d=length(f);if(pattern==1)d=abs(f.y)*1.4;if(pattern==2)d=(abs(f.x)+abs(f.y))*0.72;float r=sqrt(clamp(1.0-lum,0.0,1.0))*0.68*dotGain;return 1.0-smoothstep(r-softness,r+softness,d);}
+void main(){vec2 uv=acScreenNorm;vec4 src=texture2DCv(inputImg.texture,uv);float lum=dot(src.rgb,vec3(0.2126,0.7152,0.0722));vec3 result;
+if(pattern==3){float c=gmScreen(uv,angle+0.2618,src.r),m=gmScreen(uv,angle+1.309,src.g),y=gmScreen(uv,angle,src.b),k=gmScreen(uv,angle+0.7854,lum);result=paperColor.rgb*(1.0-k)*vec3(1.0-c,1.0-m,1.0-y);}
+else{float mask=gmScreen(uv,angle,lum);result=mix(paperColor.rgb,inkColor.rgb,mask);}
+result=mix(result,result*src.rgb,sourceColor);gl_FragColor=vec4(mix(src.rgb,result,mixAmount),src.a);}]]></shader>
+</effect>

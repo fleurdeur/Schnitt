@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/Beauty.webp" id="com.goldmotion.effects.v51.beauty" name="GM Beauty"
+desc="Edge-aware bilateral skin smoothing that retains eyes, hair, pores and high-frequency detail."
+category="color" tags="gm,beauty,skin,retouch,bilateral" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<texture id="smoothH" srcType="buffer" />
+<spinner id="radiusPx" default="8" min="1" max="30" step="0.5" label="Smoothing Radius" />
+<spinner id="smoothness" default="0.55" min="0" max="1" step="0.01" label="Smoothness" />
+<spinner id="detailPreserve" default="0.65" min="0" max="1.5" step="0.01" label="Detail Preserve" />
+<switch id="skinOnly" default="true" label="Skin Tone Protection" />
+<spinner id="skinRange" default="0.55" min="0.1" max="1.5" step="0.01" label="Skin Range" />
+<spinner id="warmth" default="0" min="-1" max="1" step="0.01" label="Warmth" />
+<spinner id="brightness" default="0" min="-1" max="1" step="0.01" label="Brightness" />
+<slider id="mixAmount" default="1" min="0" max="1" step="0.01" label="Mix" type="percent" />
+<section text="MOD BY PNKJ" />
+</params>
+<passes><pass target="smoothH" /><pass /></passes>
+<shader type="fragment" precision="high"><![CDATA[float gmSkinMask(vec3 c){float cb=0.5-0.168736*c.r-0.331264*c.g+0.5*c.b;float cr=0.5+0.5*c.r-0.418688*c.g-0.081312*c.b;vec2 q=(vec2(cb,cr)-vec2(0.36,0.60))/vec2(0.11,0.16);return 1.0-smoothstep(skinRange,skinRange+0.35,dot(q,q));}
+float gmRangeWeight(vec3 a,vec3 b){float sigma=mix(0.004,0.09,smoothness);return exp(-dot(a-b,a-b)/max(2.0*sigma*sigma,0.000001));}
+void main(){vec2 uv=acScreenNorm;vec2 texSize=max(inputImg.size,vec2(1.0));vec2 texel=1.0/texSize;float radius=max(radiusPx,1.0);if(acPass==0){vec4 center=texture2DCv(inputImg.texture,uv);vec4 sum=vec4(0.0);float wsum=0.0;for(int i=-8;i<=8;i++){float f=float(i)/8.0;float spatial=exp(-0.5*f*f*4.0);vec4 s=texture2DCv(inputImg.texture,clamp(uv+vec2(f*radius*texel.x,0.0),0.0,1.0));float w=spatial*gmRangeWeight(center.rgb,s.rgb);sum+=s*w;wsum+=w;}gl_FragColor=sum/max(wsum,0.0001);return;}vec4 original=texture2DCv(inputImg.texture,uv);vec4 center=texture2DCv(smoothH.texture,uv);vec4 sum=vec4(0.0);float wsum=0.0;for(int i=-8;i<=8;i++){float f=float(i)/8.0;float spatial=exp(-0.5*f*f*4.0);vec4 s=texture2DCv(smoothH.texture,clamp(uv+vec2(0.0,f*radius*texel.y),0.0,1.0));float w=spatial*gmRangeWeight(center.rgb,s.rgb);sum+=s*w;wsum+=w;}vec3 smooth=sum.rgb/max(wsum,0.0001);vec3 detail=original.rgb-smooth;vec3 beauty=smooth+detail*detailPreserve;float mask=skinOnly?gmSkinMask(original.rgb):1.0;beauty.r+=warmth*0.05;beauty.b-=warmth*0.035;beauty+=brightness*0.12;float strength=smoothness*mask*mixAmount;gl_FragColor=vec4(mix(original.rgb,beauty,strength),original.a);}]]></shader>
+</effect>

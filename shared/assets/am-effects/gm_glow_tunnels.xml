@@ -1,0 +1,65 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.goldmotion.effects.glowtunnels" name="GM Glow Tunnels" desc="Abstract glowing neon rings tunnel." category="procedural" tags="gm,glow,tunnel,neon,rings,procedural" thumb="thumb/GM_GLOW_TUNNEL.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Tunnel Controls" />
+<spinner id="speed" label="Travel Speed" default="1.5" min="-10.0" max="10.0" step="0.1" />
+<spinner id="twist" label="Tunnel Twist" default="0.5" min="-5.0" max="5.0" step="0.1" />
+<spinner id="depth" label="Tunnel Depth" default="1.0" min="0.1" max="5.0" step="0.1" />
+<section text="Ring Controls" />
+<spinner id="rings" label="Ring Density" default="10.0" min="1.0" max="50.0" step="0.5" />
+<spinner id="thickness" label="Ring Thickness" default="0.1" min="0.01" max="0.5" step="0.01" />
+<section text="Color &amp; Glow" />
+<color id="color1" default="#FFFF00FF" label="Primary Color" alpha="true" />
+<color id="color2" default="#FF00FFFF" label="Secondary Color" alpha="true" />
+<spinner id="glowIntensity" label="Glow Intensity" default="2.0" min="0.0" max="10.0" step="0.1" />
+<section text="Geometry" />
+<spinner id="scale" default="1.0" min="0.1" max="5.0" step="0.01" label="Scale" />
+<point id="position" label="Center Offset" />
+<section text="Blend Mode" />
+<spinner id="alpha" default="1.0" min="0.0" max="1.0" step="0.01" label="Opacity" type="percent" />
+<selector id="blendMode" style="dropdown" default="2" label="Blend Mode">
+<choice label="Normal" value="0" />
+<choice label="Screen" value="2" />
+<choice label="Add" value="3" />
+</selector>
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="medium"><![CDATA[#define PI 3.14159265359
+void main() {
+vec2 uv = acScreenNorm;
+vec4 texColor = texture2DCv(inputImg.texture, uv);
+float baseAlpha = texColor.a;
+vec2 st = (uv - 0.5) - vec2(position.x, -position.y) * 0.5;
+st.x *= acScreenSize.x / max(acScreenSize.y, 1.0);
+st /= max(scale, 0.001);
+float rad = length(st);
+float angle = atan(st.y, st.x);
+float r = max(rad, 0.001);
+float u = depth / r + acTime * speed;
+float v = angle / PI + r * twist;
+float ringDist = abs(fract(u * rings) - 0.5);
+float line = smoothstep(thickness, thickness * 0.5, ringDist);
+float wave = sin(v * PI * 4.0 + acTime) * 0.1;
+float distortedRingDist = abs(fract(u * rings + wave) - 0.5);
+float glow = exp(-distortedRingDist * 10.0) * glowIntensity;
+float colorMix = sin(u * 2.0) * 0.5 + 0.5;
+vec3 ringColor = mix(color1.rgb, color2.rgb, colorMix);
+vec3 finalColor = ringColor * (line + glow);
+float centerFade = smoothstep(0.0, 0.2, r);
+finalColor *= centerFade;
+vec4 result;
+vec3 tcSafe = texColor.rgb / max(texColor.a, 0.001);
+if (blendMode == 0) {
+result = vec4(finalColor, 1.0);
+} else if (blendMode == 2) {
+result = vec4(1.0 - (1.0 - tcSafe) * (1.0 - finalColor), 1.0);
+} else {
+result = vec4(tcSafe + finalColor, 1.0);
+}
+result = clamp(result, 0.0, 1.0);
+result *= baseAlpha;
+vec4 outputColor = mix(texColor, result, alpha);
+gl_FragColor = outputColor;
+}]]></shader>
+</effect>

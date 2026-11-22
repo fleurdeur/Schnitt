@@ -1,0 +1,126 @@
+{
+  "id": "eyeblink",
+  "name": "Eye Blink",
+  "category": "distort",
+  "description": "Closes one or both eyes by pulling the surrounding skin over the eye area, with a soft eyelid crease. Place the eye center and distance for human or anime faces.",
+  "params": [
+    {
+      "id": "center",
+      "label": "Eye Center",
+      "type": "point",
+      "default": [
+        0.5,
+        0.42
+      ],
+      "min": 0,
+      "max": 1,
+      "step": 0.001
+    },
+    {
+      "id": "spacing",
+      "label": "Eye Distance",
+      "type": "float",
+      "default": 0.18,
+      "min": 0,
+      "max": 1,
+      "step": 0.001,
+      "percent": true
+    },
+    {
+      "id": "width",
+      "label": "Eye Width",
+      "type": "float",
+      "default": 0.11,
+      "min": 0.01,
+      "max": 0.8,
+      "step": 0.001,
+      "percent": true
+    },
+    {
+      "id": "height",
+      "label": "Eye Height",
+      "type": "float",
+      "default": 0.055,
+      "min": 0.005,
+      "max": 0.5,
+      "step": 0.001,
+      "percent": true
+    },
+    {
+      "id": "tilt",
+      "label": "Eye Tilt",
+      "type": "angle",
+      "default": 0,
+      "min": -45,
+      "max": 45,
+      "step": 0.1
+    },
+    {
+      "id": "blink",
+      "label": "Blink",
+      "type": "float",
+      "default": 0,
+      "min": 0,
+      "max": 1,
+      "step": 0.001,
+      "percent": true
+    },
+    {
+      "id": "mode",
+      "label": "Blink Mode",
+      "type": "choice",
+      "default": 1,
+      "options": [
+        "Manual",
+        "Automatic"
+      ]
+    },
+    {
+      "id": "speed",
+      "label": "Blink Speed",
+      "type": "float",
+      "default": 1.4,
+      "min": 0.05,
+      "max": 10,
+      "step": 0.01,
+      "unit": "Hz"
+    },
+    {
+      "id": "phase",
+      "label": "Phase",
+      "type": "float",
+      "default": 0,
+      "min": 0,
+      "max": 1,
+      "step": 0.001,
+      "percent": true
+    },
+    {
+      "id": "softness",
+      "label": "Softness",
+      "type": "float",
+      "default": 0.32,
+      "min": 0.02,
+      "max": 1,
+      "step": 0.001,
+      "percent": true
+    },
+    {
+      "id": "line",
+      "label": "Crease Strength",
+      "type": "float",
+      "default": 0.35,
+      "min": 0,
+      "max": 1,
+      "step": 0.001,
+      "percent": true
+    },
+    {
+      "id": "lid",
+      "label": "Crease Color",
+      "type": "color",
+      "default": "#66000000"
+    }
+  ],
+  "sksl": "uniform shader image;\nuniform float2 size;\nuniform float time;\nuniform float2 center;\nuniform float spacing;\nuniform float width;\nuniform float height;\nuniform float tilt;\nuniform float blink;\nuniform float mode;\nuniform float speed;\nuniform float phase;\nuniform float softness;\nuniform float line;\nlayout(color) uniform half4 lid;\n\nfloat pulse(float t) {\n    float p = fract(t);\n    float d = abs(p - 0.5) * 2.0;\n    return pow(max(0.0, 1.0 - d * 2.5), 3.0);\n}\n\nhalf4 eye(half4 col, float2 coord, float2 c, float close) {\n    float a = radians(tilt);\n    float2 axis = float2(cos(a), sin(a));\n    float2 normal = float2(-axis.y, axis.x);\n    float2 q = coord - c;\n    float u = dot(q, axis) / (width * size.x * 0.5 + 0.0001);\n    float v = dot(q, normal) / (height * size.y * 0.5 + 0.0001);\n    float d = length(float2(u, v));\n    if (d >= 1.0) return col;\n    float m = smoothstep(1.0, 1.0 - max(softness, 0.02), d);\n    float side = v < 0.0 ? -1.0 : 1.0;\n    half4 skin = image.eval(coord + normal * (side * close * height * size.y * 0.62));\n    col = mix(col, skin, half(m * close));\n    float crease = exp(-pow(v / 0.10, 2.0)) * m * close * line * lid.a;\n    return half4(mix(col.rgb, lid.rgb, half(crease)), col.a);\n}\n\nhalf4 main(float2 coord) {\n    float autoBlink = pulse(time * speed + phase);\n    float close = clamp(mix(blink, autoBlink, step(0.5, mode)), 0.0, 1.0);\n    half4 col = image.eval(coord);\n    if (close <= 0.001) return col;\n    float2 c = center * size;\n    float a = radians(tilt);\n    float2 axis = float2(cos(a), sin(a));\n    float gap = spacing * size.x * 0.5;\n    col = eye(col, coord, c - axis * gap, close);\n    col = eye(col, coord, c + axis * gap, close);\n    return col;\n}\n"
+}

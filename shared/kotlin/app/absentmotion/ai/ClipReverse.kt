@@ -220,7 +220,7 @@ internal object ClipReverse {
                             }
                             got++
                         }
-                        check(got > 0 || done > 0) { AppText.get(R.string.ai_unable_to_process) }
+                        check(got == piece.count()) { AppText.get(R.string.ai_unable_to_process) }
                         for (k in piece.last downTo piece.first) {
                             job.ensureActive()
                             val slot = k - piece.first
@@ -379,11 +379,34 @@ private fun copyRows(src: ByteBuffer, from: Int, srcRow: Int, srcPixel: Int, dst
 }
 
 private fun Yuv.packInto(frame: ByteBuffer, w: Int, h: Int) {
-    val cw = w / 2
-    val ch = h / 2
-    copyRows(y, top * yRow + left * yPixel, yRow, yPixel, frame, 0, w, 1, w, h)
-    copyRows(u, top / 2 * uvRow + left / 2 * uvPixel, uvRow, uvPixel, frame, w * h, cw, 1, cw, ch)
-    copyRows(v, top / 2 * uvRow + left / 2 * uvPixel, uvRow, uvPixel, frame, w * h + cw * ch, cw, 1, cw, ch)
+    if (width == w && height == h) {
+        val cw = w / 2
+        val ch = h / 2
+        copyRows(y, top * yRow + left * yPixel, yRow, yPixel, frame, 0, w, 1, w, h)
+        copyRows(u, top / 2 * uvRow + left / 2 * uvPixel, uvRow, uvPixel, frame, w * h, cw, 1, cw, ch)
+        copyRows(v, top / 2 * uvRow + left / 2 * uvPixel, uvRow, uvPixel, frame, w * h + cw * ch, cw, 1, cw, ch)
+    } else {
+        // A device that cannot encode the exact source size must still get the
+        // whole picture, scaled uniformly. Cropping the top-left was the cause of
+        // reversed clips looking cut or split.
+        scalePlane(y, top, left, yRow, yPixel, width, height, frame, 0, w, h)
+        scalePlane(u, top / 2, left / 2, uvRow, uvPixel, width / 2, height / 2, frame, w * h, w / 2, h / 2)
+        scalePlane(v, top / 2, left / 2, uvRow, uvPixel, width / 2, height / 2, frame, w * h + (w / 2) * (h / 2), w / 2, h / 2)
+    }
+}
+
+private fun scalePlane(src: ByteBuffer, top: Int, left: Int, row: Int, pixel: Int, sw: Int, sh: Int,
+                      dst: ByteBuffer, offset: Int, dw: Int, dh: Int) {
+    if (sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0) return
+    for (y in 0 until dh) {
+        val sy = top + ((y.toLong() * sh) / dh).toInt().coerceIn(0, sh - 1)
+        val at = sy * row + left * pixel
+        val out = offset + y * dw
+        for (x in 0 until dw) {
+            val sx = ((x.toLong() * sw) / dw).toInt().coerceIn(0, sw - 1)
+            dst.put(out + x, src.get(at + sx * pixel))
+        }
+    }
 }
 
 private fun ByteBuffer.unpackInto(image: Image, w: Int, h: Int) {

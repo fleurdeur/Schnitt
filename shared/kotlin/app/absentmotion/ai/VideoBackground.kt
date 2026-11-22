@@ -141,7 +141,7 @@ internal val MatteFollowedEffects = setOf(
     "absent.starpolyhedron", "absent.starprism", "absent.stretch", "absent.stretchaxis",
     "absent.swing", "absent.tile", "absent.tilerotate", "absent.tiles",
     "absent.tileshift", "absent.torus", "absent.tunnel", "absent.turbulentdisplace",
-    "absent.twirl", "absent.viewer360", "absent.wavewarp",
+    "absent.twirl", "absent.viewer360", "absent.wavewarp", "absent.eyeblink", "absent.hairflow",
 )
 
 private val MatteTimeAttributes = listOf("startTime", "endTime", "inTime", "outTime", "speed", "loop", "loopIn", "parent")

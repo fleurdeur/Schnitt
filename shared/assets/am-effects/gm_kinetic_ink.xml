@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.gm.kineticink" name="GM Kinetic Ink" desc="Fluid-like ink bleed distortion." category="distortion" tags="ink,fluid,warp" thumb="thumb/GM_KINETIC_INK.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="intensity" default="0.1" min="0.0" max="1.0" step="0.01" label="Bleed Intensity" />
+<spinner id="speed" default="1.0" min="0.0" max="5.0" step="0.1" label="Flow Speed" />
+  <section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[void main() {
+vec2 uv = acScreenNorm;
+vec2 noiseUv = uv * 5.0 + acTime * speed;
+float n = sin(noiseUv.x) * cos(noiseUv.y);
+vec2 offset = vec2(n) * intensity * 0.1;
+gl_FragColor = texture2DCv(inputImg.texture, uv + offset);
+}]]></shader>
+</effect>

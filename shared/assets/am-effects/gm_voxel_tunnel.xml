@@ -1,0 +1,93 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.goldmotion.effects.voxeltunnel" name="GM Voxel Tunnel" desc="3D raymarched infinite voxel tunnel with depth fog and neon lighting." category="procedural" tags="gm,voxel,tunnel,3d,procedural,neon" thumb="thumb/GM_VOXEL_TUNNEL.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Tunnel Appearance" />
+<color id="voxelColor" default="#FF0088FF" label="Voxel Color" alpha="true" />
+<color id="fogColor" default="#FF000000" label="Fog Color" alpha="true" />
+<section text="Motion &amp; Transform" />
+<spinner id="speed" label="Flight Speed" default="2.0" min="-10.0" max="10.0" step="0.1" />
+<spinner id="twist" label="Tunnel Twist" default="0.5" min="-2.0" max="2.0" step="0.01" />
+<section text="Geometry" />
+<spinner id="tunnelSize" label="Tunnel Radius" default="2.0" min="0.5" max="5.0" step="0.1" />
+<spinner id="voxelScale" label="Voxel Size" default="1.0" min="0.2" max="3.0" step="0.1" />
+<section text="Output &amp; Blend" />
+<spinner id="brightness" default="1.0" min="0.0" max="5.0" step="0.01" label="Brightness" />
+<spinner id="alpha" default="1.0" min="0.0" max="1.0" step="0.01" label="Opacity" type="percent" />
+<selector id="blendMode" style="dropdown" default="0" label="Blend Mode">
+<choice label="Normal" value="0" />
+<choice label="Screen" value="2" />
+</selector>
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="medium"><![CDATA[#define MAX_STEPS 60
+#define MAX_DIST 40.0
+#define SURF_DIST 0.01
+mat2 rot(float a) {
+float s = sin(a);
+float c = cos(a);
+return mat2(c, -s, s, c);
+}
+float sdBox(vec3 p, vec3 b) {
+vec3 q = abs(p) - b;
+return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+}
+float map(vec3 p) {
+float t = length(p.xy) - tunnelSize;
+p.xy *= rot(p.z * twist * 0.1);
+float vSize = voxelScale * 0.5;
+vec3 q = p;
+q = mod(q + vSize, vSize * 2.0) - vSize;
+float box = sdBox(q, vec3(vSize * 0.8));
+float d = max(-t, box);
+d = max(d, tunnelSize - length(p.xy) - 0.5);
+return d;
+}
+vec3 getNormal(vec3 p) {
+float d = map(p);
+vec2 e = vec2(0.01, 0);
+vec3 n = d - vec3(
+map(p - e.xyy),
+map(p - e.yxy),
+map(p - e.yyx));
+return normalize(n);
+}
+void main() {
+vec2 uv = acScreenNorm;
+vec4 texColor = texture2DCv(inputImg.texture, uv);
+float baseAlpha = texColor.a;
+vec2 st = (uv - 0.5);
+st.x *= acScreenSize.x / max(acScreenSize.y, 1.0);
+vec3 ro = vec3(0.0, 0.0, acTime * speed);
+vec3 rd = normalize(vec3(st.x, st.y, 1.0));
+rd.xy *= rot(sin(acTime * 0.5) * 0.2);
+float d0 = 0.0;
+vec3 p;
+for(int i = 0; i < MAX_STEPS; i++) {
+p = ro + rd * d0;
+float dS = map(p);
+d0 += dS;
+if(d0 > MAX_DIST || abs(dS) < SURF_DIST) break;
+}
+vec3 finalColor = fogColor.rgb;
+if(d0 < MAX_DIST) {
+vec3 n = getNormal(p);
+vec3 lightDir = normalize(vec3(1.0, 2.0, -1.0));
+float dif = clamp(dot(n, lightDir), 0.0, 1.0);
+vec3 col = voxelColor.rgb * (dif * 0.8 + 0.2);
+float fog = exp(-d0 * 0.05);
+finalColor = mix(fogColor.rgb, col, fog);
+}
+finalColor *= brightness;
+vec4 result;
+if (blendMode == 0) {
+result = vec4(finalColor, 1.0);
+} else {
+result = vec4(1.0 - (1.0 - texColor.rgb) * (1.0 - finalColor), 1.0);
+}
+result = clamp(result, 0.0, 1.0);
+result *= baseAlpha;
+vec4 outputColor = mix(texColor, result, alpha);
+gl_FragColor = outputColor;
+}]]></shader>
+</effect>

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.shaderpack.hot_shower" name="GM Hot Shower" desc="Volumetric heated planet flow with editable sphere, turbulence, glow and mobile ray quality." category="procedural" tags="gm,shader,procedural,procedural" thumb="thumb/hot-shower.webp" overdraw="true" max-overdraw="0.3" experimental="false" deprecated="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Planet" />
+<spinner id="hotSphereSize" default="0.7" min="0.1" max="1.5" step="0.01" label="Sphere Size" />
+<spinner id="hotGlowDistance" default="0.27" min="0.02" max="0.8" step="0.01" label="Glow Distance" />
+<spinner id="hotPerturb" default="0.3" min="0" max="1.5" step="0.01" label="Flow Perturbation" />
+<spinner id="hotDisplacement" default="0.015" min="0" max="0.1" step="0.001" label="Heat Displacement" />
+<color id="hotPlanetColor" default="#FF8C6650" label="Planet Color" alpha="false" />
+<section text="Volumetric Flow" />
+<spinner id="hotEvolution" default="0" min="-1000" max="1000" step="0.01" label="Evolution" />
+<switch id="hotAnimate" default="true" label="Animate Wind" />
+<spinner id="hotSpeed" default="1" min="-5" max="5" step="0.01" label="Wind Speed" />
+<spinner id="hotWindScale" default="0.4" min="0" max="2" step="0.01" label="Wind Flow" />
+<spinner id="hotStepSize" default="0.025" min="0.005" max="0.08" step="0.001" label="Ray Step Size" />
+<spinner id="hotRaySteps" default="110" min="24" max="110" step="1" label="Ray Steps" />
+<selector id="hotFractalIterations" style="dropdown" default="10" label="Flow Detail"><choice label="Fast" value="7" /><choice label="Balanced" value="10" /><choice label="Full" value="13" /></selector>
+<spinner id="hotBrightness" default="0.43" min="0" max="2" step="0.01" label="Brightness" />
+<spinner id="hotFade" default="0.005" min="0" max="0.02" step="0.0001" label="Distance Fade" />
+<spinner id="hotGlow" default="3.5" min="0" max="10" step="0.05" label="Glow Gain" />
+<section text="Composite" />
+<spinner id="gmMix" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<switch id="gmClip" default="false" label="Clip to Layer" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[#define iTime (hotEvolution + (hotAnimate ? acTime * hotSpeed : 0.0))
+#define iResolution vec3(acScreenSize, 1.0)
+#define iDate vec4(0.0, 0.0, 0.0, iTime)
+#define iMouse vec4(acScreenSize * 0.5, 0.0, 0.0)
+#define sphsize hotSphereSize
+#define dist hotGlowDistance
+#define perturb hotPerturb
+#define displacement hotDisplacement
+#define windspeed hotWindScale
+const float steps=110.;
+#define stepsize hotStepSize
+#define brightness hotBrightness
+#define planetcolor hotPlanetColor.rgb
+#define fade hotFade
+#define glow hotGlow
+const int iterations=13;
+const float fractparam=.7;
+const vec3 offset=vec3(1.5,2.,-1.5);
+float wind(vec3 p) {
+float d=max(0.,dist-max(0.,length(p)-sphsize)/sphsize)/dist;
+float x=max(0.2,p.x*2.);
+p.y*=1.+max(0.,-p.x-sphsize*.25)*1.5;
+p-=d*normalize(p)*perturb;
+p+=vec3(iTime*windspeed,0.,0.);
+p=abs(fract((p+offset)*.1)-.5);
+for (int i=0; i<iterations; i++) { if(i >= hotFractalIterations) break;
+p=abs(p)/dot(p,p)-fractparam;
+}
+return length(p)*(1.+d*glow*x)+d*glow*x;
+}
+void gmGeneratedMainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+vec2 uv = fragCoord.xy / iResolution.xy-.5;
+vec3 dir=vec3(uv,1.);
+dir.x*=iResolution.x/iResolution.y;
+vec3 from=vec3(0.,0.,-2.+texture2DCv(inputImg.texture,uv*.5+iTime).x*stepsize);
+float v=0., l=-0.0001, t=iTime*windspeed*.2;
+for (float r=10.;r<steps;r++) { if(r >= hotRaySteps) break;
+vec3 p=from+r*dir*stepsize;
+float tx=texture2DCv(inputImg.texture,uv*.2+vec2(t,0.)).x*displacement;
+if (length(p)-sphsize-tx>0.)
+v+=min(50.,wind(p))*max(0.,1.-r*fade);
+else if (l<0.)
+l=pow(max(.53,dot(normalize(p),normalize(vec3(-1.,.5,-0.3)))),4.)
+*(.5+texture2DCv(inputImg.texture,uv*vec2(2.,1.)*(1.+p.z*.5)+vec2(tx+t*.5,0.)).x*2.);
+}
+v/=max(hotRaySteps,1.0); v*=brightness;
+vec3 col=vec3(v*1.25,v*v,v*v*v)+l*planetcolor;
+col*=1.-length(pow(abs(uv),vec2(5.)))*14.;
+fragColor = vec4(col,1.0);
+}
+void main(){
+vec4 gmGenerated=vec4(0.0);
+gmGeneratedMainImage(gmGenerated,acScreenNorm*acScreenSize);
+vec4 gmSource=texture2DCv(inputImg.texture,acScreenNorm);
+float gmAlpha=gmClip?gmSource.a:gmGenerated.a;
+vec4 gmResult=vec4(gmGenerated.rgb*gmAlpha,gmAlpha);
+gl_FragColor=mix(gmSource,gmResult,gmMix);
+gl_FragColor *= texture2DCv(inputImg.texture, acScreenNorm).a;
+}]]></shader>
+</effect>

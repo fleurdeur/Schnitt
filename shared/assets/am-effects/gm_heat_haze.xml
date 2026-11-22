@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/heathaze.webp"
+id="com.goldmotion.effects.v51.heathaze"
+name="GM Heat Haze"
+desc="Physically inspired refractive air shimmer driven by a rising turbulent density field."
+category="distort"
+tags="heat,haze,refraction,turbulence,distortion"
+experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Refraction" />
+<spinner id="strengthPx" default="12.0" min="0.0" max="80.0" step="0.25" label="Strength" />
+<spinner id="frequency" default="3.0" min="0.25" max="12.0" step="0.05" label="Turbulence Scale" />
+<spinner id="detail" default="0.55" min="0.0" max="1.0" step="0.01" label="Fine Detail" type="percent" />
+<spinner id="verticalFlow" default="0.35" min="-3.0" max="3.0" step="0.01" label="Vertical Flow" />
+<section text="Animation" />
+<switch id="autoAnimate" default="true" label="Auto Animate" />
+<spinner id="speed" default="1.0" min="-5.0" max="5.0" step="0.05" label="Speed" />
+<spinner id="evolution" default="0.0" min="-100.0" max="100.0" step="0.01" label="Evolution" />
+<spinner id="seed" default="0.0" min="0.0" max="100.0" step="0.1" label="Seed" />
+<section text="Optics" />
+<spinner id="dispersion" default="0.15" min="0.0" max="2.0" step="0.01" label="Color Dispersion" />
+<slider id="mixAmount" default="1.0" min="0.0" max="1.0" step="0.01" label="Mix" type="percent" />
+<selector id="edgeMode" default="1" style="dropdown" label="Edges">
+<choice label="Clamp" value="0" />
+<choice label="Mirror" value="1" />
+<choice label="Tile" value="2" />
+</selector>
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[float gmHash21(vec2 p) {
+return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+float gmNoise(vec2 p) {
+vec2 i = floor(p);
+vec2 f = fract(p);
+vec2 u = f * f * (3.0 - 2.0 * f);
+float a = gmHash21(i);
+float b = gmHash21(i + vec2(1.0, 0.0));
+float c = gmHash21(i + vec2(0.0, 1.0));
+float d = gmHash21(i + vec2(1.0, 1.0));
+return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+float gmFbm(vec2 p) {
+mat2 turn = mat2(0.80, -0.60, 0.60, 0.80);
+float n0 = gmNoise(p);
+p = turn * p * 2.02 + vec2(7.1, 3.7);
+float n1 = gmNoise(p);
+p = turn * p * 2.03 + vec2(5.3, 9.2);
+float n2 = gmNoise(p);
+p = turn * p * 2.01 + vec2(8.4, 1.6);
+float n3 = gmNoise(p);
+return n0 * 0.5333333 + n1 * 0.2666667 + n2 * 0.1333333 + n3 * 0.0666667;
+}
+float gmDensity(vec2 p, float t) {
+vec2 drift = vec2(t * 0.071, -t * verticalFlow);
+float broad = gmFbm(p * frequency + drift + seed * vec2(1.37, 2.11));
+float fine = gmFbm(p * frequency * 2.17 - drift * 0.63 + seed * vec2(0.73, 1.91));
+return mix(broad, fine, detail);
+}
+vec2 gmEdge(vec2 uv) {
+if (edgeMode == 1) {
+return 1.0 - abs(mod(uv, 2.0) - 1.0);
+}
+if (edgeMode == 2) {
+return fract(uv);
+}
+return clamp(uv, 0.0, 1.0);
+}
+void main() {
+vec2 uv = acScreenNorm;
+vec2 texSize = max(inputImg.size, vec2(1.0));
+float aspect = texSize.x / texSize.y;
+vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
+float t = evolution + (autoAnimate ? acTime * speed : 0.0);
+const float eps = 0.0125;
+float dx0 = gmDensity(p - vec2(eps, 0.0), t);
+float dx1 = gmDensity(p + vec2(eps, 0.0), t);
+float dy0 = gmDensity(p - vec2(0.0, eps), t);
+float dy1 = gmDensity(p + vec2(0.0, eps), t);
+vec2 gradient = vec2(dx1 - dx0, dy1 - dy0);
+vec2 refraction = gradient * strengthPx * 6.0 / texSize;
+refraction.x /= max(aspect, 0.0001);
+vec4 src = texture2DCv(inputImg.texture, uv);
+vec2 uvG = gmEdge(uv + refraction);
+vec2 chroma = refraction * dispersion * 0.35;
+vec4 greenSample = texture2DCv(inputImg.texture, uvG);
+vec4 redSample = texture2DCv(inputImg.texture, gmEdge(uvG + chroma));
+vec4 blueSample = texture2DCv(inputImg.texture, gmEdge(uvG - chroma));
+vec3 refracted = vec3(redSample.r, greenSample.g, blueSample.b);
+gl_FragColor = vec4(mix(src.rgb, refracted, clamp(mixAmount, 0.0, 1.0)), src.a);
+}]]></shader>
+</effect>

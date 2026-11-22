@@ -146,7 +146,7 @@ internal fun AiBackdrop(modifier: Modifier, action: AiAction? = null) {
                 drawRect(Color.White.copy(alpha = 0.85f), Offset(cx - unit * 0.22f, cy - unit * 0.22f), androidx.compose.ui.geometry.Size(unit * 0.44f, unit * 0.44f), style = stroke)
                 drawLine(Color.White.copy(alpha = 0.85f), Offset(cx + unit * 0.02f, cy - unit * 0.02f), Offset(cx + unit * 0.15f, cy - unit * 0.15f), unit * 0.025f, StrokeCap.Round)
             }
-            AiAction.Smooth, AiAction.Reverse, null -> Unit
+            AiAction.Smooth, AiAction.Reverse, AiAction.Dfr, null -> Unit
         }
     }
 }
@@ -407,7 +407,7 @@ internal fun AiEnhanceDialog(tools: AiTools, scene: Scene, onQuickSharpen: () ->
                     }
                 }
                 if (options.mode == EnhanceMode.Sharpen) EnhanceSwitch(stringResource(R.string.ai_enhance_quick), options.quick) { tools.enhance = options.copy(quick = it) }
-                if (options.usesAi) {
+                if (options.usesAi && !options.lockedModel) {
                     EnhanceSwitch(stringResource(R.string.ai_enhance_cartoon), options.cartoon) { tools.enhance = options.copy(cartoon = it) }
                     if (!options.cartoon) EnhanceSwitch(stringResource(R.string.ai_enhance_grain), options.grain) { tools.enhance = options.copy(grain = it) }
                 }

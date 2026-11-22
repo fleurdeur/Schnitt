@@ -1,0 +1,75 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.goldmotion.effects.matrixasciiglyph" name="GM Matrix ASCII &amp; Cyber Glyphs" desc="Real-time cyber terminal ASCII and Matrix digital rain glyph generator with dynamic luma-to-character density mapping." category="stylize" tags="gm,matrix,ascii,cyber,terminal,hacker,code,digital,glitch" thumb="thumb/matrix.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Matrix Grid" />
+<spinner id="glyphSize" label="Glyph Cell Size" default="16.0" min="6.0" max="48.0" step="1.0" />
+<spinner id="rainSpeed" label="Digital Rain Speed" default="2.0" min="0.0" max="8.0" step="0.1" />
+<spinner id="contrast" label="Character Contrast" default="1.5" min="0.5" max="3.0" step="0.05" />
+<section text="Cyber Color" />
+<color id="glyphColor" default="#FF00FF55" label="Matrix Glow Color" alpha="true" />
+<color id="leadColor" default="#FFFFFFFF" label="Rain Leader White" alpha="true" />
+<spinner id="bgDarkness" label="Background Darken" default="0.75" min="0.0" max="1.0" step="0.02" type="percent" />
+<section text="Terminal CRT" />
+<spinner id="scanlines" label="Terminal Scanlines" default="0.35" min="0.0" max="1.0" step="0.02" />
+<spinner id="glitchFlicker" label="Random Digital Flicker" default="0.25" min="0.0" max="1.0" step="0.02" />
+<section text="Blend Mode" />
+<spinner id="alpha" default="1.0" min="0.0" max="1.0" step="0.01" label="Opacity" type="percent" />
+<selector id="blendMode" style="dropdown" default="0" label="Blend Mode">
+<choice label="Normal" value="0" />
+<choice label="Screen" value="2" />
+<choice label="Add" value="3" />
+</selector>
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="medium"><![CDATA[float getLuma(vec3 c) {
+return dot(c, vec3(0.299, 0.587, 0.114));
+}
+float hash21(vec2 p) {
+return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+float drawGlyph(vec2 p, float seed, float luma) {
+if (luma < 0.08) return 0.0;
+vec2 grid = floor(p * vec2(3.0, 5.0));
+float microSeed = hash21(grid + seed * 17.13);
+float charMask = step(1.0 - luma, microSeed);
+float strokeH = smoothstep(0.12, 0.0, abs(p.y - 0.5)) * step(0.2, p.x) * step(p.x, 0.8);
+float strokeV = smoothstep(0.12, 0.0, abs(p.x - 0.5)) * step(0.1, p.y) * step(p.y, 0.9);
+float isStroke = step(0.5, hash21(vec2(seed, 4.3)));
+return mix(charMask, max(strokeH, strokeV), isStroke * 0.4);
+}
+void main() {
+vec2 uv = acScreenNorm;
+vec4 original = texture2DCv(inputImg.texture, uv);
+vec2 numCells = floor(acScreenSize / max(glyphSize, 4.0));
+vec2 cellId = floor(uv * numCells);
+vec2 cellUv = fract(uv * numCells);
+vec2 sampleUv = (cellId + 0.5) / numCells;
+vec4 cellSample = texture2DCv(inputImg.texture, sampleUv);
+float luma = clamp(pow(getLuma(cellSample.rgb), contrast), 0.0, 1.0);
+float colRand = hash21(vec2(cellId.x, 13.7));
+float rainT = acTime * rainSpeed * (0.8 + colRand * 0.4) + colRand * 20.0;
+float rowPos = fract((cellId.y / numCells.y) + rainT * 0.2);
+float rainTrail = pow(1.0 - rowPos, 3.0);
+float rainHead = smoothstep(0.02, 0.0, rowPos);
+float charTime = floor(acTime * 6.0 + colRand * 10.0);
+float charSeed = hash21(cellId + charTime);
+float glyph = drawGlyph(cellUv, charSeed, luma);
+float flicker = (hash21(cellId + floor(acTime * 15.0)) > (1.0 - glitchFlicker * 0.3)) ? 1.4 : 1.0;
+float scan = 1.0 - sin(uv.y * acScreenSize.y * 1.5) * scanlines * 0.5;
+vec3 charRgb = mix(glyphColor.rgb, leadColor.rgb, rainHead * 0.8) * (glyph * luma * 1.8 + rainTrail * 0.3);
+charRgb *= flicker * scan;
+vec3 bgMix = mix(original.rgb, vec3(0.0), bgDarkness);
+vec3 finalRgb = bgMix + charRgb;
+vec4 result;
+if (blendMode == 0) {
+result = vec4(finalRgb, original.a);
+} else if (blendMode == 2) {
+result = vec4(1.0 - (1.0 - original.rgb) * (1.0 - charRgb), original.a);
+} else {
+result = vec4(original.rgb + charRgb, original.a);
+}
+result = clamp(result, 0.0, 1.0);
+gl_FragColor = mix(original, result, alpha);
+}]]></shader>
+</effect>

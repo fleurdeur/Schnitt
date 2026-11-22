@@ -1,0 +1,60 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.goldmotion.effects.polytrace" name="GM PolyTrace" desc="Traces glowing neon lines over the image's edges." category="procedural" tags="gm,trace,poly,neon,edge,glow,procedural" thumb="thumb/GM_POLYTRACE.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Edge Controls" />
+<spinner id="edgeThreshold" label="Edge Threshold" default="0.1" min="0.01" max="1.0" step="0.01" />
+<spinner id="edgeThickness" label="Trace Thickness" default="1.0" min="0.1" max="5.0" step="0.1" />
+<section text="Color &amp; Glow" />
+<color id="traceColor" default="#FF00FFFF" label="Trace Color" alpha="true" />
+<spinner id="glowIntensity" label="Glow Intensity" default="1.5" min="0.0" max="5.0" step="0.1" />
+<section text="Animation" />
+<switch id="animate" default="true" label="Animate Trace" />
+<spinner id="speed" label="Animation Speed" default="2.0" min="0.0" max="10.0" step="0.1" />
+<section text="Blend Mode" />
+<spinner id="alpha" default="1.0" min="0.0" max="1.0" step="0.01" label="Opacity" type="percent" />
+<selector id="blendMode" style="dropdown" default="2" label="Blend Mode">
+<choice label="Normal" value="0" />
+<choice label="Screen" value="2" />
+<choice label="Add" value="3" />
+</selector>
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="medium"><![CDATA[float getLuma(vec4 color) {
+return dot(color.rgb, vec3(0.299, 0.587, 0.114));
+}
+void main() {
+vec2 uv = acScreenNorm;
+vec4 texColor = texture2DCv(inputImg.texture, uv);
+float baseAlpha = texColor.a;
+vec2 pixelSize = (vec2(edgeThickness) / acScreenSize);
+float top = getLuma(texture2DCv(inputImg.texture, uv + vec2(0.0, -pixelSize.y)));
+float bottom = getLuma(texture2DCv(inputImg.texture, uv + vec2(0.0, pixelSize.y)));
+float left = getLuma(texture2DCv(inputImg.texture, uv + vec2(-pixelSize.x, 0.0)));
+float right = getLuma(texture2DCv(inputImg.texture, uv + vec2(pixelSize.x, 0.0)));
+float edgeX = right - left;
+float edgeY = bottom - top;
+float edge = sqrt(edgeX * edgeX + edgeY * edgeY);
+edge = smoothstep(edgeThreshold, edgeThreshold + 0.1, edge);
+float animMask = 1.0;
+if (animate) {
+float wave = sin(uv.x * 20.0 + uv.y * 20.0 - acTime * speed);
+animMask = smoothstep(0.0, 0.5, wave);
+}
+float traceStrength = edge * animMask * glowIntensity;
+vec3 finalColor = traceColor.rgb * traceStrength;
+vec4 result;
+vec3 tcSafe = texColor.rgb / max(texColor.a, 0.001);
+if (blendMode == 0) {
+result = vec4(finalColor, 1.0);
+} else if (blendMode == 2) {
+result = vec4(1.0 - (1.0 - tcSafe) * (1.0 - finalColor), 1.0);
+} else {
+result = vec4(tcSafe + finalColor, 1.0);
+}
+result = clamp(result, 0.0, 1.0);
+result *= baseAlpha;
+vec4 outputColor = mix(texColor, result, alpha);
+gl_FragColor = outputColor;
+}]]></shader>
+</effect>

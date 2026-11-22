@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/lightwrap.webp"
+id="com.goldmotion.effects.v51.lightwrap"
+name="GM Light Wrap"
+desc="Wraps colors from the underlying composition onto the inner edge of the foreground."
+category="color"
+tags="light,wrap,composite,edge,color"
+experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<texture id="comp" srcType="comp" />
+<texture id="maskH" srcType="buffer" downsample="2" />
+<texture id="maskV" srcType="buffer" downsample="2" />
+<section text="Edge Wrap" />
+<spinner id="radiusPx" default="14.0" min="1.0" max="100.0" step="0.5" label="Radius" />
+<spinner id="amount" default="1.0" min="0.0" max="4.0" step="0.01" label="Amount" />
+<spinner id="edgeGain" default="2.0" min="0.25" max="8.0" step="0.05" label="Edge Gain" />
+<spinner id="softness" default="0.8" min="0.2" max="3.0" step="0.05" label="Edge Softness" />
+<section text="Background Light" />
+<spinner id="saturation" default="1.15" min="0.0" max="2.5" step="0.01" label="Saturation" />
+<spinner id="exposure" default="1.1" min="0.0" max="5.0" step="0.01" label="Exposure" />
+<selector id="blendMode" default="0" style="dropdown" label="Blend Mode">
+<choice label="Screen" value="0" />
+<choice label="Add" value="1" />
+<choice label="Normal" value="2" />
+</selector>
+<slider id="mixAmount" default="1.0" min="0.0" max="1.0" step="0.01" label="Mix" type="percent" />
+<section text="MOD BY PNKJ" />
+</params>
+<passes>
+<pass target="maskH" />
+<pass target="maskV" />
+<pass />
+</passes>
+<shader type="fragment" precision="high"><![CDATA[const vec3 GM_LUMA = vec3(0.2126, 0.7152, 0.0722);
+vec4 safeSample(sampler2D tex, vec2 uv) {
+if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return vec4(0.0);
+return texture2DCv(tex, uv);
+}
+vec4 gaussianAlpha(sampler2D tex, vec2 uv, vec2 texel, float radius) {
+float support = max(radius, 0.5);
+float stridePx = max(support / 24.0, 1.0);
+float sigma = max(support / 3.0, 0.35);
+vec4 sum = safeSample(tex, uv);
+float weightSum = 1.0;
+for (float i = 1.0; i <= 24.0; i++) {
+float offsetPx = i * stridePx;
+if (offsetPx > support) break;
+float weight = exp(-0.5 * offsetPx * offsetPx / (sigma * sigma));
+sum += (safeSample(tex, uv + texel * offsetPx) +
+safeSample(tex, uv - texel * offsetPx)) * weight;
+weightSum += 2.0 * weight;
+}
+return sum / max(weightSum, 0.00001);
+}
+vec4 blurredComposition(vec2 uv, vec2 radiusUv) {
+vec4 sum = texture2DCv(comp.texture, uv) * 4.0;
+sum += texture2DCv(comp.texture, clamp(uv + vec2( radiusUv.x * 0.5, 0.0), 0.0, 1.0)) * 2.0;
+sum += texture2DCv(comp.texture, clamp(uv + vec2(-radiusUv.x * 0.5, 0.0), 0.0, 1.0)) * 2.0;
+sum += texture2DCv(comp.texture, clamp(uv + vec2(0.0,  radiusUv.y * 0.5), 0.0, 1.0)) * 2.0;
+sum += texture2DCv(comp.texture, clamp(uv + vec2(0.0, -radiusUv.y * 0.5), 0.0, 1.0)) * 2.0;
+vec2 diagonal = radiusUv * 0.35355339;
+sum += texture2DCv(comp.texture, clamp(uv + vec2( diagonal.x,  diagonal.y), 0.0, 1.0));
+sum += texture2DCv(comp.texture, clamp(uv + vec2(-diagonal.x,  diagonal.y), 0.0, 1.0));
+sum += texture2DCv(comp.texture, clamp(uv + vec2( diagonal.x, -diagonal.y), 0.0, 1.0));
+sum += texture2DCv(comp.texture, clamp(uv + vec2(-diagonal.x, -diagonal.y), 0.0, 1.0));
+sum += texture2DCv(comp.texture, clamp(uv + vec2( radiusUv.x, 0.0), 0.0, 1.0));
+sum += texture2DCv(comp.texture, clamp(uv + vec2(-radiusUv.x, 0.0), 0.0, 1.0));
+sum += texture2DCv(comp.texture, clamp(uv + vec2(0.0,  radiusUv.y), 0.0, 1.0));
+sum += texture2DCv(comp.texture, clamp(uv + vec2(0.0, -radiusUv.y), 0.0, 1.0));
+return sum / 20.0;
+}
+vec3 adjustSaturation(vec3 colorValue, float value) {
+float luminance = dot(colorValue, GM_LUMA);
+return mix(vec3(luminance), colorValue, value);
+}
+void main() {
+vec2 uv = acScreenNorm;
+vec2 inputSize = max(inputImg.size, vec2(1.0));
+if (acPass == 0) {
+gl_FragColor = gaussianAlpha(inputImg.texture, uv,
+vec2(1.0 / inputSize.x, 0.0), radiusPx);
+return;
+}
+if (acPass == 1) {
+vec2 maskSize = max(maskH.size, vec2(1.0));
+float sourceRadius = radiusPx * maskSize.y / inputSize.y;
+gl_FragColor = gaussianAlpha(maskH.texture, uv,
+vec2(0.0, 1.0 / maskSize.y), sourceRadius);
+return;
+}
+vec4 src = safeSample(inputImg.texture, uv);
+vec4 blurredMask = safeSample(maskV.texture, uv);
+vec4 background = blurredComposition(uv, vec2(radiusPx) / inputSize);
+float innerBand = src.a * clamp(1.0 - blurredMask.a, 0.0, 1.0);
+innerBand = pow(clamp(innerBand * edgeGain, 0.0, 1.0), max(softness, 0.0001));
+float wrapStrength = innerBand * clamp(amount, 0.0, 4.0);
+vec3 sourceStraight = src.rgb / max(src.a, 0.00001);
+vec3 backgroundStraight = background.rgb / max(background.a, 0.00001);
+backgroundStraight = adjustSaturation(backgroundStraight, saturation) * exposure;
+vec3 wrappedStraight;
+if (blendMode == 1) {
+wrappedStraight = sourceStraight + backgroundStraight * wrapStrength;
+} else if (blendMode == 2) {
+wrappedStraight = mix(sourceStraight, backgroundStraight, clamp(wrapStrength, 0.0, 1.0));
+} else {
+vec3 screenColor = 1.0 - (1.0 - sourceStraight) *
+(1.0 - clamp(backgroundStraight * wrapStrength, 0.0, 1.0));
+wrappedStraight = screenColor;
+}
+vec3 resultStraight = mix(sourceStraight, wrappedStraight, clamp(mixAmount, 0.0, 1.0));
+gl_FragColor = vec4(resultStraight * src.a, src.a);
+}]]></shader>
+</effect>

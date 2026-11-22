@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.shaderpack.liquid_glass" name="GM Liquid Glass" desc="Rounded liquid-glass panel with editable position, width, height, edge profile and 5x5 Gaussian blur." category="distort" tags="gm,shader,procedural,distort" thumb="thumb/Liquid-Glass.webp" overdraw="true" max-overdraw="0.3" experimental="false" deprecated="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Liquid Lens" />
+<spinner id="glassWidth" default="0.9" min="0.05" max="2.5" step="0.01" label="Width" />
+<spinner id="glassHeight" default="0.65" min="0.05" max="2.5" step="0.01" label="Height" />
+<spinner id="glassCorner" default="0.12" min="0" max="0.8" step="0.01" label="Corner Radius" />
+<spinner id="glassRadius" default="1" min="0.1" max="2" step="0.01" label="Refraction Radius" />
+<spinner id="glassOffset" default="0.1" min="-0.5" max="0.5" step="0.005" label="Refraction" />
+<spinner id="glassExponent" default="10" min="0.5" max="30" step="0.1" label="Edge Exponent" />
+<spinner id="glassBlur" default="2" min="0" max="12" step="0.1" label="Glass Blur" />
+<spinner id="glassCenterX" default="0.5" min="0" max="1" step="0.005" label="Center X" />
+<spinner id="glassCenterY" default="0.5" min="0" max="1" step="0.005" label="Center Y" />
+<section text="Composite" />
+<spinner id="gmMix" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<switch id="gmClip" default="true" label="Clip to Layer" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[#define iTime (0.0)
+#define iResolution vec3(acLayerSize, 1.0)
+#define iDate vec4(0.0, 0.0, 0.0, iTime)
+#define iMouse vec4(acLayerSize * 0.5, 0.0, 0.0)
+#define kRadius glassRadius
+#define kOffset glassOffset
+#define kPow glassExponent
+#define kBlurFactor glassBlur
+vec4 blur(sampler2D tex, vec2 uv, vec2 texelStep)
+{
+vec4 c = vec4(0.0);
+float k0 = 0.0037;
+float k1 = 0.0147;
+float k2 = 0.0256;
+float k3 = 0.0580;
+float k4 = 0.0998;
+float k5 = 0.1727;
+c += texture2DCv(tex, uv + vec2(-2.0*texelStep.x, -2.0*texelStep.y)) * k0;
+c += texture2DCv(tex, uv + vec2(-1.0*texelStep.x, -2.0*texelStep.y)) * k1;
+c += texture2DCv(tex, uv + vec2( 0.0*texelStep.x, -2.0*texelStep.y)) * k2;
+c += texture2DCv(tex, uv + vec2( 1.0*texelStep.x, -2.0*texelStep.y)) * k1;
+c += texture2DCv(tex, uv + vec2( 2.0*texelStep.x, -2.0*texelStep.y)) * k0;
+c += texture2DCv(tex, uv + vec2(-2.0*texelStep.x, -1.0*texelStep.y)) * k1;
+c += texture2DCv(tex, uv + vec2(-1.0*texelStep.x, -1.0*texelStep.y)) * k3;
+c += texture2DCv(tex, uv + vec2( 0.0*texelStep.x, -1.0*texelStep.y)) * k4;
+c += texture2DCv(tex, uv + vec2( 1.0*texelStep.x, -1.0*texelStep.y)) * k3;
+c += texture2DCv(tex, uv + vec2( 2.0*texelStep.x, -1.0*texelStep.y)) * k1;
+c += texture2DCv(tex, uv + vec2(-2.0*texelStep.x,  0.0*texelStep.y)) * k2;
+c += texture2DCv(tex, uv + vec2(-1.0*texelStep.x,  0.0*texelStep.y)) * k4;
+c += texture2DCv(tex, uv + vec2( 0.0*texelStep.x,  0.0*texelStep.y)) * k5;
+c += texture2DCv(tex, uv + vec2( 1.0*texelStep.x,  0.0*texelStep.y)) * k4;
+c += texture2DCv(tex, uv + vec2( 2.0*texelStep.x,  0.0*texelStep.y)) * k2;
+c += texture2DCv(tex, uv + vec2(-2.0*texelStep.x,  1.0*texelStep.y)) * k1;
+c += texture2DCv(tex, uv + vec2(-1.0*texelStep.x,  1.0*texelStep.y)) * k3;
+c += texture2DCv(tex, uv + vec2( 0.0*texelStep.x,  1.0*texelStep.y)) * k4;
+c += texture2DCv(tex, uv + vec2( 1.0*texelStep.x,  1.0*texelStep.y)) * k3;
+c += texture2DCv(tex, uv + vec2( 2.0*texelStep.x,  1.0*texelStep.y)) * k1;
+c += texture2DCv(tex, uv + vec2(-2.0*texelStep.x,  2.0*texelStep.y)) * k0;
+c += texture2DCv(tex, uv + vec2(-1.0*texelStep.x,  2.0*texelStep.y)) * k1;
+c += texture2DCv(tex, uv + vec2( 0.0*texelStep.x,  2.0*texelStep.y)) * k2;
+c += texture2DCv(tex, uv + vec2( 1.0*texelStep.x,  2.0*texelStep.y)) * k1;
+c += texture2DCv(tex, uv + vec2( 2.0*texelStep.x,  2.0*texelStep.y)) * k0;
+return c;
+}
+vec2 convertCoord(vec2 uv01, float ratio)
+{
+vec2 uv = uv01 * 2.0 - 1.0;
+uv.x *= ratio;
+return uv;
+}
+void gmGeneratedMainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+vec2 originUV = fragCoord / iResolution.xy;
+float ratio = iResolution.x / iResolution.y;
+vec2 uv = convertCoord(originUV, ratio);
+vec2 center = convertCoord(vec2(glassCenterX,glassCenterY), ratio);
+if(false)
+{
+center = vec2(0.0,0.0);
+}
+vec4 ret = vec4(0.0);
+vec2 panelDelta=uv-center; vec2 panelHalf=max(vec2(glassWidth,glassHeight)*0.5,vec2(0.001)); vec2 panelQ=abs(panelDelta)-panelHalf+glassCorner; float panelDistance=length(max(panelQ,0.0))+min(max(panelQ.x,panelQ.y),0.0)-glassCorner; float panelEdge=clamp(max(abs(panelDelta.x)/panelHalf.x,abs(panelDelta.y)/panelHalf.y)/max(kRadius,0.01),0.0,1.0); float dis=length(panelDelta);
+if(panelDistance < 0.0)
+{
+vec2 norm = panelDelta/max(length(panelDelta),0.00001);
+float offset = -kOffset * pow(panelEdge, kPow);
+vec2 sampleUV = originUV + norm * offset / ratio;
+vec2 texelStep = vec2(kBlurFactor) / iResolution.xy;
+ret = blur(inputImg.texture, clamp(sampleUV, 0.0, 1.0), texelStep);
+ret.a = 1.0;
+}
+else
+{
+ret = texture2DCv(inputImg.texture, originUV);
+}
+fragColor = ret;
+}
+void main(){
+vec4 gmGenerated=vec4(0.0);
+gmGeneratedMainImage(gmGenerated,acLayerNorm*acLayerSize);
+vec4 gmSource=texture2DCv(inputImg.texture,acLayerNorm);
+float gmAlpha=gmClip?gmSource.a:gmGenerated.a;
+vec4 gmResult=vec4(gmGenerated.rgb*gmAlpha,gmAlpha);
+gl_FragColor=mix(gmSource,gmResult,gmMix);
+}]]></shader>
+</effect>

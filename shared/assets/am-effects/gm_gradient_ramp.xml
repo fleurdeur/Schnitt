@@ -1,0 +1,164 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_gradient_ramp"
+name="GM Gradient Ramp"
+desc="A positional three-colour ramp laid over the layer - linear at any angle, radial, angular, diamond, mirrored or procedural noise. The ramp runs through three stops with a movable midpoint and a softness control that goes from a hard three-colour band through to a fully smooth blend. The noise shape scrolls and scales, which turns the ramp into a drifting colour cloud. Five blend modes and an opacity control composite it back onto the source. Everything is measured in layer space, so the ramp is welded to the layer."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.40"
+thumb="thumb/gm_gradient_ramp.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Shape" />
+<selector id="shape" style="dropdown" default="0" label="Gradient Shape">
+<choice value="0" label="Linear" />
+<choice value="1" label="Radial" />
+<choice value="2" label="Angular" />
+<choice value="3" label="Diamond" />
+<choice value="4" label="Mirrored" />
+<choice value="5" label="Noise" />
+</selector>
+<spinner id="angle" default="90.0" min="0.0" max="360.0" step="1.0" type="angle" label="Gradient Angle" />
+<spinner id="spread" default="1.0" min="0.05" max="3.0" step="0.01" label="Gradient Spread" />
+<spinner id="midPoint" default="0.0" min="-1.0" max="1.0" step="0.01" label="Ramp Midpoint" />
+<spinner id="softness" default="1.0" min="0.0" max="1.0" step="0.01" label="Ramp Softness" />
+<point id="centre" default="0.5,0.5" label="Gradient Centre" />
+<section text="Noise" />
+<spinner id="noiseScale" default="3.0" min="0.25" max="20.0" step="0.05" label="Noise Scale" />
+<spinner id="noiseSpeed" default="0.15" min="-1.0" max="1.0" step="0.01" label="Noise Drift" />
+<spinner id="noiseDetail" default="4" min="1" max="5" step="1" type="integer" label="Noise Octaves" />
+<section text="Colours" />
+<color id="colA" default="#0d1b4c" label="Colour A" alpha="true" />
+<color id="colB" default="#ff5f6d" label="Colour B" alpha="true" />
+<color id="colC" default="#ffe08a" label="Colour C" alpha="true" />
+<section text="Composite" />
+<selector id="blendMode" style="dropdown" default="0" label="Blend Mode">
+<choice value="0" label="Replace" />
+<choice value="1" label="Multiply" />
+<choice value="2" label="Screen" />
+<choice value="3" label="Add" />
+<choice value="4" label="Soft Light" />
+</selector>
+<spinner id="blendAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Ramp Opacity" />
+<section text="Output" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec3 sat3v(vec3 c){ return clamp(c, vec3(0.0), vec3(1.0)); }
+float lum(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+// LAYER -> SCREEN: the ramp is built from layer coordinates, so it inherits
+// the layer's position, scale and rotation instead of sitting on the frame.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+
+float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+
+float vnoise(vec2 p){
+vec2 i = floor(p);
+vec2 f = fract(p);
+f = f * f * (3.0 - 2.0 * f);
+return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x),
+           mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+// Octave count comes from a param, but the loop bound stays constant so the
+// shader is still GLSL ES 1.0 conformant - the break does the work.
+float fbm(vec2 p){
+float s = 0.0;
+float amp = 0.5;
+for (int i = 0; i < 5; i++){
+if (float(i) >= float(noiseDetail)) break;
+s += amp * vnoise(p);
+p *= 2.07;
+amp *= 0.5;
+}
+return s;
+}
+
+// Three stops, smooth at softness 1 and hard-stepped at softness 0.
+vec3 ramp3(float t){
+t = clamp(t, 0.0, 1.0);
+if (t < 0.5){
+return mix(colA.rgb, colB.rgb, smoothstep(0.0, 1.0, t / 0.5));
+}
+return mix(colB.rgb, colC.rgb, smoothstep(0.0, 1.0, (t - 0.5) / 0.5));
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float a  = max(src.a, 1e-4);
+vec3 sc  = src.rgb / a;
+
+float asp = acLayerSize.x / max(acLayerSize.y, 1.0);
+vec2  c0  = centre - vec2(0.5);
+c0.x *= asp;
+vec2  q   = lp - vec2(0.5);
+q.x *= asp;
+q -= c0;
+
+float ang = radians(angle);
+vec2  ax  = vec2(cos(ang), sin(ang));
+
+// ---- ramp coordinate ----------------------------------------------------
+float t;
+if (shape <= 0){
+// Linear: project onto the axis. dot() of a centred coordinate spans -0.5..0.5
+// so the +0.5 puts the ramp across the full layer.
+t = dot(q, ax) + 0.5;
+} else if (shape <= 1){
+t = length(q);
+} else if (shape <= 2){
+t = atan(q.y, q.x) / 6.2831853 + 0.5;
+} else if (shape <= 3){
+t = abs(q.x) + abs(q.y);
+} else if (shape <= 4){
+// Mirrored: |projection| folds the ramp back on itself, giving two ramps
+// facing each other across the axis.
+t = abs(dot(q, ax)) * 2.0;
+} else {
+t = fbm(q * noiseScale + vec2(acTime * noiseSpeed, acTime * noiseSpeed * 0.6));
+}
+
+t = (t - 0.5) * max(spread, 0.05) + 0.5 + midPoint;
+t = clamp(t, 0.0, 1.0);
+
+// Softness blends between the smooth ramp and a three-step version of itself.
+if (softness < 0.999){
+t = mix(floor(t * 3.0 + 0.5) / 3.0, t, clamp(softness, 0.0, 1.0));
+}
+
+vec3 ramp = ramp3(t);
+
+// ---- composite ----------------------------------------------------------
+vec3 blended;
+if (blendMode <= 0){
+blended = ramp;
+} else if (blendMode <= 1){
+blended = sc * ramp * 2.0;
+} else if (blendMode <= 2){
+blended = vec3(1.0) - (vec3(1.0) - sc) * (vec3(1.0) - ramp);
+} else if (blendMode <= 3){
+blended = sc + ramp;
+} else {
+vec3 m = smoothstep(vec3(0.45), vec3(0.55), ramp);
+blended = mix(2.0 * sc * ramp + sc * sc * (1.0 - 2.0 * ramp),
+              sqrt(max(sc, vec3(0.0))) * (2.0 * ramp - 1.0) + 2.0 * sc * (1.0 - ramp),
+              m);
+}
+blended = sat3v(blended);
+
+vec3  col = mix(sc, blended, clamp(blendAmt, 0.0, 1.0));
+float oA  = src.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

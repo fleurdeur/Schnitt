@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.gm3d.cardflipstudio" name="GM Card Flip Studio" desc="Axis-controlled 3D card flip with back-face mirroring, perspective depth and edge shading." category="3d" tags="gm,3d,card,flip,rotation,perspective" thumb="thumb/flip_card_studio.webp" overdraw="true" max-overdraw="0.3" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="flip" default="32" min="-180" max="180" step="0.5" type="angle" label="3D Flip" />
+<spinner id="axis" default="0" min="-3600" max="3600" step="0.5" type="angle" label="Flip Axis" />
+<spinner id="perspective" default="0.7" min="0" max="2" step="0.01" label="Perspective" />
+<spinner id="edgeShade" default="0.55" min="0" max="1" step="0.01" label="Edge Shade" />
+<spinner id="backFade" default="0.18" min="0" max="1" step="0.01" label="Back Face Fade" />
+<spinner id="mixAmount" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[void main(){
+vec2 uv=acScreenNorm,p=uv-0.5;
+float ca=cos(axis),sa=sin(axis); mat2 r=mat2(ca,-sa,sa,ca);
+vec2 a=r*p; float cf=cos(flip),sf=sin(flip);
+float z=a.x*sf, den=max(0.16,1.0+z*perspective);
+vec2 q=vec2(a.x/max(abs(cf),0.035),a.y/den);
+if(cf<0.0) q.x=-q.x;
+q=mat2(ca,sa,-sa,ca)*q+0.5;
+float valid=step(0.0,q.x)*step(q.x,1.0)*step(0.0,q.y)*step(q.y,1.0);
+vec4 src=texture2DCv(inputImg.texture,uv),dst=texture2DCv(inputImg.texture,clamp(q,0.0,1.0));
+float face=mix(backFade,1.0,step(0.0,cf));
+dst.rgb*=face*mix(1.0,0.35+0.65*abs(cf),edgeShade);
+gl_FragColor=mix(src,dst,mixAmount*valid);
+}]]></shader>
+</effect>

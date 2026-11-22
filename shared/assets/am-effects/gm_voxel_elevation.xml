@@ -1,0 +1,158 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_voxel_elevation"
+name="GM Voxel Elevation Map"
+desc="Splits the layer into a grid of cells, reads each cell's brightness as an elevation, and rebuilds the picture as a relief of blocks. Four build styles: Voxel Blocks gives every cell a raised top face and a shaded front face, Isometric Columns slides the top face sideways so the blocks read as solid 3D, Height Bars turns each cell into a free-standing column, and Dot Matrix grows a disc whose radius is the elevation. Height scale, height snapping, cell gap, face depth, edge bevel, an isometric offset, a shading angle and a cell outline are all separate. Layer space, so the blocks are cut from the layer itself."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.30"
+thumb="thumb/gm_voxel_elevation.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Grid" />
+<spinner id="cellSize" default="26.0" min="6.0" max="90.0" step="1.0" label="Cell Size (px)" />
+<spinner id="preBlur" default="0.35" min="0.0" max="1.0" step="0.01" label="Cell Smoothing" />
+<spinner id="gap" default="0.06" min="0.0" max="0.40" step="0.005" label="Cell Gap" />
+<section text="Build Style" />
+<selector id="voxelMode" style="dropdown" default="0" label="Style">
+<choice value="0" label="Voxel Blocks" />
+<choice value="1" label="Isometric Columns" />
+<choice value="2" label="Height Bars" />
+<choice value="3" label="Dot Matrix" />
+</selector>
+<spinner id="heightScale" default="0.62" min="0.0" max="1.20" step="0.01" label="Height Scale" />
+<spinner id="levels" default="6" min="2" max="16" step="1" type="integer" label="Height Steps" />
+<section text="Faces" />
+<spinner id="depth" default="0.55" min="0.0" max="1.0" step="0.01" label="Front Face Depth" />
+<spinner id="bevel" default="0.45" min="0.0" max="1.0" step="0.01" label="Top Bevel" />
+<spinner id="iso" default="0.0" min="0.0" max="1.0" step="0.01" label="Isometric Offset" />
+<spinner id="outline" default="0.35" min="0.0" max="1.0" step="0.01" label="Cell Outline" />
+<spinner id="lightAngle" default="135.0" min="0.0" max="360.0" step="1.0" type="angle" label="Shade Angle" />
+<section text="Tint" />
+<color id="tintCol" default="#8fe3ff" label="Tint Colour" alpha="true" />
+<spinner id="tintAmt" default="0.0" min="0.0" max="1.0" step="0.01" label="Tint Amount" />
+<section text="Output" />
+<spinner id="mixAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Effect Strength" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec3 sat3v(vec3 c){ return clamp(c, vec3(0.0), vec3(1.0)); }
+float lum(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+// LAYER -> SCREEN. The grid lives in layer space, so it is cut from the layer's
+// own pixels and inherits the layer's transform.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+vec3 strL(vec2 lp){ vec4 s = fetchL(lp); return s.rgb / max(s.a, 1e-4); }
+
+// One cell's colour and one cell's elevation, both taken from a 5-tap average
+// of the cell so a single noisy pixel cannot flip a whole block.
+vec3 cellColour(vec2 clp, float r){
+vec3 c = strL(clp);
+if (preBlur > 0.001){
+c += strL(clp + vec2( r, 0.0));
+c += strL(clp + vec2(-r, 0.0));
+c += strL(clp + vec2(0.0,  r));
+c += strL(clp + vec2(0.0, -r));
+c /= 5.0;
+}
+return c;
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float a  = max(src.a, 1e-4);
+vec3 sc  = src.rgb / a;
+
+float asp = acLayerSize.x / max(acLayerSize.y, 1.0);
+vec2  lpA = vec2(lp.x * asp, lp.y);
+
+float cells = max(acLayerSize.y / max(cellSize, 1.0), 1.0);
+vec2  g   = lpA * cells;
+vec2  cid = floor(g);
+vec2  f   = fract(g);
+
+float rCell = (1.0 / max(cells, 1.0)) * preBlur * 0.45;
+vec3  cc    = cellColour((cid + vec2(0.5)) / cells, rCell);
+float hh    = lum(cc);
+
+// Snap the elevation so the blocks land on discrete steps - that is what makes
+// it read as voxels rather than as a smooth bulge.
+float lv = max(levels, 2.0);
+hh = floor(hh * lv + 0.5) / lv;
+hh = clamp(hh, 0.0, 1.0);
+
+float hpx = hh * heightScale;
+
+// ---- cell footprint with gap -------------------------------------------
+float gp = max(1.0 - gap, 0.06);
+vec2  fg = (f - vec2(0.5)) / gp + vec2(0.5);
+
+float aa = 0.012;
+float inside = (1.0 - smoothstep(0.0, aa, -fg.x)) * (1.0 - smoothstep(1.0, 1.0 + aa, fg.x))
+             * (1.0 - smoothstep(0.0, aa, -fg.y)) * (1.0 - smoothstep(1.0, 1.0 + aa, fg.y));
+
+// ---- top / front faces --------------------------------------------------
+vec2  topF = fg;
+if (voxelMode >= 1 && voxelMode <= 1){
+// Isometric: slide the top face sideways by the elevation, so taller blocks
+// show more of their left flank. That is the whole 3D illusion.
+topF.x -= hh * iso * 0.42;
+}
+
+float topH   = clamp(hpx, 0.0, 0.92);
+float isTop  = 1.0 - smoothstep(topH - aa, topH + aa, topF.y);
+
+// Per-cell shading from the height plus a directional term, so a wall of equal
+// blocks still reads as a surface rather than as a flat colour field.
+float la  = radians(lightAngle);
+float dir = 0.5 + 0.5 * (cos(la) * (f.x - 0.5) + sin(la) * (f.y - 0.5));
+float sh  = 0.55 + 0.80 * hh + 0.25 * dir;
+
+vec3 topCol   = cc * sh * (1.0 + bevel * (1.0 - topF.y / max(topH, 1.0e-3)));
+vec3 frontCol = cc * sh * (1.0 - depth * 0.72) * (1.0 - depth * 0.28 * clamp(fg.y - topH, 0.0, 1.0));
+
+vec3 v;
+if (voxelMode >= 2 && voxelMode <= 2){
+// Height Bars - drop the cell footprint and keep only a narrow column, so the
+// result is a skyline of free-standing bars.
+float barW = 0.42;
+float inBar = 1.0 - smoothstep(barW - aa, barW + aa, abs(fg.x - 0.5));
+v = mix(cc * 0.25, mix(frontCol, topCol, isTop), inBar);
+} else if (voxelMode >= 3){
+// Dot Matrix - a disc whose radius is the elevation.
+vec2  d2 = vec2((f.x - 0.5) * asp, f.y - 0.5);
+float rr = length(d2);
+float rad = 0.06 + hh * 0.42;
+float dot_ = 1.0 - smoothstep(rad - aa * 1.5, rad + aa * 1.5, rr);
+v = mix(cc * 0.22, cc * (0.65 + 0.85 * hh), dot_);
+} else {
+v = mix(frontCol, topCol, isTop);
+}
+
+v = mix(v, v * 0.15, (1.0 - inside) * 0.85);
+
+// Cell outline: darken a band along the inside of the footprint so adjacent
+// blocks stay readable even when they share a colour.
+vec2  dd   = min(fg, vec2(1.0) - fg);
+float dEdge = min(dd.x, dd.y);
+float ol = (1.0 - smoothstep(0.0, 0.09, dEdge)) * inside * clamp(outline, 0.0, 1.0);
+v = mix(v, v * 0.25, ol);
+
+v = mix(v, mix(v, tintCol.rgb * (0.45 + 0.85 * hh), 0.75), tintAmt);
+
+v = sat3v(v);
+vec3  col = mix(sc, v, mixAmt);
+float oA  = src.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

@@ -1,0 +1,146 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_pixel_reveal"
+name="GM Pixel Reveal"
+desc="Reveals or hides the layer through a pixel-block dissolve, and it is a real reveal - the unrevealed area is transparent, so whatever sits underneath shows through. Six orders: a random per-block dissolve, a directional block wipe, a mosaic that grows from a centre point, coarse random tiles, a checkerboard sweep, and fine scan lines. Progress is a manual control or can be animated on its own, block size and direction are independent, and randomness blends the wipe order between perfectly regular and completely scattered. There is an edge glow on the reveal frontier, a mosaic stage so the revealed area can pass through a pixelated look first, and a choice of what the hidden area shows. Layer space, so the blocks are cut from the layer."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.40"
+thumb="thumb/gm_pixel_reveal.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Reveal" />
+<selector id="revealMode" style="dropdown" default="0" label="Reveal Order">
+<choice value="0" label="Pixel Dissolve" />
+<choice value="1" label="Block Wipe" />
+<choice value="2" label="Mosaic From Centre" />
+<choice value="3" label="Random Tiles" />
+<choice value="4" label="Checker Sweep" />
+<choice value="5" label="Scan Lines" />
+</selector>
+<spinner id="progress" default="0.75" min="0.0" max="1.0" step="0.005" label="Progress" />
+<spinner id="autoSpeed" default="0.0" min="-1.0" max="1.0" step="0.01" label="Auto Animate" />
+<spinner id="blockSize" default="22.0" min="4.0" max="80.0" step="0.5" label="Block Size (px)" />
+<spinner id="direction" default="0.0" min="0.0" max="360.0" step="1.0" type="angle" label="Wipe Direction" />
+<spinner id="randomness" default="0.85" min="0.0" max="1.0" step="0.01" label="Order Randomness" />
+<spinner id="seed" default="21.0" min="0.0" max="64.0" step="0.5" label="Seed" />
+<spinner id="invert" default="0" min="0" max="1" step="1" type="integer" label="Invert (Hide)" />
+<section text="Edges" />
+<spinner id="softness" default="0.10" min="0.0" max="1.0" step="0.01" label="Block Softness" />
+<spinner id="edgeGlow" default="0.45" min="0.0" max="1.0" step="0.01" label="Frontier Glow" />
+<spinner id="mosaicStage" default="0.0" min="0.0" max="1.0" step="0.01" label="Mosaic Stage" />
+<section text="Hidden Area" />
+<selector id="hiddenMode" style="dropdown" default="0" label="Show As">
+<choice value="0" label="Transparent" />
+<choice value="1" label="Dark" />
+<choice value="2" label="Mosaic Preview" />
+</selector>
+<section text="Output" />
+<spinner id="mixAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Effect Strength" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec3 sat3v(vec3 c){ return clamp(c, vec3(0.0), vec3(1.0)); }
+
+// LAYER -> SCREEN. The block lattice is built in layer space, so the reveal is
+// cut from the layer's own pixels.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+vec3 strL(vec2 lp){ vec4 s = fetchL(lp); return s.rgb / max(s.a, 1e-4); }
+
+float h21(vec2 p){ return fract(sin(dot(p + seed * 2.29, vec2(127.1, 311.7))) * 43758.5453123); }
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float al = max(src.a, 1.0e-4);
+vec3 sc = src.rgb / al;
+
+float asp = acLayerSize.x / max(acLayerSize.y, 1.0);
+
+// ---- block lattice ------------------------------------------------------
+// Scan Lines keeps a fine vertical resolution but a coarse one along the scan,
+// so the same block-size control gives lines instead of squares.
+float bx = blockSize;
+float by = blockSize;
+if (revealMode >= 5) by = max(blockSize * 0.18, 1.0);
+
+float cx = max(acLayerSize.x / max(bx, 1.0), 1.0);
+float cy = max(acLayerSize.y / max(by, 1.0), 1.0);
+
+// Each axis normalised by its own cell count, so a non-square block size stays
+// a non-square block instead of being stretched by the layer's aspect.
+vec2 g  = vec2(lp.x * cx, lp.y * cy);
+vec2 id = floor(g);
+vec2 f  = fract(g);
+
+// ---- per-block threshold ------------------------------------------------
+float ra = radians(direction);
+vec2  ax = vec2(cos(ra), sin(ra));
+
+float coord = dot(lp - vec2(0.5), ax) + 0.5;
+float hv    = h21(id);
+float thr;
+
+if (revealMode <= 0){
+thr = hv;
+} else if (revealMode <= 1){
+thr = coord;
+} else if (revealMode <= 2){
+vec2 d = lp - vec2(0.5);
+thr = clamp(length(vec2(d.x * asp, d.y)) * 1.35, 0.0, 1.0);
+} else if (revealMode <= 3){
+thr = h21(floor(id * 0.5));
+} else if (revealMode <= 4){
+thr = mod(id.x + id.y, 2.0) * 0.5 + (h21(id) - 0.5) * 0.12;
+} else {
+thr = fract(lp.y * 1.0);
+}
+
+// Randomness blends the structured order toward a fully scattered one.
+thr = mix(coord, thr, clamp(randomness, 0.0, 1.0));
+
+float pr = clamp(progress + autoSpeed * acTime, 0.0, 1.0);
+if (invert > 0.5) pr = 1.0 - pr;
+
+float sft = max(softness * 0.5, 0.0015);
+float on  = smoothstep(thr - sft, thr + sft, pr);
+
+// ---- revealed colour ----------------------------------------------------
+vec2  blp = (id + vec2(0.5)) / vec2(cx, cy);
+vec3  mcol = strL(blp);
+vec3  shown = mix(sc, mcol, clamp(mosaicStage, 0.0, 1.0));
+
+// Frontier glow: peaks where on is mid-transition, which is exactly the band
+// of blocks currently opening.
+float frontier = on * (1.0 - on) * 4.0;
+shown += vec3(1.00, 0.96, 0.82) * frontier * edgeGlow;
+
+// ---- hidden area --------------------------------------------------------
+vec3 hiddenCol = vec3(0.0);
+float hiddenA  = 0.0;
+if (hiddenMode >= 1 && hiddenMode <= 1){
+hiddenCol = vec3(0.0);
+hiddenA   = 1.0;
+} else if (hiddenMode >= 2){
+hiddenCol = mcol * 0.55;
+hiddenA   = 1.0;
+}
+
+float vis = mix(hiddenA, 1.0, on);
+vec3  c   = mix(hiddenCol, shown, on);
+
+c = sat3v(c);
+vec3  col = mix(sc, c, mixAmt);
+float oA  = src.a * opacity * mix(1.0, vis, mixAmt);
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.gm.velvetbloom" name="GM Velvet Bloom" desc="Soft velvet-like optical diffusion." category="blur" tags="blur,glow,soft" thumb="thumb/GM_VELVET_BLOOM_2.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="radius" default="10.0" min="1.0" max="50.0" step="1.0" label="Bloom Radius" />
+<spinner id="mix" default="0.5" min="0.0" max="1.0" step="0.01" label="Bloom Mix" />
+  <section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[void main() {
+vec2 uv = acScreenNorm;
+vec4 base = texture2DCv(inputImg.texture, uv);
+vec4 bloom = vec4(0.0);
+float total = 0.0;
+vec2 texSize = max(inputImg.size, vec2(1.0));
+for (float x = -2.0; x <= 2.0; x++) {
+for (float y = -2.0; y <= 2.0; y++) {
+bloom += texture2DCv(inputImg.texture, uv + vec2(x, y) * radius / texSize);
+total += 1.0;
+}
+}
+bloom /= total;
+gl_FragColor = mix(base, max(base, bloom), mix);
+}]]></shader>
+</effect>

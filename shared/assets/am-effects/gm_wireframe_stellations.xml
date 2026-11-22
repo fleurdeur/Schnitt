@@ -1,0 +1,51 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.goldmotion.effects.wireframestellations" name="GM Wireframe Stellations" desc="A complex 3D wireframe pattern." category="distortion" tags="gm,wireframe,stellation,3d,lines" thumb="thumb/GM_WIREFRAME_STELLATIONS.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Wireframe Controls" />
+<spinner id="complexity" label="Complexity" default="3.0" min="1.0" max="10.0" step="1.0" />
+<spinner id="thickness" label="Thickness" default="0.02" min="0.005" max="0.1" step="0.001" />
+<section text="3D Transform" />
+<spinner id="rotX" label="Rotation X" default="0.0" min="-360.0" max="360.0" step="1.0" type="angle" />
+<spinner id="rotY" label="Rotation Y" default="0.0" min="-360.0" max="360.0" step="1.0" type="angle" />
+<spinner id="rotZ" label="Rotation Z" default="0.0" min="-360.0" max="360.0" step="1.0" type="angle" />
+<section text="Style" />
+<color id="lineColor" label="Line Color" default="#FFFFFFFF" alpha="true" />
+<color id="glowColor" label="Glow Color" default="#FF0088FF" alpha="true" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="medium"><![CDATA[#define PI 3.14159265359
+mat2 rot(float a) {
+float s = sin(a), c = cos(a);
+return mat2(c, -s, s, c);
+}
+float sdHex(vec2 p, float r) {
+const vec3 k = vec3(-0.866025404, 0.5, 0.577350269);
+p = abs(p);
+p -= 2.0 * min(dot(k.xy, p), 0.0) * k.xy;
+p -= vec2(clamp(p.x, -k.z * r, k.z * r), r);
+return length(p) * sign(p.y);
+}
+void main() {
+vec2 uv = acLayerNorm;
+vec4 original = texture2DCv(inputImg.texture, uv);
+vec2 st = (uv - 0.5) * 2.0;
+st.x *= acLayerSize.x / max(acLayerSize.y, 1.0);
+st *= rot(rotZ * (PI / 180.0));
+float scale = complexity * 2.0;
+vec2 grid = fract(st * scale) - 0.5;
+vec2 id = floor(st * scale);
+vec2 offset3D = vec2(sin(rotY * (PI / 180.0)), sin(rotX * (PI / 180.0))) * 0.2;
+float d1 = abs(sdHex(grid + offset3D, 0.4)) - thickness;
+float d2 = abs(sdHex(grid * rot(PI/6.0) - offset3D, 0.3)) - thickness;
+float d3 = abs(length(grid) - 0.2) - thickness;
+float minD = min(min(d1, d2), d3);
+float lineAlpha = smoothstep(0.02, 0.0, minD);
+float glowAlpha = exp(-minD * 8.0) * 0.5;
+vec3 color = mix(original.rgb, glowColor.rgb, glowAlpha * glowColor.a);
+color = mix(color, lineColor.rgb, lineAlpha * lineColor.a);
+float totalAlpha = max(original.a, max(lineAlpha * lineColor.a, glowAlpha * glowColor.a));
+color *= totalAlpha;
+gl_FragColor = vec4(color, totalAlpha);
+}]]></shader>
+</effect>

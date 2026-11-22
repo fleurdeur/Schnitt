@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.gm.analogdensity" name="GM Analog Density" desc="Film grain and contrast density." category="color" tags="film,grain,contrast" thumb="thumb/GM_ANALOG_DENSITY.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="grain" default="0.15" min="0.0" max="1.0" step="0.01" label="Grain Amount" />
+<spinner id="contrast" default="1.2" min="0.0" max="3.0" step="0.1" label="Density Contrast" />
+  <section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
+void main() {
+vec2 uv = acScreenNorm;
+vec4 base = texture2DCv(inputImg.texture, uv);
+float noise = (rand(uv * acTime) - 0.5) * grain;
+base.rgb += noise;
+base.rgb = (base.rgb - 0.5) * contrast + 0.5;
+gl_FragColor = clamp(base, 0.0, 1.0);
+}]]></shader>
+</effect>

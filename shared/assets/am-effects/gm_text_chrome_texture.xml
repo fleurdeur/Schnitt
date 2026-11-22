@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.text.chrome" name="Text Chrome Texture" desc="Liquid chrome reflection mapping for text." category="text" tags="text,chrome,metal" thumb="thumb/TEXT_CHROME_TEXTURE.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="reflection" default="0.8" min="0.0" max="2.0" step="0.1" label="Reflection Intensity" />
+  <section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[void main() {
+vec2 uv = acScreenNorm;
+vec4 base = texture2DCv(inputImg.texture, uv);
+if (base.a == 0.0) { gl_FragColor = base; return; }
+float v = sin(uv.y * 20.0 + acTime) * 0.5 + 0.5;
+vec3 chrome = mix(vec3(0.2), vec3(0.9), v) * reflection;
+gl_FragColor = vec4(mix(base.rgb, chrome, base.a), base.a);
+}]]></shader>
+</effect>

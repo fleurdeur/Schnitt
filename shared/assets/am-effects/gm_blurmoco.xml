@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/Blurmoco.webp" id="com.goldmotion.effects.v51.blurmoco" name="GM Blurmoco"
+desc="Curved directional blur trails sampled along a quadratic motion path with chromatic tail control."
+category="blur" tags="gm,blur,motion,curve,trail" overdraw="true" max-overdraw="0.45" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="lengthPx" default="90" min="0" max="1200" step="1" label="Trail Length" />
+<spinner id="angle" default="0" min="-3600" max="3600" step="0.5" type="angle" label="Direction" />
+<spinner id="curvature" default="0.25" min="-2" max="2" step="0.01" label="Curvature" />
+<spinner id="samples" default="32" min="4" max="48" step="1" label="Samples" />
+<spinner id="decay" default="2" min="0" max="8" step="0.05" label="Tail Decay" />
+<spinner id="taper" default="0.4" min="0" max="1" step="0.01" label="Taper" />
+<spinner id="chromaPx" default="0" min="0" max="30" step="0.25" label="Chroma Tail" />
+<switch id="centered" default="false" label="Centered Blur" />
+<selector id="edgeMode" default="1" style="dropdown" label="Edges"><choice label="Clamp" value="0" /><choice label="Mirror" value="1" /><choice label="Tile" value="2" /></selector>
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec2 gmEdge(vec2 uv){if(edgeMode==1)return 1.0-abs(mod(uv,2.0)-1.0);if(edgeMode==2)return fract(uv);return clamp(uv,0.0,1.0);}
+void main(){vec2 uv=acScreenNorm;vec2 screen=max(acScreenSize,vec2(1.0));vec2 dir=vec2(cos(angle),sin(angle));vec2 normal=vec2(-dir.y,dir.x);float count=clamp(floor(samples+0.5),4.0,48.0);vec4 sum=vec4(0.0);float wsum=0.0;for(int i=0;i<48;i++){if(float(i)>=count)break;float u=(float(i)+0.5)/count;float t=centered?(u-0.5)*2.0:u;float arc=t*t*curvature;vec2 path=(dir*t+normal*arc)*lengthPx/screen;float w=exp(-abs(t)*decay)*mix(1.0,1.0-abs(t),taper);vec2 chroma=dir*chromaPx*abs(t)/screen;vec2 suv=gmEdge(uv-path);vec4 c=texture2DCv(inputImg.texture,suv);if(chromaPx>0.0){c.r=texture2DCv(inputImg.texture,gmEdge(suv+chroma)).r;c.b=texture2DCv(inputImg.texture,gmEdge(suv-chroma)).b;}sum+=c*w;wsum+=w;}gl_FragColor=sum/max(wsum,0.0001);}]]></shader>
+</effect>

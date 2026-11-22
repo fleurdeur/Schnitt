@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/edge_rays.webp" id="com.goldmotion.effects.v51.edgerays" name="GM Edge Rays"
+desc="Sobel edge extraction feeding cinematic radial light-ray accumulation."
+category="color" tags="gm,edge,rays,godrays,light" overdraw="true" max-overdraw="0.35" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<texture id="edgeBuf" srcType="buffer" downsample="2" />
+<point id="lightCenter" default="0.5,0.5" min="-1,-1" max="2,2" step="0.005" label="Light Center" />
+<spinner id="edgeThreshold" default="0.12" min="0" max="1" step="0.005" label="Edge Threshold" />
+<spinner id="rayLength" default="0.65" min="0" max="2" step="0.01" label="Ray Length" />
+<spinner id="decay" default="0.94" min="0.5" max="0.995" step="0.002" label="Decay" />
+<spinner id="intensity" default="1.2" min="0" max="8" step="0.02" label="Intensity" />
+<color id="rayColor" default="#FFFFD79A" label="Ray Color" alpha="false" />
+<slider id="mixAmount" default="1" min="0" max="1" step="0.01" label="Mix" type="percent" />
+<section text="MOD BY PNKJ" />
+</params>
+<passes><pass target="edgeBuf" /><pass /></passes>
+<shader type="fragment" precision="high"><![CDATA[float gmLum(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+float gmLumaAt(vec2 uv, vec2 texel) { return gmLum(texture2DCv(inputImg.texture, clamp(uv, 0.0, 1.0)).rgb); }
+void main() {
+vec2 uv = acScreenNorm;
+if (acPass == 0) {
+vec2 t = 1.0 / max(inputImg.size, vec2(1.0));
+float tl=gmLumaAt(uv+vec2(-1.0, 1.0)*t,t), tc=gmLumaAt(uv+vec2(0.0,1.0)*t,t), tr=gmLumaAt(uv+vec2(1.0,1.0)*t,t);
+float ml=gmLumaAt(uv+vec2(-1.0, 0.0)*t,t), mr=gmLumaAt(uv+vec2(1.0,0.0)*t,t);
+float bl=gmLumaAt(uv+vec2(-1.0,-1.0)*t,t), bc=gmLumaAt(uv+vec2(0.0,-1.0)*t,t), br=gmLumaAt(uv+vec2(1.0,-1.0)*t,t);
+float gx=-tl-2.0*ml-bl+tr+2.0*mr+br;
+float gy=tl+2.0*tc+tr-bl-2.0*bc-br;
+float edge=smoothstep(edgeThreshold, edgeThreshold+0.2, length(vec2(gx,gy)));
+gl_FragColor=vec4(vec3(edge),1.0); return;
+}
+vec4 src=texture2DCv(inputImg.texture,uv);
+vec2 stepUv=(lightCenter-uv)*(rayLength/32.0);
+vec2 pos=uv; float illumination=0.0; float weight=1.0; float norm=0.0;
+for(int i=0;i<32;i++){pos+=stepUv;float e=texture2DCv(edgeBuf.texture,clamp(pos,0.0,1.0)).r;illumination+=e*weight;norm+=weight;weight*=decay;}
+vec3 rays=rayColor.rgb*(illumination/max(norm,0.0001))*intensity;
+vec3 outRgb=1.0-(1.0-src.rgb)*(1.0-clamp(rays,0.0,1.0));outRgb+=max(rays-1.0,0.0);
+gl_FragColor=vec4(mix(src.rgb,outRgb,mixAmount),src.a);
+}]]></shader>
+</effect>

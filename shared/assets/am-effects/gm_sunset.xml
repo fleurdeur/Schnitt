@@ -1,0 +1,77 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.goldmotion.effects.sunset" name="GM Sunset" desc="Retro 80s Synthwave procedural sunset with grid and sun." category="procedural" tags="gm,sunset,retro,synthwave,80s,outrun,procedural" thumb="thumb/GM_SUNSET.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Sun Controls" />
+<spinner id="sunSize" label="Sun Size" default="0.35" min="0.1" max="1.0" step="0.01" />
+<spinner id="sunY" label="Sun Altitude" default="0.15" min="-0.5" max="1.0" step="0.01" />
+<color id="sunTop" default="#FFFFD700" label="Sun Top Color" alpha="true" />
+<color id="sunBottom" default="#FFFF0055" label="Sun Bottom Color" alpha="true" />
+<section text="Grid Controls" />
+<spinner id="speed" label="Grid Speed" default="1.0" min="-5.0" max="5.0" step="0.05" />
+<spinner id="gridDensity" label="Grid Density" default="15.0" min="5.0" max="50.0" step="0.5" />
+<color id="gridColor" default="#FF00FFFF" label="Grid Color" alpha="true" />
+<spinner id="horizon" label="Horizon Line" default="0.0" min="-0.5" max="0.5" step="0.01" />
+<section text="Background" />
+<color id="skyTop" default="#FF000022" label="Sky Top" alpha="true" />
+<color id="skyBottom" default="#FF220044" label="Sky Bottom" alpha="true" />
+<section text="Blend Mode" />
+<spinner id="alpha" default="1.0" min="0.0" max="1.0" step="0.01" label="Opacity" type="percent" />
+<selector id="blendMode" style="dropdown" default="0" label="Blend Mode">
+<choice label="Normal" value="0" />
+<choice label="Screen" value="2" />
+</selector>
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="medium"><![CDATA[void main() {
+vec2 uv = acScreenNorm;
+vec4 texColor = texture2DCv(inputImg.texture, uv);
+float baseAlpha = texColor.a;
+vec2 st = (uv - 0.5);
+st.y -= horizon;
+st.x *= acScreenSize.x / max(acScreenSize.y, 1.0);
+vec3 finalColor = vec3(0.0);
+if (st.y > 0.0) {
+float skyMix = clamp(st.y * 2.0, 0.0, 1.0);
+finalColor = mix(skyBottom.rgb, skyTop.rgb, skyMix);
+vec2 sunCenter = vec2(0.0, sunY);
+float distToSun = length(st - sunCenter);
+if (distToSun < sunSize) {
+float sunGradient = clamp((st.y - (sunY - sunSize)) / (sunSize * 2.0), 0.0, 1.0);
+vec3 sunCol = mix(sunBottom.rgb, sunTop.rgb, sunGradient);
+float stripe = fract((st.y - sunY - acTime * 0.05) * 15.0);
+float stripeWidth = mix(0.1, 0.5, sunGradient);
+if (stripe > stripeWidth) {
+finalColor = sunCol;
+}
+}
+float glow = exp(-distToSun * 4.0) * 0.5;
+finalColor += sunTop.rgb * glow;
+} else {
+vec2 groundUv = st;
+groundUv.y = abs(groundUv.y) + 0.001;
+vec2 proj = vec2(groundUv.x / groundUv.y, 1.0 / groundUv.y);
+proj.y -= acTime * speed;
+proj *= gridDensity;
+vec2 grid = abs(fract(proj - 0.5) - 0.5);
+float thickness = 0.03 * groundUv.y * 30.0;
+thickness = clamp(thickness, 0.01, 0.4);
+float lineX = smoothstep(thickness, thickness * 0.8, grid.x);
+float lineY = smoothstep(thickness, thickness * 0.8, grid.y);
+float lineVal = max(lineX, lineY);
+float depthFade = clamp(groundUv.y * 3.0, 0.0, 1.0);
+finalColor = mix(vec3(0.0), gridColor.rgb, lineVal * depthFade);
+finalColor += gridColor.rgb * exp(-abs(st.y) * 20.0) * 0.5;
+}
+vec4 result;
+if (blendMode == 0) {
+result = vec4(finalColor, 1.0);
+} else {
+result = vec4(1.0 - (1.0 - texColor.rgb) * (1.0 - finalColor), 1.0);
+}
+result = clamp(result, 0.0, 1.0);
+result *= baseAlpha;
+vec4 outputColor = mix(texColor, result, alpha);
+gl_FragColor = outputColor;
+}]]></shader>
+</effect>

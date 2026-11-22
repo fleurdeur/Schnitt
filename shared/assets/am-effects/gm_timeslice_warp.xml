@@ -1,0 +1,147 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_timeslice_warp"
+name="GM Timeslice Warp"
+desc="A mask that behaves like waving cloth. Pick a slice shape - a horizontal band, a vertical band, a ring, a diagonal band, a slice that travels on its own, or a blob - and the boundary of that mask is itself pushed around by a cloth field, so the edge ripples and folds instead of staying a straight line. Inside the mask the layer is displaced along the same field, with a gravity term so the wave hangs the way fabric does, and a fold highlight that tracks the crests. Mask position, width, edge softness, invert, cloth amplitude, frequency, speed, wind, hang, folds, sharpness and turbulence are all separate."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.45"
+thumb="thumb/gm_timeslice_warp.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Mask Shape" />
+<selector id="maskShape" style="dropdown" default="0" label="Slice Shape">
+<choice value="0" label="Horizontal Band" />
+<choice value="1" label="Vertical Band" />
+<choice value="2" label="Ring" />
+<choice value="3" label="Diagonal Band" />
+<choice value="4" label="Travelling Slice" />
+<choice value="5" label="Blob" />
+</selector>
+<spinner id="maskPos" default="0.5" min="0.0" max="1.0" step="0.005" label="Mask Position" />
+<spinner id="maskWidth" default="0.34" min="0.02" max="1.00" step="0.005" label="Mask Width" />
+<spinner id="maskSoft" default="0.075" min="0.0" max="0.30" step="0.002" label="Edge Softness" />
+<spinner id="maskAngle" default="45.0" min="0.0" max="360.0" step="1.0" type="angle" label="Band Angle" />
+<spinner id="invert" default="0" min="0" max="1" step="1" type="integer" label="Invert Mask" />
+<section text="Cloth" />
+<spinner id="clothAmp" default="0.045" min="0.0" max="0.15" step="0.001" label="Cloth Amplitude" />
+<spinner id="clothFreq" default="3.0" min="0.5" max="12.0" step="0.05" label="Cloth Frequency" />
+<spinner id="clothSpeed" default="0.35" min="-2.0" max="2.0" step="0.01" label="Cloth Speed" />
+<spinner id="wind" default="0.35" min="-1.0" max="1.0" step="0.01" label="Wind" />
+<spinner id="hang" default="0.55" min="0.0" max="1.0" step="0.01" label="Gravity / Hang" />
+<spinner id="turbulence" default="0.20" min="0.0" max="1.0" step="0.01" label="Cloth Turbulence" />
+<section text="Folds" />
+<spinner id="foldAmt" default="0.55" min="0.0" max="1.0" step="0.01" label="Fold Shading" />
+<spinner id="foldSharp" default="0.30" min="0.05" max="1.0" step="0.01" label="Fold Tightness" />
+<section text="Output" />
+<spinner id="mixAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Effect Strength" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec3 sat3v(vec3 c){ return clamp(c, vec3(0.0), vec3(1.0)); }
+
+// LAYER -> SCREEN. Both the mask and the cloth field are measured in layer
+// space, so the whole thing is welded to the layer.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+
+float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+float vnoise(vec2 p){
+vec2 i = floor(p);
+vec2 f = fract(p);
+f = f * f * (3.0 - 2.0 * f);
+return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x),
+           mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+// Signed distance to the slice boundary: negative inside. Returning a distance
+// rather than a 0..1 coverage is what lets the edge softness be a real width
+// in layer units instead of an arbitrary curve.
+float maskSd(vec2 lp){
+float hw = maskWidth * 0.5;
+if (maskShape <= 0){
+return abs(lp.y - maskPos) - hw;
+} else if (maskShape <= 1){
+return abs(lp.x - maskPos) - hw;
+} else if (maskShape <= 2){
+vec2 d = lp - vec2(0.5);
+return abs(length(d) - maskPos * 0.7) - hw;
+} else if (maskShape <= 3){
+float ra = radians(maskAngle);
+vec2  ax = vec2(cos(ra), sin(ra));
+return abs(dot(lp - vec2(0.5), ax) - (maskPos - 0.5)) - hw;
+} else if (maskShape <= 4){
+float pos = fract(maskPos + acTime * 0.15);
+return abs(lp.y - pos) - hw;
+}
+vec2 d = lp - vec2(0.5);
+return length(d) - maskPos * 0.7 - hw;
+}
+
+// The cloth field. Three sine terms at different frequencies and phases give a
+// surface that reads as fabric rather than as a single travelling wave; the
+// hang term makes the displacement grow down the layer, which is what a hanging
+// cloth actually does.
+vec2 clothDisp(vec2 lp){
+float t = acTime * clothSpeed;
+float w1 = sin((lp.x * clothFreq + t) * 6.2831853);
+float w2 = sin((lp.x * clothFreq * 2.3 - t * 1.4 + 1.7) * 6.2831853);
+float w3 = sin((lp.y * clothFreq * 0.7 + t * 0.8) * 6.2831853);
+float w  = w1 * 0.60 + w2 * 0.30 * wind + w3 * 0.20 * (1.0 - abs(wind));
+float dn = mix(1.0, clamp(lp.y, 0.0, 1.0), clamp(hang, 0.0, 1.0));
+vec2  d  = vec2(w * dn, w2 * dn * 0.25);
+if (turbulence > 0.001){
+float n1 = vnoise(lp * 5.0 + vec2(t * 0.9, t * 0.5));
+float n2 = vnoise(lp * 5.0 + vec2(-t * 0.6, t * 0.8) + 7.1);
+d += (vec2(n1, n2) - 0.5) * turbulence * 0.06;
+}
+return d * clothAmp;
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float al = max(src.a, 1.0e-4);
+vec3 sc = src.rgb / al;
+
+vec2 cd = clothDisp(lp);
+
+// The mask boundary is evaluated at a cloth-displaced position, so the edge
+// itself ripples. This is the difference between a slice and a cloth mask.
+float sd = maskSd(lp + cd * 0.70);
+float m  = 1.0 - smoothstep(-max(maskSoft, 0.002), max(maskSoft, 0.002), sd);
+if (invert > 0.5) m = 1.0 - m;
+
+// ---- the warp itself ----------------------------------------------------
+vec2 wpos = lp + cd;
+vec4 got  = fetchL(wpos);
+float ga  = max(got.a, 1.0e-4);
+vec3 gc   = got.rgb / ga;
+
+// ---- fold shading -------------------------------------------------------
+// cos() of the cloth phase is the surface slope, so its positive lobe is
+// exactly the side of each fold that faces the light.
+float fold = 1.0;
+if (foldAmt > 0.001){
+float fp = (lp.x * clothFreq + acTime * clothSpeed) * 6.2831853;
+float sl = cos(fp) * 0.5 + 0.5;
+fold = mix(1.0, 0.48 + 1.05 * pow(max(sl, 0.0), mix(11.0, 2.0, clamp(foldSharp, 0.0, 1.0))), clamp(foldAmt, 0.0, 1.0));
+}
+
+vec3 v = mix(sc, gc, m);
+v *= mix(1.0, fold, foldAmt * m);
+
+v = sat3v(v);
+vec3  col = mix(sc, v, mixAmt);
+float oA  = src.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

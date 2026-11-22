@@ -1,0 +1,78 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.goldmotion.effects.anamorphicstreaks" name="GM Anamorphic Cinema Streaks" desc="Hollywood anamorphic cinema lens flares with highlight extraction, horizontal chromatic streaks, and optical lens dust." category="color" tags="gm,anamorphic,flare,streak,cinema,lens,light,hollywood" thumb="thumb/GM_ANAMORPHIC_CINEMA_STREAKS.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Streak Controls" />
+<spinner id="threshold" label="Highlight Threshold" default="0.65" min="0.0" max="1.0" step="0.01" />
+<spinner id="streakLength" label="Streak Length" default="0.6" min="0.1" max="2.0" step="0.02" />
+<spinner id="intensity" label="Streak Intensity" default="2.5" min="0.0" max="10.0" step="0.1" />
+<section text="Cinema Color &amp; Tint" />
+<color id="streakColor" default="#FF0077FF" label="Primary Streak Tint" alpha="true" />
+<color id="coreColor" default="#FFFFFFFF" label="Core White Tint" alpha="true" />
+<spinner id="chromaShift" label="Prism Dispersion" default="0.012" min="0.0" max="0.05" step="0.001" />
+<section text="Lens Artifacts" />
+<spinner id="lensDirt" label="Lens Dust Texture" default="0.25" min="0.0" max="1.0" step="0.02" />
+<spinner id="angle" label="Streak Angle" default="0.0" min="-90.0" max="90.0" step="0.5" type="angle" />
+<section text="Blend Mode" />
+<spinner id="alpha" default="1.0" min="0.0" max="1.0" step="0.01" label="Opacity" type="percent" />
+<selector id="blendMode" style="dropdown" default="3" label="Blend Mode">
+<choice label="Screen" value="2" />
+<choice label="Add" value="3" />
+</selector>
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="medium"><![CDATA[#define PI 3.14159265359
+float getLuma(vec3 c) {
+return dot(c, vec3(0.299, 0.587, 0.114));
+}
+float hash21(vec2 p) {
+return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+vec3 extractBright(vec3 c, float thresh) {
+float luma = getLuma(c);
+float factor = max(luma - thresh, 0.0) / max(1.0 - thresh, 0.001);
+return c * smoothstep(0.0, 0.2, factor);
+}
+void main() {
+vec2 uv = acScreenNorm;
+vec4 original = texture2DCv(inputImg.texture, uv);
+float rad = angle * 0.0174532925;
+vec2 dir = vec2(cos(rad), sin(rad));
+float aspect = acScreenSize.x / max(acScreenSize.y, 1.0);
+dir.y /= aspect;
+vec3 accumGlow = vec3(0.0);
+const int TAPS = 12;
+float stepSize = (streakLength * 0.05) / float(TAPS);
+for(int i = 1; i <= TAPS; i++) {
+float fi = float(i);
+float dist = fi * stepSize;
+float weight = exp(-fi * 0.22);
+vec2 offR = dir * (dist + chromaShift);
+vec2 offG = dir * dist;
+vec2 offB = dir * (dist - chromaShift);
+vec3 sR1 = extractBright(texture2DCv(inputImg.texture, clamp(uv + offR, 0.0, 1.0)).rgb, threshold);
+vec3 sG1 = extractBright(texture2DCv(inputImg.texture, clamp(uv + offG, 0.0, 1.0)).rgb, threshold);
+vec3 sB1 = extractBright(texture2DCv(inputImg.texture, clamp(uv + offB, 0.0, 1.0)).rgb, threshold);
+vec3 sR2 = extractBright(texture2DCv(inputImg.texture, clamp(uv - offR, 0.0, 1.0)).rgb, threshold);
+vec3 sG2 = extractBright(texture2DCv(inputImg.texture, clamp(uv - offG, 0.0, 1.0)).rgb, threshold);
+vec3 sB2 = extractBright(texture2DCv(inputImg.texture, clamp(uv - offB, 0.0, 1.0)).rgb, threshold);
+vec3 sampleColor = vec3(sR1.r + sR2.r, sG1.g + sG2.g, sB1.b + sB2.b) * 0.5;
+accumGlow += sampleColor * weight;
+}
+vec3 streakColored = mix(accumGlow * streakColor.rgb, coreColor.rgb * getLuma(accumGlow), 0.35) * intensity;
+if (lensDirt > 0.0) {
+float dust = hash21(floor(uv * acScreenSize * 0.3));
+float dustFleck = step(0.985, dust) * hash21(uv * 9.0) * 1.5;
+streakColored *= (1.0 + dustFleck * lensDirt);
+}
+vec4 result;
+if (blendMode == 2) {
+vec3 screened = 1.0 - (1.0 - original.rgb) * (1.0 - clamp(streakColored, 0.0, 1.0));
+result = vec4(screened, original.a);
+} else {
+result = vec4(original.rgb + streakColored, original.a);
+}
+result = clamp(result, 0.0, 1.0);
+gl_FragColor = mix(original, result, alpha);
+}]]></shader>
+</effect>

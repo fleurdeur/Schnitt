@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.shaderpack.weird_loop" name="GM Weird Loop" desc="Compact angular exponential loop with controllable arms, phase, spread and inversion colours." category="procedural" tags="gm,shader,procedural,procedural" thumb="thumb/weird-loop.webp" overdraw="true" max-overdraw="0.3" experimental="false" deprecated="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Loop Geometry" />
+<spinner id="loopEvolution" default="0" min="-1000" max="1000" step="0.01" label="Angular Phase" />
+<switch id="loopAnimate" default="true" label="Animate Loop" />
+<spinner id="loopSpeed" default="1" min="-10" max="10" step="0.01" label="Loop Speed" />
+<spinner id="loopZoom" default="2" min="0.2" max="10" step="0.01" label="Zoom" />
+<spinner id="loopArms" default="3" min="1" max="16" step="1" label="Loop Arms" />
+<spinner id="loopSpread" default="0.005" min="0.0001" max="0.05" step="0.0001" label="Core Spread" />
+<color id="loopLight" default="#FFFFFFFF" label="Light" alpha="false" />
+<color id="loopDark" default="#FF000000" label="Dark" alpha="false" />
+<section text="Composite" />
+<spinner id="gmMix" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<switch id="gmClip" default="false" label="Clip to Layer" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[#define iTime (loopEvolution + (loopAnimate ? acTime * loopSpeed : 0.0))
+#define iResolution vec3(acScreenSize, 1.0)
+#define iDate vec4(0.0, 0.0, 0.0, iTime)
+#define iMouse vec4(acScreenSize * 0.5, 0.0, 0.0)
+void gmGeneratedMainImage( out vec4 f, vec2 g )
+{
+f.xyz = iResolution;
+g += g - f.xy;
+g = loopZoom*g/f.y + cos( (atan(g.x, g.y) + iDate.w) *loopArms);
+float loopMask=1.0-exp(-loopSpread/g/g).x; f=vec4(mix(loopDark.rgb,loopLight.rgb,loopMask),1.0);
+}
+void main(){
+vec4 gmGenerated=vec4(0.0);
+gmGeneratedMainImage(gmGenerated,acScreenNorm*acScreenSize);
+vec4 gmSource=texture2DCv(inputImg.texture,acScreenNorm);
+float gmAlpha=gmClip?gmSource.a:gmGenerated.a;
+vec4 gmResult=vec4(gmGenerated.rgb*gmAlpha,gmAlpha);
+gl_FragColor=mix(gmSource,gmResult,gmMix);
+gl_FragColor *= texture2DCv(inputImg.texture, acScreenNorm).a;
+}]]></shader>
+</effect>

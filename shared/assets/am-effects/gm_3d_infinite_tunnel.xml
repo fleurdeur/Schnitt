@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.gm3d.infinitetunnel" name="GM Infinite Tunnel 3D" desc="Projects the layer through a deep polar corridor with controllable twist, travel and neon depth falloff." category="3d" tags="gm,3d,tunnel,polar,warp,infinite" thumb="thumb/infinite_tunnel.webp" overdraw="true" max-overdraw="0.4" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="depth" default="2.4" min="0.2" max="8" step="0.05" label="Tunnel Depth" />
+<spinner id="twist" default="0.35" min="-2" max="2" step="0.01" label="Twist" />
+<spinner id="travel" default="0" min="-20" max="20" step="0.01" label="Travel" />
+<spinner id="sides" default="8" min="3" max="24" step="1" label="Sides" />
+<spinner id="glow" default="0.35" min="0" max="1" step="0.01" label="Depth Glow" />
+<spinner id="mixAmount" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[void main(){
+vec2 uv=acScreenNorm,p=uv-0.5; p.x*=acScreenSize.x/max(acScreenSize.y,1.0);
+float r=max(length(p),0.006), a=atan(p.y,p.x);
+float sector=6.2831853/max(sides,3.0);
+float folded=abs(mod(a+0.5*sector,sector)-0.5*sector);
+float u=fract(folded/sector*2.0+log(r)*twist);
+float v=fract(depth*0.12/r+travel*0.05);
+vec4 tunnel=texture2DCv(inputImg.texture,vec2(u,v));
+float ribs=pow(1.0-abs(fract(v*8.0)-0.5)*2.0,10.0);
+float fog=clamp(r*2.1,0.0,1.0);
+tunnel.rgb=mix(tunnel.rgb,tunnel.rgb+vec3(ribs*glow),fog);
+tunnel.a*=smoothstep(0.0,0.035,r);
+vec4 src=texture2DCv(inputImg.texture,uv);
+gl_FragColor=mix(src,tunnel,mixAmount);
+}]]></shader>
+</effect>

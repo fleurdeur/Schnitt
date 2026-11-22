@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_x_textured" name="GM X-Textured" desc="Flowing textured deformation." category="distort" thumb="thumb/x-textured.webp" tags="gm,texture,flow,distort">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="X-Textured" />
+<spinner id="time" default="0.0" min="0.0" max="100000.0" label="Time" step="0.001" />
+<spinner id="speed" default="1.0" min="-4.0" max="4.0" label="Animation Speed" step="0.01" />
+<spinner id="strength" default="1.0" min="0.0" max="3.0" label="Deformation" step="0.01" />
+<spinner id="textureScale" default="1.0" min="0.1" max="4.0" label="Texture Scale" step="0.01" />
+<spinner id="blend" default="1.0" min="0.0" max="1.0" label="Effect Blend" step="0.01" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec3 deform(vec2 p,float t){ t*=2.0; p+=0.5*sin(t*vec2(1.1,1.3)+vec2(0.0,0.5)); float a=atan(p.y,p.x),r=length(p),s=max(r*(1.0+0.5*cos(t*1.7)),0.002); vec2 uv=0.1*t+0.05*p.yx+0.05*vec2(cos(t+a*2.0),sin(t+a*2.0))/s; return texture2DCv(inputImg.texture,fract(0.5*uv)).rgb; }
+void main(){ vec2 q=acScreenNorm, p=(-1.0+2.0*q)*textureScale; vec3 col=vec3(0.0); for(int i=0;i<16;i++) col+=deform(p,time*speed+float(i)*0.0035*strength); col/=16.0; col=pow(max(col,vec3(0.0)),vec3(0.6,0.7,0.8)); vec4 src=texture2DCv(inputImg.texture,acScreenNorm); gl_FragColor=vec4(mix(src.rgb,col,blend),src.a); }]]></shader>
+</effect>

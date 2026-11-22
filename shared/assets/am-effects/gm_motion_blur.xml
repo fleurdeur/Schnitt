@@ -1,0 +1,232 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_motion_blur"
+name="GM Motion Blur"
+desc="A real sub-frame integration, not a directional smear. The shutter is sampled across its span and the layer is fetched at a different point of the motion path for each sub-sample, so the trail follows the path the layer actually took. Six motion sources including automatic velocity tracking, five shutter profiles, a shutter bias that looks into the past or the future, jittered taps, rolling shutter on rows or columns, a vortex swirl, a radial push, per-channel chromatic smear, four integration modes (blur, brightest, light trail, darkest), adaptive tap count that collapses to one tap when the pixel barely moved, core sharpening and an edge falloff. Motion is measured in layer space, so the blur belongs to the layer."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.55"
+thumb="thumb/gm_motion_blur.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Motion Source" />
+<selector id="motionSource" style="dropdown" default="0" label="Source">
+<choice value="0" label="Manual Angle" />
+<choice value="1" label="Auto Velocity" />
+<choice value="2" label="Radial Zoom" />
+<choice value="3" label="Rotational" />
+<choice value="4" label="Vortex" />
+<choice value="5" label="Velocity Path" />
+</selector>
+<spinner id="angle" default="0.0" min="0.0" max="360.0" step="1.0" type="angle" label="Manual Angle" />
+<spinner id="blurLen" default="0.030" min="0.0" max="0.200" step="0.001" label="Blur Length" />
+<section text="Shutter" />
+<spinner id="samples" default="16" min="2" max="32" step="1" type="integer" label="Shutter Samples" />
+<selector id="shutterShape" style="dropdown" default="0" label="Shutter Profile">
+<choice value="0" label="Box" />
+<choice value="1" label="Triangle" />
+<choice value="2" label="Cosine" />
+<choice value="3" label="Gaussian" />
+<choice value="4" label="Biased Linear" />
+</selector>
+<spinner id="shutterBias" default="0.0" min="-1.0" max="1.0" step="0.01" label="Shutter Bias" />
+<spinner id="jitter" default="0.35" min="0.0" max="1.0" step="0.01" label="Tap Jitter" />
+<spinner id="adaptive" default="0.85" min="0.0" max="1.0" step="0.01" label="Adaptive Taps" />
+<section text="Path Shape" />
+<spinner id="vortex" default="0.0" min="0.0" max="1.0" step="0.01" label="Vortex Swirl" />
+<spinner id="radialPush" default="0.0" min="-1.0" max="1.0" step="0.01" label="Radial Push" />
+<spinner id="rolling" default="0.0" min="0.0" max="1.0" step="0.01" label="Rolling Shutter" />
+<selector id="rollingAxis" style="dropdown" default="0" label="Rolling Axis">
+<choice value="0" label="Rows" />
+<choice value="1" label="Columns" />
+</selector>
+<section text="Channel" />
+<spinner id="chromaSplit" default="0.0" min="0.0" max="1.0" step="0.01" label="Chromatic Smear" />
+<section text="Integration" />
+<selector id="integrateMode" style="dropdown" default="0" label="Mode">
+<choice value="0" label="Blur" />
+<choice value="1" label="Brightest" />
+<choice value="2" label="Light Trail" />
+<choice value="3" label="Darkest" />
+</selector>
+<spinner id="core" default="0.0" min="0.0" max="1.0" step="0.01" label="Sharpen Core" />
+<spinner id="edgeFalloff" default="0.55" min="0.0" max="1.0" step="0.01" label="Edge Falloff" />
+<section text="Output" />
+<spinner id="mixAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Effect Strength" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[float gAsp = 1.0;
+
+vec3 sat3v(vec3 c){ return clamp(c, vec3(0.0), vec3(1.0)); }
+float lum(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+// LAYER -> SCREEN. Every tap is fetched through the layer transform, so the
+// motion path is measured on the layer rather than on the frame.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+vec3 strL(vec2 lp){ vec4 s = fetchL(lp); return s.rgb / max(s.a, 1e-4); }
+
+float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+
+vec2 rot2(vec2 p, float a){ float c = cos(a); float s = sin(a); return vec2(p.x * c - p.y * s, p.x * s + p.y * c); }
+
+// The shutter weight for one sub-sample. t runs -0.5..0.5 across the span.
+float shutterW(float t){
+float a = abs(t) * 2.0;
+if (shutterShape <= 0) return 1.0;
+if (shutterShape <= 1) return max(1.0 - a, 0.0);
+if (shutterShape <= 2) return 0.5 + 0.5 * cos(t * 6.2831853);
+if (shutterShape <= 3) return exp(-t * t * 14.0);
+return max(1.0 - a, 0.0) * (1.0 + t * 1.2);
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float al = max(src.a, 1.0e-4);
+vec3 sc = src.rgb / al;
+
+gAsp = acLayerSize.x / max(acLayerSize.y, 1.0);
+vec2 q = (lp - vec2(0.5));
+q.x *= gAsp;
+
+// ---- motion direction ---------------------------------------------------
+float ra = radians(angle);
+vec2  ax = vec2(cos(ra), sin(ra));
+
+float vl = length(acVelocity.xy);
+vec2  vdir = (vl > 1.0e-5) ? acVelocity.xy / vl : ax;
+
+vec2 dir;
+if (motionSource <= 0){
+dir = ax;
+} else if (motionSource <= 1){
+dir = vdir;
+} else if (motionSource <= 2){
+dir = normalize(q + vec2(1.0e-4));
+} else if (motionSource <= 3){
+dir = normalize(vec2(-q.y, q.x) + vec2(1.0e-4));
+} else if (motionSource <= 4){
+dir = normalize(vec2(-q.y, q.x) + vec2(1.0e-4));
+} else {
+dir = vdir;
+}
+
+float span = blurLen;
+if (motionSource >= 5){
+// Velocity Path: the span follows the measured speed, so the blur length is
+// automatically right for whatever the layer is doing.
+span *= 1.0 + vl * 6.0;
+}
+
+// ---- adaptive tap count -------------------------------------------------
+// If the pixel barely moved, the whole integration collapses to one tap. That
+// is what keeps a fast-moving layer sharp in the frames where it pauses.
+float taps = max(samples, 2.0);
+if (adaptive > 0.001){
+float travelPx = span * max(acLayerSize.y, 1.0);
+float want = clamp(travelPx / 2.5, 1.0, taps);
+taps = mix(taps, want, clamp(adaptive, 0.0, 1.0));
+}
+taps = max(taps, 1.0);
+
+// ---- integrate ----------------------------------------------------------
+vec3 acc   = vec3(0.0);
+float wsum = 0.0;
+vec3 bright = sc;  float bW = lum(sc);
+vec3 dark   = sc;  float dW = lum(sc);
+
+for (int i = 0; i < 32; i++){
+if (float(i) >= taps) break;
+
+float u = (float(i) + 0.5) / taps;
+float t = u - 0.5 + shutterBias * 0.5;
+
+if (jitter > 0.001){
+t += (h21(vec2(float(i), 3.1)) - 0.5) * jitter / taps;
+}
+
+float w = shutterW(t);
+w = max(w, 0.0);
+
+vec2 off = dir * span * t;
+
+// Rolling shutter: rows (or columns) further from the read line are sampled at
+// an earlier point of the shutter, which skews the smear exactly like a CMOS
+// sensor does.
+if (rolling > 0.001){
+if (rollingAxis <= 0){
+off += vec2(0.0, (lp.y - 0.5)) * rolling * 0.30 * t * 2.0;
+} else {
+off += vec2((lp.x - 0.5), 0.0) * rolling * 0.30 * t * 2.0;
+}
+}
+
+if (vortex > 0.001){
+off = rot2(off, vortex * length(q) * 3.0);
+}
+
+if (abs(radialPush) > 0.001){
+off += normalize(q + vec2(1.0e-4)) * radialPush * span * t;
+}
+
+vec3 c = strL(lp + off);
+acc  += c * w;
+wsum += w;
+
+float l = lum(c);
+if (l > bW){ bW = l; bright = c; }
+if (l < dW){ dW = l; dark   = c; }
+}
+
+vec3 blurred = acc / max(wsum, 1.0e-4);
+
+vec3 c;
+if (integrateMode <= 0){
+c = blurred;
+} else if (integrateMode <= 1){
+c = bright;
+} else if (integrateMode <= 2){
+// Light Trail: the smear plus the brightest sample, so a bright element drags
+// a streak instead of simply being averaged away.
+c = max(blurred, bright * 0.92);
+} else {
+c = dark;
+}
+
+// ---- per-channel smear --------------------------------------------------
+if (chromaSplit > 0.001){
+vec3 cr = strL(lp + dir * span * chromaSplit);
+vec3 cb = strL(lp - dir * span * chromaSplit);
+c.r = mix(c.r, cr.r, 0.70);
+c.b = mix(c.b, cb.b, 0.70);
+}
+
+// ---- core sharpen -------------------------------------------------------
+if (core > 0.001){
+c += (sc - blurred) * core;
+}
+
+// ---- edge falloff -------------------------------------------------------
+// Taps near the layer boundary would otherwise pull in whatever is outside it.
+if (edgeFalloff > 0.001){
+vec2 e  = min(lp, vec2(1.0) - lp);
+float ef = smoothstep(0.0, 0.10, min(e.x, e.y));
+c = mix(sc, c, mix(1.0, ef, clamp(edgeFalloff, 0.0, 1.0)));
+}
+
+c = sat3v(c);
+vec3  col = mix(sc, c, mixAmt);
+float oA  = src.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

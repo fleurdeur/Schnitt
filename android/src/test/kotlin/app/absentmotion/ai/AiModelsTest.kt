@@ -103,7 +103,7 @@ class AiModelsTest {
         assertFalse(EnhanceMode.Sharpen.fits(3840, 2160))
         assertTrue(EnhanceMode.Faces.fits(3840, 2160))
         assertFalse(EnhanceMode.Upscale2.fits(0, 0))
-        assertEquals(listOf(2, 4, 1, 1), EnhanceMode.entries.map { it.scale })
+        assertEquals(listOf(2, 4, 1, 1, 4, 4), EnhanceMode.entries.map { it.scale })
     }
 
     @Test fun estimatesTurnIntoPlainVerdicts() {

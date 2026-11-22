@@ -1,0 +1,126 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_topography"
+name="GM Topography"
+desc="A proper topographic map built from the layer. Luminance becomes elevation, elevation is cut into coloured bands through a three-stop terrain palette, every band boundary is drawn as a contour line, and every Nth line is drawn heavier as an index contour the way a real survey map does. A hillshade pass from an adjustable sun sits underneath the lines so the terrain reads as relief rather than as flat colour. Band count, band smoothing, contour widths, index interval, height scale and a pre-blur are all separate controls. Layer space throughout."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.30"
+thumb="thumb/gm_topography.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Elevation" />
+<spinner id="levels" default="12" min="3" max="40" step="1" type="integer" label="Contour Bands" />
+<spinner id="bandSmooth" default="0.25" min="0.0" max="1.0" step="0.01" label="Band Smoothing" />
+<spinner id="heightScale" default="1.2" min="0.2" max="4.0" step="0.01" label="Height Scale" />
+<spinner id="preBlur" default="0.30" min="0.0" max="1.0" step="0.01" label="Terrain Smoothing" />
+<section text="Contours" />
+<spinner id="contourWidth" default="0.030" min="0.004" max="0.20" step="0.002" label="Contour Width" />
+<spinner id="indexEvery" default="5" min="0" max="12" step="1" type="integer" label="Index Interval" />
+<spinner id="indexWidth" default="0.075" min="0.006" max="0.25" step="0.002" label="Index Width" />
+<section text="Hillshade" />
+<spinner id="hillshade" default="0.65" min="0.0" max="1.0" step="0.01" label="Hillshade Amount" />
+<spinner id="lightAngle" default="315.0" min="0.0" max="360.0" step="1.0" type="angle" label="Sun Angle" />
+<section text="Terrain Palette" />
+<color id="lowCol" default="#1f5f3a" label="Low Elevation" alpha="true" />
+<color id="midCol" default="#d8b45a" label="Mid Elevation" alpha="true" />
+<color id="highCol" default="#f7f1e3" label="High Elevation" alpha="true" />
+<color id="inkCol" default="#101418" label="Contour Ink" alpha="true" />
+<section text="Output" />
+<spinner id="mixAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Effect Strength" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[vec3 sat3v(vec3 c){ return clamp(c, vec3(0.0), vec3(1.0)); }
+float lum(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+// LAYER -> SCREEN. The whole map is measured in layer space so it is welded to
+// the layer and inherits its transform.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+
+float lumL(vec2 lp){
+vec4 s = fetchL(lp);
+return lum(s.rgb / max(s.a, 1e-4));
+}
+
+float hAt(vec2 lp, float r){
+float s = lumL(lp);
+if (preBlur > 0.001){
+float d = r * preBlur * 2.0;
+s += lumL(lp + vec2( d, 0.0));
+s += lumL(lp + vec2(-d, 0.0));
+s += lumL(lp + vec2(0.0,  d));
+s += lumL(lp + vec2(0.0, -d));
+s /= 5.0;
+}
+return s;
+}
+
+vec2 hGrad(vec2 lp, float e){
+float gx = hAt(lp + vec2(e, 0.0), e) - hAt(lp - vec2(e, 0.0), e);
+float gy = hAt(lp + vec2(0.0, e), e) - hAt(lp - vec2(0.0, e), e);
+return vec2(gx, gy) / (2.0 * e);
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float a  = max(src.a, 1e-4);
+vec3 sc  = src.rgb / a;
+
+float e  = 2.0 / max(acLayerSize.y, 1.0);
+
+// Elevation, normalised to 0..1 so the band count is independent of the scale.
+float raw = hAt(lp, e) * heightScale;
+float hn  = clamp(raw / max(heightScale, 0.001), 0.0, 1.0);
+
+float bl = max(levels, 3.0);
+
+// ---- terrain colour -----------------------------------------------------
+// Three stops: low -> mid -> high. bandSmooth at 0 leaves the flat stepped
+// look of a printed map, at 1 it is a continuous elevation gradient.
+float qn = floor(hn * bl + 0.5) / bl;
+float en = mix(qn, hn, clamp(bandSmooth, 0.0, 1.0));
+
+vec3 terr;
+if (en < 0.5){
+terr = mix(lowCol.rgb, midCol.rgb, smoothstep(0.0, 1.0, en / 0.5));
+} else {
+terr = mix(midCol.rgb, highCol.rgb, smoothstep(0.0, 1.0, (en - 0.5) / 0.5));
+}
+
+// ---- hillshade ----------------------------------------------------------
+float la = radians(lightAngle);
+vec2  g  = hGrad(lp, e * 1.5) * heightScale;
+vec3  n  = normalize(vec3(-g.x, -g.y, 1.0 / max(heightScale, 0.05)));
+vec3  L  = normalize(vec3(cos(la) * 0.8, sin(la) * 0.8, 0.65));
+float sh = clamp(dot(n, L), 0.0, 1.0);
+terr *= mix(1.0, 0.30 + 1.15 * sh, clamp(hillshade, 0.0, 1.0));
+
+// ---- contours -----------------------------------------------------------
+// Distance to the band boundary as a FRACTION of a band, so the line width is
+// the same on every band however many bands there are.
+float f  = fract(hn * bl);
+float df = min(f, 1.0 - f);
+float idx = mod(floor(hn * bl), max(indexEvery, 1.0));
+float isIndex = step(0.5, idx);
+float cw = mix(max(contourWidth, 0.004), max(indexWidth, 0.006), isIndex);
+float ln = 1.0 - smoothstep(cw * 0.5, cw, df);
+
+vec3 c = mix(terr, inkCol.rgb, ln * 0.88);
+
+c = sat3v(c);
+vec3  col = mix(sc, c, mixAmt);
+float oA  = src.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

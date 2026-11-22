@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.shaderpack.chakra" name="GM Chakra" desc="Quantised polar chakra field with editable rings, angular recursion and luminous colour." category="procedural" tags="gm,shader,procedural,procedural" thumb="thumb/chakra.webp" overdraw="true" max-overdraw="0.3" experimental="false" deprecated="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Chakra Geometry" />
+<spinner id="chakraEvolution" default="0" min="-1000" max="1000" step="0.01" label="Evolution" />
+<switch id="chakraAnimate" default="true" label="Rotate Chakra" />
+<spinner id="chakraSpeed" default="1" min="-6" max="6" step="0.01" label="Rotation Speed" />
+<spinner id="chakraRings" default="10" min="3" max="30" step="1" label="Ring Count" />
+<spinner id="chakraBranches" default="128" min="2" max="256" step="1" label="Angular Branches" />
+<spinner id="chakraSwirl" default="20" min="0" max="80" step="0.1" label="Swirl" />
+<spinner id="chakraRadialTwist" default="100" min="0" max="300" step="1" label="Radial Twist" />
+<color id="chakraColor" default="#FF80FFFF" label="Energy Color" alpha="false" />
+<spinner id="chakraIntensity" default="1" min="0" max="3" step="0.01" label="Intensity" />
+<section text="Composite" />
+<spinner id="gmMix" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<switch id="gmClip" default="false" label="Clip to Layer" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[#define iTime (chakraEvolution + (chakraAnimate ? acTime * chakraSpeed : 0.0))
+#define iResolution vec3(acScreenSize, 1.0)
+#define iDate vec4(0.0, 0.0, 0.0, iTime)
+#define iMouse vec4(acScreenSize * 0.5, 0.0, 0.0)
+#define N chakraRings
+void gmGeneratedMainImage( out vec4 o, vec2 u ) {
+u = (u+u-(o.xy=iResolution.xy))/o.y;
+float t = iTime,
+r = length(u), a = atan(u.y,u.x),
+i = floor(r*N);
+a *= floor(pow(chakraBranches,i/N)); 	 a += chakraSwirl*sin(.5*t)+123.34*i-chakraRadialTwist*r*cos(.5*t);
+r +=  (.5+.5*cos(a)) / N;    r = floor(N*r)/N;
+o = vec4((1.0-r) * chakraColor.rgb * chakraIntensity, 1.0);
+}
+void main(){
+vec4 gmGenerated=vec4(0.0);
+gmGeneratedMainImage(gmGenerated,acScreenNorm*acScreenSize);
+vec4 gmSource=texture2DCv(inputImg.texture,acScreenNorm);
+float gmAlpha=gmClip?gmSource.a:gmGenerated.a;
+vec4 gmResult=vec4(gmGenerated.rgb*gmAlpha,gmAlpha);
+gl_FragColor=mix(gmSource,gmResult,gmMix);
+gl_FragColor *= texture2DCv(inputImg.texture, acScreenNorm).a;
+}]]></shader>
+</effect>

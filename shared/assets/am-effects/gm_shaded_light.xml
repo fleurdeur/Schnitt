@@ -1,0 +1,60 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.goldmotion.effects.shadedlight" name="GM Shaded Light" desc="Volumetric shaded light rays bursting from bright areas." category="procedural" tags="gm,light,volumetric,rays,shaded,burst" thumb="thumb/GM_SHADED_LIGHT.webp" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Light Controls" />
+<point id="lightPos" label="Light Source" default="0.5, 0.5" />
+<spinner id="rayLength" label="Ray Length" default="0.5" min="0.0" max="2.0" step="0.01" />
+<spinner id="threshold" label="Luma Threshold" default="0.5" min="0.0" max="1.0" step="0.01" />
+<spinner id="intensity" label="Light Intensity" default="1.0" min="0.0" max="5.0" step="0.05" />
+<section text="Color Settings" />
+<color id="rayColor" default="#FFFFFFFF" label="Ray Tint" alpha="true" />
+<switch id="tintRays" default="false" label="Tint Rays Only (Override)" />
+<section text="Output &amp; Blend" />
+<spinner id="alpha" default="1.0" min="0.0" max="1.0" step="0.01" label="Opacity" type="percent" />
+<selector id="blendMode" style="dropdown" default="2" label="Blend Mode">
+<choice label="Normal" value="0" />
+<choice label="Screen" value="2" />
+<choice label="Add" value="3" />
+</selector>
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="medium"><![CDATA[#define SAMPLES 25
+void main() {
+vec2 uv = acScreenNorm;
+vec4 texColor = texture2DCv(inputImg.texture, uv);
+float baseAlpha = texColor.a;
+vec2 center = vec2(lightPos.x, lightPos.y);
+vec2 deltaTextCoord = vec2(uv - center);
+deltaTextCoord *= 1.0 / float(SAMPLES) * rayLength;
+vec2 currentTextCoord = uv;
+vec3 colorResult = vec3(0.0);
+float illuminationDecay = 1.0;
+for(int i = 0; i < SAMPLES; i++) {
+currentTextCoord -= deltaTextCoord;
+vec4 sampleColor = texture2DCv(inputImg.texture, clamp(currentTextCoord, 0.0, 1.0));
+float luma = dot(sampleColor.rgb, vec3(0.299, 0.587, 0.114));
+float brightPart = smoothstep(threshold, threshold + 0.2, luma);
+vec3 rayTint = tintRays ? rayColor.rgb : (sampleColor.rgb * rayColor.rgb);
+sampleColor.rgb = rayTint * brightPart;
+sampleColor.rgb *= illuminationDecay;
+colorResult += sampleColor.rgb;
+illuminationDecay *= 0.95;
+}
+colorResult *= intensity / float(SAMPLES);
+vec4 finalOutput;
+vec3 tcSafe = texColor.rgb / max(texColor.a, 0.001);
+if (blendMode == 0) {
+finalOutput = vec4(colorResult, 1.0);
+} else if (blendMode == 2) {
+finalOutput = vec4(1.0 - (1.0 - tcSafe) * (1.0 - colorResult), 1.0);
+} else {
+finalOutput = vec4(tcSafe + colorResult, 1.0);
+}
+finalOutput = clamp(finalOutput, 0.0, 1.0);
+finalOutput.rgb *= baseAlpha;
+finalOutput.a = baseAlpha;
+vec4 outputColor = mix(texColor, finalOutput, alpha);
+gl_FragColor = outputColor;
+}]]></shader>
+</effect>

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect id="com.goldmotion.effects.v53.shaderpack.holodeck" name="GM Holodeck" desc="Perspective holodeck grid with camera horizon, field of view, lattice and dual warp controls." category="3d" tags="gm,shader,procedural,3d" thumb="thumb/GM-HOLODECK.webp" overdraw="true" max-overdraw="0.3" experimental="false" deprecated="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Perspective Grid" />
+<spinner id="holoEvolution" default="0" min="-1000" max="1000" step="0.01" label="Evolution" />
+<switch id="holoAnimate" default="true" label="Animate Camera" />
+<spinner id="holoSpeed" default="1" min="-5" max="5" step="0.01" label="Camera Speed" />
+<spinner id="holoDisplace" default="0.1" min="0" max="0.6" step="0.01" label="Screen Warp" />
+<spinner id="holoDisplaceFreq" default="2.5" min="0.1" max="12" step="0.1" label="Warp Frequency" />
+<spinner id="holoHorizon" default="0.1" min="0" max="0.8" step="0.01" label="Horizon Swing" />
+<spinner id="holoFov" default="0.35" min="0.05" max="1" step="0.01" label="Field of View" />
+<spinner id="holoFovSwing" default="0.15" min="0" max="0.5" step="0.01" label="FOV Swing" />
+<spinner id="holoScale" default="0.2" min="0.02" max="1" step="0.01" label="Grid Scale" />
+<spinner id="holoGridDensity" default="100" min="10" max="300" step="1" label="Grid Density" />
+<spinner id="holoWobble" default="0.03" min="0" max="0.2" step="0.001" label="Perspective Wobble" />
+<color id="holoColor" default="#FFFFFF00" label="Grid Color" alpha="false" />
+<section text="Composite" />
+<spinner id="gmMix" default="1" min="0" max="1" step="0.01" type="percent" label="Mix" />
+<switch id="gmClip" default="false" label="Clip to Layer" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[#define iTime (holoEvolution + (holoAnimate ? acTime * holoSpeed : 0.0))
+#define iResolution vec3(acScreenSize, 1.0)
+#define iDate vec4(0.0, 0.0, 0.0, iTime)
+#define iMouse vec4(acScreenSize * 0.5, 0.0, 0.0)
+void gmGeneratedMainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+float time = iTime;
+vec2 uv = 0.5 * (2. * fragCoord.xy - iResolution.xy) / iResolution.y;
+float displaceAmp = holoDisplace;
+float displaceFreq = holoDisplaceFreq;
+uv += vec2(displaceAmp * sin(time + uv.x * displaceFreq));
+float horizon = holoHorizon * cos(time);
+float fov = holoFov + holoFovSwing * sin(time);
+float scaling = holoScale;
+vec3 p = vec3(uv.x, fov, uv.y - horizon);
+vec2 s = vec2(p.x/p.z, p.y/p.z) * scaling;
+float oscFreq = 12.;
+float oscAmp = holoWobble;
+s += vec2(oscAmp * sin(time + s.x * oscFreq));
+float color = max(
+smoothstep(0.2, 0.8, 1. - pow(sin(s.y * holoGridDensity), 0.28)),
+smoothstep(0.2, 0.8, 1. - pow(sin(s.x * holoGridDensity), 0.28))
+);
+color *= p.z * p.z * 10.0;
+fragColor = vec4(holoColor.rgb * color, 1.0);
+}
+void main(){
+vec4 gmGenerated=vec4(0.0);
+gmGeneratedMainImage(gmGenerated,acScreenNorm*acScreenSize);
+vec4 gmSource=texture2DCv(inputImg.texture,acScreenNorm);
+float gmAlpha=gmClip?gmSource.a:gmGenerated.a;
+vec4 gmResult=vec4(gmGenerated.rgb*gmAlpha,gmAlpha);
+gl_FragColor=mix(gmSource,gmResult,gmMix);
+}]]></shader>
+</effect>

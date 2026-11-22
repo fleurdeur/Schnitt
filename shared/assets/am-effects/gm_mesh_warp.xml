@@ -1,0 +1,172 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<effect id="com.alightcreative.effects.gm_mesh_warp"
+name="GM Mesh Warp"
+desc="A real control mesh. The layer is divided into a grid of vertices, a displacement field is evaluated at every vertex, and the field is then interpolated across each quad - so the warp has the structured, hand-shaped feel of a mesh deformation rather than the smear of a plain noise displace. Six fields: noise, wave, radial push, vortex, vector and ripple. Grid resolution, displacement amount, field scale, evolution, direction, a separate pinch/bulge at a movable control point, turbulence, mesh smoothing and clamp/mirror/wrap sampling are all independent."
+category="other"
+tags="other"
+experimental="false"
+overdraw="true"
+max-overdraw="0.45"
+thumb="thumb/gm_mesh_warp.webp">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Mesh" />
+<spinner id="gridX" default="10" min="2" max="32" step="1" type="integer" label="Mesh Columns" />
+<spinner id="gridY" default="10" min="2" max="32" step="1" type="integer" label="Mesh Rows" />
+<spinner id="smoothMesh" default="0.75" min="0.0" max="1.0" step="0.01" label="Mesh Smoothing" />
+<section text="Displacement Field" />
+<selector id="fieldType" style="dropdown" default="0" label="Field">
+<choice value="0" label="Noise" />
+<choice value="1" label="Wave" />
+<choice value="2" label="Radial Push" />
+<choice value="3" label="Vortex" />
+<choice value="4" label="Vector" />
+<choice value="5" label="Ripple" />
+</selector>
+<spinner id="amount" default="0.055" min="0.0" max="0.25" step="0.001" label="Displace Amount" />
+<spinner id="fieldScale" default="3.0" min="0.25" max="20.0" step="0.05" label="Field Scale" />
+<spinner id="speed" default="0.20" min="-1.0" max="1.0" step="0.01" label="Evolution" />
+<spinner id="angle" default="0.0" min="0.0" max="360.0" step="1.0" type="angle" label="Field Direction" />
+<spinner id="seed" default="17.0" min="0.0" max="64.0" step="0.5" label="Seed" />
+<section text="Control Point" />
+<point id="centre" default="0.5,0.5" label="Pinch Centre" />
+<spinner id="pinch" default="0.0" min="-1.0" max="1.0" step="0.01" label="Pinch / Bulge" />
+<spinner id="pinchRadius" default="0.35" min="0.05" max="1.0" step="0.01" label="Pinch Radius" />
+<section text="Detail" />
+<spinner id="turbulence" default="0.0" min="0.0" max="1.0" step="0.01" label="Fine Turbulence" />
+<selector id="edgeMode" style="dropdown" default="0" label="Edge Handling">
+<choice value="0" label="Clamp" />
+<choice value="1" label="Mirror" />
+<choice value="2" label="Wrap" />
+</selector>
+<section text="Output" />
+<spinner id="mixAmt" default="1.0" min="0.0" max="1.0" step="0.01" label="Effect Strength" />
+<spinner id="opacity" default="1.0" min="0.0" max="1.0" step="0.01" label="Output Opacity" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[float gT = 0.0;
+
+// LAYER -> SCREEN. The mesh is defined in layer space, so it deforms the layer
+// itself and inherits the layer's transform.
+// Positions are anchored on acScreenNorm - the engine's own screen position for
+// this fragment - so the anchor never depends on the matrix. Only the DELTA goes
+// through acLayerToScreen, and the w=0 multiply cancels the translation, so a
+// layer-space offset becomes a screen-space offset exactly. fetchL(acLayerNorm)
+// therefore returns texture2DCv(inputImg.texture, acScreenNorm), the engine idiom.
+vec2 lpToScreen(vec2 v){ return acScreenNorm + (vec4(v - acLayerNorm, 0.0, 0.0) * acLayerToScreen).xy; }
+vec4 fetchL(vec2 lp){ return texture2DCv(inputImg.texture, clamp(lpToScreen(lp), 0.0, 1.0)); }
+
+float h21(vec2 p){ return fract(sin(dot(p + seed * 1.93, vec2(127.1, 311.7))) * 43758.5453123); }
+
+float vnoise(vec2 p){
+vec2 i = floor(p);
+vec2 f = fract(p);
+f = f * f * (3.0 - 2.0 * f);
+return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x),
+           mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+float fbm(vec2 p){
+float s = 0.0;
+float amp = 0.5;
+for (int i = 0; i < 4; i++){
+s += amp * vnoise(p);
+p *= 2.07;
+amp *= 0.5;
+}
+return s;
+}
+
+// The displacement, in layer units, at one mesh vertex.
+vec2 fieldAt(vec2 p){
+float ra = radians(angle);
+vec2  ax = vec2(cos(ra), sin(ra));
+vec2  d  = p - vec2(0.5);
+
+if (fieldType <= 0){
+float n1 = fbm(p * fieldScale + vec2(gT, 0.0));
+float n2 = fbm(p * fieldScale + vec2(0.0, gT) + 31.7);
+return (vec2(n1, n2) - 0.5) * 2.0;
+} else if (fieldType <= 1){
+float w = sin(dot(p, ax) * fieldScale * 6.0 + gT * 2.0);
+return ax * w;
+} else if (fieldType <= 2){
+float r = max(length(d), 1.0e-4);
+return (d / r) * sin(r * fieldScale * 6.0 + gT * 2.0);
+} else if (fieldType <= 3){
+float r = max(length(d), 1.0e-4);
+return (vec2(-d.y, d.x) / r) * exp(-r * r * fieldScale * 0.6);
+} else if (fieldType <= 4){
+return ax * (fbm(p * fieldScale + gT) * 2.0 - 1.0);
+}
+float r = max(length(d), 1.0e-4);
+return (d / r) * sin(r * fieldScale * 8.0 - gT * 3.0);
+}
+
+// Bilinear across the quad, with the interpolant optionally smoothed. Linear
+// keeps the faceted mesh look at low resolutions; smoothstep removes it.
+vec2 meshAt(vec2 p){
+vec2 gs = vec2(max(gridX, 2.0), max(gridY, 2.0));
+vec2 g  = p * gs;
+vec2 i  = floor(g);
+vec2 f  = fract(g);
+float sm = clamp(smoothMesh, 0.0, 1.0);
+f = mix(f, f * f * (3.0 - 2.0 * f), sm);
+
+vec2 v00 = fieldAt((i + vec2(0.0, 0.0)) / gs);
+vec2 v10 = fieldAt((i + vec2(1.0, 0.0)) / gs);
+vec2 v01 = fieldAt((i + vec2(0.0, 1.0)) / gs);
+vec2 v11 = fieldAt((i + vec2(1.0, 1.0)) / gs);
+
+return mix(mix(v00, v10, f.x), mix(v01, v11, f.x), f.y);
+}
+
+vec2 edgeFix(vec2 lp){
+if (edgeMode <= 0) return clamp(lp, 0.0, 1.0);
+if (edgeMode <= 1){
+vec2 m = mod(lp, vec2(2.0, 2.0));
+return abs(m - vec2(1.0, 1.0)) * -1.0 + vec2(1.0);
+}
+return fract(lp);
+}
+
+void main(){
+vec2 lp  = acLayerNorm;
+vec4 src = fetchL(lp);
+
+float al = max(src.a, 1.0e-4);
+vec3 sc = src.rgb / al;
+
+gT = acTime * speed;
+
+vec2 disp = meshAt(lp);
+
+// ---- control point ------------------------------------------------------
+// A Gaussian falloff around the pinch centre, pushed along the radius so the
+// same control gives a bulge when positive and a pinch when negative.
+if (abs(pinch) > 0.001){
+vec2  pc = centre - vec2(0.5);
+vec2  d  = lp - vec2(0.5) - pc;
+float r  = max(length(d), 1.0e-4);
+float infl = exp(-r * r / max(pinchRadius * pinchRadius, 1.0e-4));
+disp += (d / r) * pinch * infl * 0.55;
+}
+
+// ---- fine turbulence ----------------------------------------------------
+if (turbulence > 0.001){
+float n1 = vnoise(lp * 9.0 + vec2(gT * 1.7, gT * 1.1));
+float n2 = vnoise(lp * 9.0 + vec2(gT * 1.1, -gT * 1.7) + 5.3);
+disp += (vec2(n1, n2) - 0.5) * turbulence * 0.35;
+}
+
+vec2 dpos = lp + disp * amount;
+vec4 got  = texture2DCv(inputImg.texture, clamp(lpToScreen(edgeFix(dpos)), 0.0, 1.0));
+float ga  = max(got.a, 1.0e-4);
+vec3 gc   = got.rgb / ga;
+
+vec3  col = mix(sc, gc, mixAmt);
+float oA  = got.a * opacity;
+gl_FragColor = vec4(col * oA, oA);
+}]]></shader>
+</effect>
+

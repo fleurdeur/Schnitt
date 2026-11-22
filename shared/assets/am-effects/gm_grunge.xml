@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/grunge.webp" id="com.goldmotion.effects.v51.grunge" name="GM Grunge"
+desc="Procedural paint, dirt, chalk, scratches and speckles with domain-warped physical texture."
+category="color" tags="gm,grunge,dirt,paint,texture" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<spinner id="scale" default="5" min="0.2" max="40" step="0.1" label="Texture Scale" />
+<spinner id="amount" default="0.45" min="0" max="1" step="0.01" label="Amount" type="percent" />
+<spinner id="contrast" default="1.4" min="0.2" max="5" step="0.05" label="Contrast" />
+<spinner id="scratches" default="0.35" min="0" max="1" step="0.01" label="Scratches" />
+<spinner id="speckles" default="0.4" min="0" max="1" step="0.01" label="Speckles" />
+<spinner id="distress" default="0.6" min="0" max="2" step="0.01" label="Distress" />
+<spinner id="evolution" default="0" min="-100" max="100" step="0.01" label="Evolution" />
+<spinner id="seed" default="1" min="0" max="100" step="0.1" label="Seed" />
+<color id="grungeColor" default="#FF261C16" label="Grunge Color" alpha="false" />
+<selector id="blendMode" default="0" style="dropdown" label="Blend"><choice label="Multiply" value="0" /><choice label="Overlay" value="1" /><choice label="Screen" value="2" /></selector>
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[float gmHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}
+float gmNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(gmHash(i),gmHash(i+vec2(1,0)),f.x),mix(gmHash(i+vec2(0,1)),gmHash(i+vec2(1,1)),f.x),f.y);}
+float gmFbm(vec2 p){float v=0.0,a=0.5;for(int i=0;i<6;i++){v+=gmNoise(p)*a;p=mat2(1.6,-1.2,1.2,1.6)*p+13.7;a*=0.5;}return v;}
+vec3 gmOverlay(vec3 a,vec3 b){return mix(2.0*a*b,1.0-2.0*(1.0-a)*(1.0-b),step(vec3(0.5),a));}
+void main(){vec2 uv=acScreenNorm;vec2 p=uv*scale+seed*vec2(7.13,11.71)+evolution*0.07;vec2 warp=vec2(gmFbm(p+3.1),gmFbm(p+17.7))-0.5;float dirt=gmFbm(p+warp*distress*3.0);dirt=clamp((dirt-0.5)*contrast+0.5,0.0,1.0);float lineCell=floor((uv.x+uv.y*0.17)*acScreenSize.x*0.35+seed);float scratchNoise=gmHash(vec2(lineCell,floor(evolution*3.0)));float scratch=step(1.0-scratches*0.08,scratchNoise)*pow(1.0-fract((uv.x+uv.y*0.17)*acScreenSize.x*0.35),8.0);vec2 spCell=floor(uv*acScreenSize/3.0);float speck=step(1.0-speckles*0.12,gmHash(spCell+seed));float mask=clamp(dirt*0.8+scratch+speck,0.0,1.0)*amount;vec4 src=texture2DCv(inputImg.texture,uv);vec3 blended;if(blendMode==1)blended=gmOverlay(src.rgb,grungeColor.rgb);else if(blendMode==2)blended=1.0-(1.0-src.rgb)*(1.0-grungeColor.rgb);else blended=src.rgb*grungeColor.rgb;gl_FragColor=vec4(mix(src.rgb,blended,mask),src.a);}]]></shader>
+</effect>

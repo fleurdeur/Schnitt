@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<effect thumb="thumb/video_glitch.webp" id="com.goldmotion.effects.v51.videoglitch" name="GM Video Glitch"
+desc="Signal loss, macroblock corruption, tracking tears, RGB delay and digital noise."
+category="distort" tags="gm,video,glitch,signal,tracking,compression" overdraw="true" max-overdraw="0.2" experimental="false">
+<params>
+<texture id="inputImg" srcType="content" />
+<section text="Signal" />
+<spinner id="amount" default="0.55" min="0" max="1" step="0.01" label="Corruption" type="percent" />
+<spinner id="blockSize" default="28" min="4" max="160" step="1" label="Block Size" />
+<spinner id="tearWidth" default="65" min="0" max="500" step="1" label="Tracking Tear" />
+<spinner id="rgbDelay" default="9" min="0" max="80" step="0.5" label="RGB Delay" />
+<spinner id="noiseAmount" default="0.12" min="0" max="1" step="0.01" label="Digital Noise" />
+<spinner id="scanlines" default="0.18" min="0" max="1" step="0.01" label="Scanlines" />
+<spinner id="evolution" default="0" min="-100" max="100" step="0.01" label="Evolution" />
+<spinner id="mixAmount" default="1" min="0" max="1" step="0.01" label="Mix" type="percent" />
+<section text="MOD BY PNKJ" />
+</params>
+<shader type="fragment" precision="high"><![CDATA[float gmHash(vec2 p){return fract(sin(dot(p,vec2(41.7,289.1)))*45758.5453);}
+vec2 gmClamp(vec2 p){return clamp(p,0.0,1.0);}
+void main(){
+vec2 uv=acScreenNorm; vec2 size=max(inputImg.size,vec2(1.0)); float frame=floor(acTime*18.0+evolution*11.0);
+float row=floor(uv.y*size.y/max(blockSize,1.0)); float gate=step(1.0-amount*0.42,gmHash(vec2(row,frame)));
+float tear=(gmHash(vec2(row,frame+9.0))-0.5)*tearWidth/size.x*gate;
+vec2 cell=floor(uv*size/max(blockSize,1.0)); float bad=step(1.0-amount*0.28,gmHash(cell+frame));
+vec2 blockShift=(vec2(gmHash(cell+frame+3.0),gmHash(cell-frame+5.0))-0.5)*blockSize/size*bad*2.5;
+vec2 duv=gmClamp(uv+vec2(tear,0.0)+blockShift); vec4 base=texture2DCv(inputImg.texture,duv);
+vec2 chroma=vec2(rgbDelay/size.x*(0.25+gate+bad),0.0);
+float r=texture2DCv(inputImg.texture,gmClamp(duv+chroma)).r;
+float b=texture2DCv(inputImg.texture,gmClamp(duv-chroma)).b;
+float n=(gmHash(floor(uv*size)+frame)-0.5)*noiseAmount;
+float scan=1.0-scanlines*(0.5+0.5*sin(uv.y*size.y*3.14159265));
+vec3 rgb=vec3(r,base.g,b)*scan+n*(gate+bad+0.2);
+gl_FragColor=mix(texture2DCv(inputImg.texture,uv),vec4(rgb,base.a),mixAmount);
+}]]></shader>
+</effect>
