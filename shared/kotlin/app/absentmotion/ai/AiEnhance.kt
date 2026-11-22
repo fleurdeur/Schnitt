@@ -36,7 +36,7 @@ data class EnhanceOptions(val mode: EnhanceMode = EnhanceMode.Upscale2, val cart
         else -> if (cartoon) AiModel.Cartoon else AiModel.Detail
     }
     internal val blend: AiModel? get() = if (!cartoon && grain) AiModel.Grain else null
-    internal val models: List<AiModel> get() = listOfNotNull(model, blend)
+    internal val models: List<AiModel> get() = if (lockedModel) emptyList() else listOfNotNull(model, blend)
     val usesAi: Boolean get() = !(mode == EnhanceMode.Sharpen && quick)
     val lockedModel: Boolean get() = mode == EnhanceMode.GmAnime || mode == EnhanceMode.GmSoul
     val xml: String get() = mode.xml + (if (cartoon) "+cartoon" else "") + (if (blend != null) "+grain" else "")
