@@ -8,6 +8,11 @@
       "name": "schnitt-5.16.0-arm64-v8a.apk",
       "size": 106821533,
       "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.16.0/schnitt-5.16.0-arm64-v8a.apk"
+    },
+    {
+      "name": "schnitt-5.16.0-armeabi-v7a.apk",
+      "size": 110520837,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.16.0/schnitt-5.16.0-armeabi-v7a.apk"
     }
   ]
 }
