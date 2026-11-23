@@ -938,6 +938,9 @@
     <string name="opening_engine">Starting the editor…</string>
     <string name="opening_preparing">Preparing the timeline…</string>
     <string name="opening_saving">Saving changes…</string>
+    <string name="preview_loading_assets">Loading project assets…</string>
+    <string name="preview_loading_effects">Preparing effects and shaders…</string>
+    <string name="preview_loading_text">Preparing text and fonts…</string>
     <string name="engine_loading_effects">Loading effects…</string>
     <string name="engine_error_gpu_capture">GPU failed during capture</string>
 

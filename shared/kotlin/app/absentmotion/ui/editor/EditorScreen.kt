@@ -322,13 +322,15 @@ private fun Playback(state: EditorState) {
                     // Only drop display frames when the measured draw cost cannot keep up.
                     // A high layer/effect count alone used to halve playback even when the
                     // engine was comfortably fast, which looked like lag.
-                    val frameStep = when {
+                    val costStep = when {
                         renderMs >= 70.0 -> 4
                         renderMs >= 50.0 -> 3
                         renderMs >= 45.0 -> 2
                         renderMs <= 0.0 && complexity >= 6 -> 2
                         else -> 1
                     }
+                    val sourceStep = app.absentmotion.editor.previewFpsStep(fps, renderMs, complexity)
+                    val frameStep = maxOf(costStep, sourceStep)
                     state.frame = if (target - shown in 1 until frameStep) shown else target
                 }
                 shown = state.frame

@@ -78,7 +78,8 @@ class VideoLibrary(context: Context, private val engine: EngineThread) {
         scope.launch {
             for (request in requests) lock.withLock {
                 if (paused || holds.get() > 0 || request !== latest) return@withLock
-                if (proxiesFor !== request.scene.node) {
+                VideoProxies.setPlayback(request.playing)
+                if (proxiesFor !== request.scene.node || !request.playing) {
                     proxiesFor = request.scene.node
                     request.scene.videoUris().forEach { VideoProxies.request(context, it) }
                 }
@@ -176,6 +177,7 @@ class VideoLibrary(context: Context, private val engine: EngineThread) {
 
     fun suspendPreview() {
         latest = null
+        VideoProxies.setPlayback(false)
         scope.launch {
             lock.withLock {
                 if (latest == null) { sessions.values.forEach { it.close() }; sessions.clear() }

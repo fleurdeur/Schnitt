@@ -87,6 +87,10 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
     @Volatile private var playing = false
     private val effectCatalog = MutableStateFlow(EffectCatalog(message = AppText.get(R.string.engine_loading_effects)))
     val effects = effectCatalog.asStateFlow()
+    private val previewLoads = MutableStateFlow<Set<PreviewLoad>>(emptySet())
+    /** Assets, effects and fonts that are still being prepared for the preview. */
+    val previewLoading = previewLoads.asStateFlow()
+    private fun markLoad(kind: PreviewLoad, active: Boolean) = previewLoads.update { if (active) it + kind else it - kind }
     private val catalogLoaded = CompletableDeferred<EffectCatalog>()
     private var catalogWaitJob: Job? = null
     private val loadedEffects = HashSet<String>()
@@ -349,7 +353,10 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
             val names = next.fontNames()
             if (names != fontNames) {
                 fontNames = names
-                fontJob = mediaScope.launch { names.forEach { library.resolve(it) } }
+                markLoad(PreviewLoad.Text, true)
+                val loading = mediaScope.launch { names.forEach { library.resolve(it) } }
+                fontJob = loading
+                loading.invokeOnCompletion { if (fontJob === loading) markLoad(PreviewLoad.Text, false) }
             }
         }
         if (media != null) {
@@ -362,7 +369,13 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
                 mediaKey = key
                 val serial = refreshes.get()
                 mediaJob?.cancel()
-                mediaJob = mediaScope.launch { media.update(next); checked(serial) }.also { loading -> loading.invokeOnCompletion { requestRender() } }
+                markLoad(PreviewLoad.Assets, true)
+                val loading = mediaScope.launch { media.update(next); checked(serial) }
+                mediaJob = loading
+                loading.invokeOnCompletion {
+                    if (mediaJob === loading) markLoad(PreviewLoad.Assets, false)
+                    requestRender()
+                }
             }
         }
         requestRender()
@@ -372,7 +385,13 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
         val next = mediaScene ?: return
         val serial = refreshes.incrementAndGet()
         mediaJob?.cancel()
-        mediaJob = mediaScope.launch { media?.update(next); checked(serial); videos?.retry() }.also { loading -> loading.invokeOnCompletion { requestRender() } }
+        markLoad(PreviewLoad.Assets, true)
+        val loading = mediaScope.launch { media?.update(next); checked(serial); videos?.retry() }
+        mediaJob = loading
+        loading.invokeOnCompletion {
+            if (mediaJob === loading) markLoad(PreviewLoad.Assets, false)
+            requestRender()
+        }
     }
 
     private fun checked(serial: Long) = synchronized(refreshes) { if (serial > checkedRefresh) checkedRefresh = serial }
@@ -527,7 +546,12 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
         if (used.isEmpty()) return
         val definitions = effectCatalog.value.definitions
         if (definitions.isNotEmpty()) {
-            for (def in definitions) if (def.id in used) loadEffect(native, def)
+            markLoad(PreviewLoad.Effects, true)
+            try {
+                for (def in definitions) if (def.id in used) loadEffect(native, def)
+            } finally {
+                markLoad(PreviewLoad.Effects, false)
+            }
             return
         }
         // The effect catalogue is parsed off the engine thread.  Never make the
@@ -540,7 +564,12 @@ class EngineThread(@Volatile var background: Int, context: Context? = null, priv
                 if (closed || engine !== native) return@withContext
                 val latest = scene ?: xml
                 val ids = Regex("<effect[^>]*id=\"([^\"]+)\"").findAll(latest).map { it.groupValues[1] }.toSet()
-                for (def in catalog.definitions) if (def.id in ids) loadEffect(native, def)
+                markLoad(PreviewLoad.Effects, true)
+                try {
+                    for (def in catalog.definitions) if (def.id in ids) loadEffect(native, def)
+                } finally {
+                    markLoad(PreviewLoad.Effects, false)
+                }
                 val prepared = fonts?.prepareText(latest, view?.timeMs ?: 0) ?: latest
                 if (prepared !== installed) {
                     native.setScene(prepared)

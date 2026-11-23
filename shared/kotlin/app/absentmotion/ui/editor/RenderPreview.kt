@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -57,6 +58,7 @@ import app.absentmotion.R
 import app.absentmotion.editor.EditorPanel
 import app.absentmotion.editor.EditorState
 import app.absentmotion.editor.PreviewCache
+import app.absentmotion.engine.PreviewLoad
 import app.absentmotion.ui.theme.Am
 import app.absentmotion.ui.theme.Presence
 import app.absentmotion.ui.theme.presence
@@ -223,6 +225,28 @@ internal fun RenderPreviewNotes(state: EditorState, cachedPlaying: State<Boolean
     }
 }
 
+@Composable
+internal fun PreviewLoadingHint(state: EditorState, modifier: Modifier) {
+    val loads by state.engine.previewLoading.collectAsState()
+    var show by remember { mutableStateOf(false) }
+    LaunchedEffect(loads) {
+        if (loads.isEmpty()) { show = false; return@LaunchedEffect }
+        delay(180)
+        show = loads.isNotEmpty()
+    }
+    val text = when {
+        PreviewLoad.Effects in loads -> stringResource(R.string.preview_loading_effects)
+        PreviewLoad.Assets in loads -> stringResource(R.string.preview_loading_assets)
+        else -> stringResource(R.string.preview_loading_text)
+    }
+    Presence(show) {
+        Note(Modifier.presence()) {
+            CircularProgressIndicator(Modifier.size(15.dp), color = Am.Accent, strokeWidth = 2.dp)
+            Text(text, Modifier.weight(1f).padding(start = 8.dp), color = Am.OnDark, fontSize = 13.sp, lineHeight = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
 private const val STALE_NOTE_MS = 5_000L
 
 private data class PreparationRequest(val key: app.absentmotion.editor.CacheKey, val frame: Int, val eligible: Boolean, val fit: Float, val cell: Float)
@@ -232,17 +256,18 @@ private fun AutomaticPreview(state: EditorState) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val resources by state.engine.mediaRevision.collectAsState()
+    val loading by state.engine.previewLoading.collectAsState()
     val thermal = remember(context) { app.absentmotion.export.ThermalMonitor.of(context) }
     val enabled = state.settings.backgroundPreview
     LaunchedEffect(enabled) { if (!enabled && PreviewCache.automatic) PreviewCache.clear() }
-    LaunchedEffect(state, lifecycle, resources, enabled) {
+    LaunchedEffect(state, lifecycle, resources, enabled, loading) {
         if (!enabled) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             thermal.start()
             try {
                 snapshotFlow {
                     PreparationRequest(PreviewCache.keyOf(state), if (state.playing) -1 else state.frame,
-                        !state.playing && !state.exportOpen && state.soloMode == 0 && !state.pixelMode && !state.gridMode && state.canvasZoom == 1f && state.canvasPan == Offset.Zero &&
+                        !state.playing && !state.exportOpen && loading.isEmpty() && state.soloMode == 0 && !state.pixelMode && !state.gridMode && state.canvasZoom == 1f && state.canvasPan == Offset.Zero &&
                             state.drawing == null && state.panel != EditorPanel.EditText &&
                             (state.cameraMode || state.scene.layers.none { it.kind == "camera" }), PreviewCache.fit, PreviewCache.checkerCell)
                 }.collectLatest { request ->
@@ -252,7 +277,7 @@ private fun AutomaticPreview(state: EditorState) {
                     delay(PreviewCache.idleMs - 100)
                     while (!PreviewCache.idle()) delay(80)
                     fun current() = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && PreviewCache.idle() && !thermal.hot &&
-                        !state.playing && !state.exportOpen && state.scene == request.key.scene && state.frame == request.frame &&
+                        state.engine.previewLoading.value.isEmpty() && !state.playing && !state.exportOpen && state.scene == request.key.scene && state.frame == request.frame &&
                         state.settings.fullMotionBlur == request.key.accurateBlur && state.settings.androidEmoji == request.key.androidEmoji &&
                         state.settings.previewQuality.divisor == request.key.divisor &&
                         state.soloMode == 0 && !state.pixelMode && !state.gridMode && state.canvasZoom == 1f && state.canvasPan == Offset.Zero && state.drawing == null && state.panel != EditorPanel.EditText

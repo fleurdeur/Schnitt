@@ -142,15 +142,25 @@ fun Preview(state: EditorState, modifier: Modifier = Modifier, reserveEnd: Dp = 
     val (scale, dx, dy) = previewFrame(size.width.toFloat(), size.height.toFloat(), with(LocalDensity.current) { reserveEnd.toPx() }, scene.width.toFloat(), scene.height.toFloat(), viewZoom, viewPan)
     var adaptiveDivisor by remember { mutableIntStateOf(1) }
     LaunchedEffect(state.playing, state.settings.adaptivePreview, scene) {
-        // Pick one playback divisor and keep it for the whole run. Changing it
-        // while frames are on screen made a heavy preview visibly pop or jump.
         if (!state.settings.adaptivePreview || !state.playing) { adaptiveDivisor = 1; return@LaunchedEffect }
         val complexity = app.absentmotion.editor.previewComplexityDivisor(scene)
-        val measured = state.engine.smoothedRenderMs.takeIf { it > 0.0 }?.let { (it / 16.7).toInt().coerceIn(1, 12) } ?: 1
-        adaptiveDivisor = minOf(12, maxOf(complexity, measured))
+        // Start from the scene estimate, then keep climbing while the phone is
+        // actually missing frames. The divisor only rises during this playback,
+        // so a struggling imported project settles instead of oscillating.
+        adaptiveDivisor = minOf(12, maxOf(1, complexity))
+        while (state.playing) {
+            delay(500)
+            val measured = state.engine.smoothedRenderMs.takeIf { it > 0.0 }?.let { (it / 16.7).toInt().coerceIn(1, 12) } ?: 1
+            val wanted = minOf(12, maxOf(complexity, measured))
+            if (wanted > adaptiveDivisor) adaptiveDivisor = wanted
+        }
+        adaptiveDivisor = 1
     }
     // A heavy scene must still be watchable when the automatic-quality toggle is off.
-    val complexityDivisor = if (state.playing) minOf(12, app.absentmotion.editor.previewComplexityDivisor(scene)) else 0
+    // Paused editing gets a gentler reduction so dragging a stacked imported
+    // project does not render every control change at full resolution.
+    val complexityDivisor = app.absentmotion.editor.previewComplexityDivisor(scene)
+        .let { if (state.playing) minOf(12, it) else minOf(4, it) }
     val divisor = maxOf(state.settings.previewDivisor(state.playing), complexityDivisor, adaptiveDivisor)
     val quality = 1f / divisor
     val selection = if (MultiSelect.ids.isNotEmpty()) MultiSelect.ids.toList() else listOfNotNull(state.selectedId)
@@ -526,6 +536,7 @@ fun Preview(state: EditorState, modifier: Modifier = Modifier, reserveEnd: Dp = 
             MultiSelectionBox(b, scale, Offset(dx, dy), if (refPx > 0f) refPx else size.width / 1080f)
         }
         Presence(hint) { SwipeHint(hintLabel, Modifier.align(Alignment.Center).presence()) }
+        if (state.drawing == null && !editingText) PreviewLoadingHint(state, Modifier.align(Alignment.Center))
         if (!fixedView) CanvasZoomHud(state, Modifier.align(Alignment.TopStart))
         if (state.drawing == null && !editingText) {
             RenderPreviewNotes(state, cachedPlaying, Modifier.align(Alignment.TopCenter))

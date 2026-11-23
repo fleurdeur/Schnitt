@@ -28,6 +28,7 @@ import app.absentmotion.model.effects
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -63,6 +64,23 @@ fun rawStoreBudget(heapMax: Long): Long = minOf(4096 * MIB, heapMax * 2 / 5)
 
 fun storeBudget(budget: Long, width: Int, height: Int): Long = maxOf(budget / 4, budget - POOL * 4L * width * height)
 
+private val HeavyPreviewEffects = setOf(
+    "absent.blur", "absent.boxblur", "absent.lensblur", "absent.zoomblur", "absent.motionblur", "absent.motionblur1",
+    "absent.motionblur2", "absent.motionblur3", "absent.motionblur4", "absent.shutterblur", "absent.lightglow",
+    "absent.softglow", "absent.glow", "absent.glowscan", "absent.glass", "absent.displacementmap", "absent.fractalwarp",
+    "absent.wavewarp", "absent.shader", "absent.depth", "absent.bokeh", "absent.chromatic",
+)
+
+private fun previewEffectCost(id: String): Int {
+    val name = id.lowercase()
+    return when {
+        "particle" in name || "shatter" in name || "fracture" in name || "scatter" in name -> 18
+        id in HeavyPreviewEffects || "blur" in name || "glow" in name || "light" in name -> 8
+        "distort" in name || "warp" in name || "displace" in name || "mosaic" in name || "pixel" in name -> 6
+        else -> 4
+    }
+}
+
 /** Extra preview reduction for scenes that are expensive to draw. */
 fun previewComplexityDivisor(scene: Scene): Int {
     // Groups can hide most of a project below the top level. Count the whole
@@ -70,32 +88,43 @@ fun previewComplexityDivisor(scene: Scene): Int {
     fun costOf(node: XmlNode): Int {
         var cost = 0
         for (child in node.children) {
-            when (child.name) {
-                "shape", "text", "embedScene", "nullobj", "camera", "light", "model", "audio" -> {
-                    cost += 1
-                    cost += child.children.count { it.name == "effect" } * 3
-                    cost += when (child.name) {
-                        "model" -> 12
-                        "camera" -> 4
-                        "light" -> 2
-                        else -> 0
-                    }
-                    cost += costOf(child)
-                }
-                "scene" -> cost += costOf(child)
+            if (child.name !in Scene.LAYER_TAGS && child.name != "scene") continue
+            if (child["hidden"] == "true") continue
+            if (child.name == "scene") { cost += costOf(child); continue }
+            cost += 1
+            if (child.name == "text" || child.name == "drawing") cost += 1
+            if (child["fillVideo"] != null || child["fillImage"] != null) cost += 2
+            for (effect in child.children) {
+                if (effect.name != "effect" || effect["hidden"] == "true") continue
+                cost += effect["id"]?.let(::previewEffectCost) ?: 4
             }
+            cost += when (child.name) {
+                "model" -> 12
+                "camera" -> 4
+                "light" -> 2
+                else -> 0
+            }
+            if (child.name == "embedScene") cost += costOf(child)
         }
         return cost
     }
     val cost = costOf(scene.node)
     return when {
-        cost > 600 -> 8
-        cost > 350 -> 6
-        cost > 180 -> 4
-        cost > 80 -> 2
-        cost > 35 -> 1
+        cost > 700 -> 12
+        cost > 450 -> 8
+        cost > 260 -> 6
+        cost > 140 -> 4
+        cost > 60 -> 2
+        cost > 24 -> 1
         else -> 0
     }
+}
+
+/** Never ask the renderer for more frames than a struggling phone can show. */
+fun previewFpsStep(sourceFps: Int, renderMs: Double, complexity: Int): Int {
+    val fps = sourceFps.coerceAtLeast(1)
+    val target = if (renderMs >= 26.0 || complexity >= 3) 30 else 60
+    return ceil(fps / target.toDouble()).toInt().coerceAtLeast(1)
 }
 
 fun sceneCacheDivisor(scene: Scene, requested: Int): Int =
@@ -440,8 +469,13 @@ object PreviewCache {
                 val started = System.nanoTime()
                 val pixels = state.engine.capturePreviewFrame(next.scene, next.scene.frameStart(frame), width, height, next.accurateBlur, ::current)
                 if (pixels == null) {
-                    if (!built.raw || ++refused >= 20) { refused = 0; index++; continue }
-                    delay(50)
+                    // The engine is often busy with the first media, font or shader
+                    // pass right after an import. Never spin through the whole
+                    // timeline on the UI thread while it waits; pause and retry the
+                    // same frame instead.
+                    delay(if (built.raw) 50 else 120)
+                    if (!current()) return
+                    if (++refused >= if (built.raw) 20 else 8) { refused = 0; index++ }
                     continue
                 }
                 refused = 0

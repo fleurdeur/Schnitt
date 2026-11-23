@@ -100,6 +100,10 @@ object VideoProxies {
     private val made = MutableStateFlow(0)
     @Volatile private var generation = 0
     @Volatile internal var paused = false
+    @Volatile private var playback = false
+
+    /** Creating a preview copy competes with decoding; never do both at once. */
+    fun setPlayback(on: Boolean) { playback = on }
 
     val progress: StateFlow<Map<String, Float>> = making.asStateFlow()
     val revision: StateFlow<Int> = made.asStateFlow()
@@ -119,11 +123,11 @@ object VideoProxies {
     }
 
     internal fun request(context: Context, uri: String) {
-        if (uri in settled || paused || !enabled(context) || (retryAt[uri] ?: 0L) - System.nanoTime() > 0 || !queued.add(uri)) return
+        if (uri in settled || paused || playback || !enabled(context) || (retryAt[uri] ?: 0L) - System.nanoTime() > 0 || !queued.add(uri)) return
         val app = context.applicationContext
         val started = generation
         scope.launch {
-            try { prepare(app, uri) { started != generation || paused || !enabled(app) } }
+            try { prepare(app, uri) { started != generation || paused || playback || !enabled(app) } }
             catch (e: Exception) {
                 retryAt[uri] = System.nanoTime() + ProxyRules.RETRY_NS
                 Log.w("AMProxy", "cannot make a preview copy of $uri", e)
