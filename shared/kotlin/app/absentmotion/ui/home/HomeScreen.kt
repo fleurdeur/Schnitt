@@ -175,6 +175,7 @@ fun HomeScreen(
     imported: List<ImportReport> = emptyList(),
     onImportShown: () -> Unit = {},
     onImportFile: (Uri) -> Unit = {},
+    onImportLink: (() -> Unit)? = null,
     onTemplate: (String) -> Unit = {},
     onTemplateProject: (app.absentmotion.model.Scene) -> Unit = {},
     onHistory: (ProjectInfo) -> Unit = {},
@@ -231,6 +232,7 @@ fun HomeScreen(
                 else if (page == 1) TemplatesTab(version, onTemplate, onTemplateProject, fill, query) else ProjectsPane(
                     Modifier.weight(1f), shown, loaded, tab, { tab = it }, settings, version, onOpen, onExport, query,
                     onUpload = { picker.launch(arrayOf("text/xml", "application/xml", "application/zip", "application/octet-stream", "application/x-after-effects", "application/x-aep")) },
+                    onImportLink = onImportLink,
                     onDuplicate = { id -> if (!duplicating) {
                         duplicating = true
                         app.absentmotion.platform.Toast.makeText(context, context.getString(R.string.home_duplicating), app.absentmotion.platform.Toast.LENGTH_SHORT).show()
@@ -311,6 +313,7 @@ private fun ProjectsPane(
     onExport: (String) -> Unit,
     query: String,
     onUpload: () -> Unit,
+    onImportLink: (() -> Unit)? = null,
     onDuplicate: (String) -> Unit,
     onDelete: (String) -> Unit,
     onHistory: (ProjectInfo) -> Unit,
@@ -356,7 +359,7 @@ private fun ProjectsPane(
     Box(modifier.fillMaxWidth().onGloballyPositioned { origin = it.positionInRoot() }) {
         Column(Modifier.fillMaxSize()) {
             Spacer(Modifier.height(if (wide) 8.dp else 24.dp))
-            Chips(tab, onTab, wide, onUpload)
+            Chips(tab, onTab, wide, onUpload, onImportLink)
             if (loaded && shown.isEmpty() && tab == 0 && settings.xmlUpload && query.isBlank()) {
                 Spacer(Modifier.height(13.dp))
                 Box(Modifier.padding(horizontal = 16.dp).then(if (wide) WideCard else Modifier)) { UploadCard(onUpload) }
@@ -500,19 +503,25 @@ internal fun listRows(list: List<ProjectInfo>, byName: Boolean, dates: DateTimeF
     }
 
 @Composable
-private fun Chips(tab: Int, onTab: (Int) -> Unit, crisp: Boolean, onUpload: () -> Unit) {
+private fun Chips(tab: Int, onTab: (Int) -> Unit, crisp: Boolean, onUpload: () -> Unit, onImportLink: (() -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(if (crisp) 8.dp else 12.dp)) {
             Chip(stringResource(R.string.home_tab_projects), tab == 0, crisp) { onTab(0) }
             Chip(stringResource(R.string.home_tab_assets), tab == 1, crisp) { onTab(1) }
         }
-        if (tab == 0) Row(
-            Modifier.height(34.dp).clip(RoundedCornerShape(17.dp)).background(Am.Card).clickable(onClick = onUpload).padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(HomeIcons.Upload, null, Modifier.size(17.dp), tint = Am.Navy)
-            Spacer(Modifier.width(6.dp))
-            Text("Import XML", color = Am.Navy, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+        if (tab == 0) Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (onImportLink != null) Box(
+                Modifier.size(34.dp).clip(CircleShape).background(Am.Card).clickable(onClick = onImportLink),
+                contentAlignment = Alignment.Center,
+            ) { Icon(HomeIcons.Link, stringResource(R.string.project_link_import), Modifier.size(18.dp), tint = Am.Navy) }
+            Row(
+                Modifier.height(34.dp).clip(RoundedCornerShape(17.dp)).background(Am.Card).clickable(onClick = onUpload).padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(HomeIcons.Upload, null, Modifier.size(17.dp), tint = Am.Navy)
+                Spacer(Modifier.width(6.dp))
+                Text("Import XML", color = Am.Navy, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+            }
         }
     }
 }

@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.vector.ImageVector
 import app.absentmotion.editor.selectedCuts
 import app.absentmotion.editor.chosenLayers
@@ -400,9 +401,31 @@ internal fun MultiTopBar(state: EditorState, modifier: Modifier) {
             val text = pluralStringResource(R.plurals.structure_layers_selected, ids.size, ids.size.toString())
             Text(text, Modifier.weight(1f), color = tint, maxLines = 1, autoSize = TextAutoSize.StepBased(10.sp, 14.sp))
             val cell = Modifier.width(40.dp).fillMaxHeight()
-            SelectionButton(SelectionIcons.Group, stringResource(R.string.structure_group), cell, tint, ids.isNotEmpty()) { scope.launch { state.groupLayersCentred(ids) } }
-            SelectionButton(SelectionIcons.Mask, stringResource(R.string.structure_group_mask), cell, tint, ids.size > 1) { scope.launch { state.groupLayersCentred(ids, "mask") } }
-            SelectionButton(SelectionIcons.Exclude, stringResource(R.string.structure_group_exclude), cell, tint, ids.size > 1) { scope.launch { state.groupLayersCentred(ids, "exclude") } }
+            Box(
+                Modifier.width(76.dp).fillMaxHeight().alpha(if (ids.isNotEmpty()) 1f else DimAlpha)
+                    .clickable(enabled = ids.isNotEmpty(), role = androidx.compose.ui.semantics.Role.Button) { scope.launch { state.groupLayersCentred(ids) } }
+                    .padding(horizontal = 4.dp),
+                Alignment.Center,
+            ) {
+                Text(stringResource(R.string.structure_group), color = tint, fontWeight = FontWeight.SemiBold,
+                    maxLines = 1, autoSize = TextAutoSize.StepBased(10.sp, 14.sp))
+            }
+            var groupMenu by remember(ids) { mutableStateOf(false) }
+            Box(cell) {
+                SelectionButton(PanelIcons.More, stringResource(R.string.structure_group_options), Modifier.fillMaxSize(), tint, ids.size > 1) { groupMenu = true }
+                Presence(groupMenu) {
+                    MenuPopup(DropOrRise, { groupMenu = false }) {
+                        MenuRow(stringResource(R.string.structure_group_mask), icon = SelectionIcons.Mask) {
+                            groupMenu = false
+                            scope.launch { state.groupLayersCentred(ids, "mask") }
+                        }
+                        MenuRow(stringResource(R.string.structure_group_exclude), icon = SelectionIcons.Exclude) {
+                            groupMenu = false
+                            scope.launch { state.groupLayersCentred(ids, "exclude") }
+                        }
+                    }
+                }
+            }
             var parentMenu by remember { mutableStateOf(false) }
             val linkLabel = stringResource(R.string.structure_link_parent)
             Box(

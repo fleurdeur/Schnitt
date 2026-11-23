@@ -27,6 +27,37 @@ object AexImporter {
 
     data class Info(val name: String, val vendor: String, val version: String, val category: String, val url: String, val note: String)
 
+    data class Bundled(val id: String, val json: JSONObject, val file: File)
+
+    /** Custom AEX effects used by [used], ready to pack with a project bundle. */
+    fun bundle(context: Context, used: Set<String>): List<Bundled> {
+        if (used.isEmpty()) return emptyList()
+        val file = File(context.filesDir, STORE)
+        val array = runCatching { JSONArray(file.readText()) }.getOrNull() ?: return emptyList()
+        return (0 until array.length()).mapNotNull { index ->
+            val entry = array.optJSONObject(index) ?: return@mapNotNull null
+            val id = entry.optString("id")
+            if (id.isBlank() || "aex.$id" !in used && id !in used) return@mapNotNull null
+            val source = File(entry.optString("file"))
+            if (!source.isFile) return@mapNotNull null
+            Bundled(id, JSONObject(entry.toString()), source)
+        }
+    }
+
+    /** Merges effects unpacked from a project bundle into the local store. */
+    fun merge(context: Context, entries: List<Pair<JSONObject, File>>) {
+        if (entries.isEmpty()) return
+        val store = File(context.filesDir, STORE)
+        val current = runCatching { JSONArray(store.readText()) }.getOrDefault(JSONArray())
+        val incoming = entries.map { (json, file) -> JSONObject(json.toString()).put("file", file.path) }
+        val ids = incoming.mapTo(HashSet()) { it.optString("id") }
+        val next = JSONArray().apply {
+            (0 until current.length()).mapNotNull { current.optJSONObject(it) }.filter { it.optString("id") !in ids }.forEach(::put)
+            incoming.forEach(::put)
+        }
+        store.writeText(next.toString())
+    }
+
     suspend fun import(context: Context, uri: Uri): EffectDefinition? = withContext(Dispatchers.IO) {
         val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@withContext null
         val fileName = uri.lastPathSegment.orEmpty().substringAfterLast('/')

@@ -27,6 +27,7 @@ import app.absentmotion.model.mapMediaUris
 import app.absentmotion.model.mediaUris
 import app.absentmotion.model.storedMediaUris
 import app.absentmotion.model.withSiblingRefs
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
@@ -93,6 +94,7 @@ class Importer(
     private val access: MediaAccess = MediaAccess.Unlimited,
     private val limits: ImportLimits = ImportLimits(),
     private val fonts: File? = null,
+    private val effects: File? = null,
 ) {
     fun import(file: File): List<ImportReport> = import({ file.inputStream() }, file)
 
@@ -150,6 +152,9 @@ class Importer(
         var ours = false
         var community: JSONObject? = null
         val communityFiles = HashMap<String, ByteArray>()
+        val packedEffects = ArrayList<JSONObject>()
+        val unpackedEffects = ArrayList<Pair<JSONObject, File>>()
+        val effectFiles = ArrayList<File>()
         var sceneText = 0
         var written = limits.unpacked
         val ids = ArrayList<String>()
@@ -161,6 +166,10 @@ class Importer(
                     name.startsWith("community/") -> input.readAtMost(MaxThumb + 1).takeIf { it.size <= MaxThumb }?.let { communityFiles[name] = it }
                     leaf(name) == "manifest.txt" -> sigs = readText(input, MaxXml).lineSequence().map { it.trim().split(':', limit = 3) }.filter { it.size >= 2 }
                         .associate { p -> p[0] to p.last() }
+                    name == "effects/custom-effects.json" && effects != null -> {
+                        val list = runCatching { JSONArray(readText(input, MaxXml)) }.getOrNull()
+                        if (list != null) for (i in 0 until list.length()) list.optJSONObject(i)?.takeIf { it.optString("id").isNotBlank() }?.let(packedEffects::add)
+                    }
                     leaf(name) == "manifest.json" -> {
                         val manifest = JSONObject(readText(input, MaxXml))
                         projectEntry = manifest.optString("project").takeIf { it.isNotBlank() }
@@ -224,6 +233,16 @@ class Importer(
                 target.forEach { (path, file) -> copies.getOrPut(path) { ArrayList() } += file }
                 entries.mapValues { (_, entry) -> target.getValue(entry).toURI().toString() }
             }
+            if (effects != null && packedEffects.isNotEmpty()) {
+                val wanted = packedEffects.map { "effects/${it.optString("id")}.aex" }.toSet()
+                eachEntry(open, limits, wanted) { name, input ->
+                    val id = name.removePrefix("effects/").removeSuffix(".aex")
+                    val target = File(effects, "$id.aex").apply { parentFile?.mkdirs() }
+                    written -= copy(input, target, written)
+                    effectFiles += target
+                    packedEffects.firstOrNull { it.optString("id") == id }?.let { unpackedEffects += it to target }
+                }
+            }
             val fontEntries = if (fonts == null) emptyMap() else packedFonts.mapNotNull { (entry, font) -> find(entry, files)?.takeIf { font in used }?.let { it to font } }.toMap()
             val localFonts = HashMap<String, String>()
             if (copies.isNotEmpty() || fontEntries.isNotEmpty()) {
@@ -246,12 +265,14 @@ class Importer(
             }
             scenes.indices.mapTo(saved) { add(ids[it], check(scenes[it]).let { root -> if (renamedFonts.isEmpty()) root else root.mapFonts(renamedFonts) }, uniqueMoved[it]) }
             ids.forEach { File(store.mediaDir(it), ImportMarker).delete(); store.mediaDir(it).delete() }
+            mergeEffects(effects, unpackedEffects)
             val shared = community?.takeIf { saved.size == 1 }?.let { CommunityInfo.read(it, communityFiles) }
             return if (!ours) saved.map { if (it.element) it else it.copy(template = true) } else if (shared != null) saved.map { it.copy(community = shared) } else saved
         } catch (t: Throwable) {
             ids.forEach { store.mediaDir(it).deleteRecursively() }
             saved.forEach { store.delete(it.id) }
             fontFiles.forEach { it.delete() }
+            effectFiles.forEach { it.delete() }
             if (t is IOException || t is org.json.JSONException) throw ImportFailed(txt(R.string.library_err_malformed_package, t.message.toString()))
             throw t
         }
@@ -484,6 +505,19 @@ class Importer(
             return path.takeIf { it in paths } ?: paths.firstOrNull { it.endsWith("/$path") } ?: paths.firstOrNull { leaf(it) == name }
         }
 
+        private fun mergeEffects(folder: File?, entries: List<Pair<JSONObject, File>>) {
+            if (folder == null || entries.isEmpty()) return
+            val store = File(folder.parentFile, "custom-effects.json")
+            val current = runCatching { JSONArray(store.readText()) }.getOrDefault(JSONArray())
+            val incoming = entries.map { (json, file) -> JSONObject(json.toString()).put("file", file.path) }
+            val ids = incoming.mapTo(HashSet()) { it.optString("id") }
+            val next = JSONArray().apply {
+                (0 until current.length()).mapNotNull { current.optJSONObject(it) }.filter { it.optString("id") !in ids }.forEach(::put)
+                incoming.forEach(::put)
+            }
+            store.writeText(next.toString())
+        }
+
         private fun eachEntry(open: () -> InputStream, limits: ImportLimits, only: Set<String>? = null, visit: (String, InputStream) -> Unit) {
             var left = limits.unpacked
             var entries = 0
@@ -572,6 +606,7 @@ class Importer(
                 relink = { MediaRelink.relink(context, it) },
                 migration = EffectMigration.read(context, catalog),
                 fonts = File(context.filesDir, "fonts/imported"),
+                effects = File(context.filesDir, "custom-effects"),
             )
         }
     }

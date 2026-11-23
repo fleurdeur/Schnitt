@@ -42,6 +42,15 @@ class AppSettings(private val context: Context) {
     private var customThemeState by mutableStateOf(Themes.custom(context)?.let { it.name ?: "" })
 
     init {
+        // A first run on a small phone starts at half or quarter resolution.
+        // Full-resolution preview is still one tap away, but the default must
+        // not stutter before the user has a chance to change it.
+        if (!prefs.contains("previewQuality") && !prefs.contains("lowQualityPreview")) {
+            val memory = Runtime.getRuntime().maxMemory()
+            val cores = Runtime.getRuntime().availableProcessors()
+            if (memory <= 192L shl 20) previewQualityState = PreviewQuality.Quarter
+            else if (memory <= 320L shl 20 || cores <= 4) previewQualityState = PreviewQuality.Half
+        }
         // Older builds could leave a stale explicit OpenGL choice behind. Automatic now starts
         // Vulkan where available, which is dramatically faster with heavy effect stacks.
         if (!prefs.getBoolean("graphicsAutoV2", false)) {
@@ -292,6 +301,7 @@ class AppSettings(private val context: Context) {
     }
 
     private var savedSizesState by mutableStateOf(SavedSizes.decode(prefs.getString("savedSizes", null)))
+    private var toolOrderState by mutableStateOf(app.absentmotion.ui.home.toolOrder(prefs.getString("toolOrder", null)?.split(',').orEmpty()))
 
     var savedSizes: List<SavedSize>
         get() = savedSizesState
@@ -300,6 +310,14 @@ class AppSettings(private val context: Context) {
     var savedColours: List<Int>
         get() = savedColoursState
         set(value) { savedColoursState = value; prefs.edit().putString("savedColours", value.joinToString(",")).apply() }
+
+    var toolOrder: List<String>
+        get() = toolOrderState
+        set(value) {
+            val normalized = app.absentmotion.ui.home.toolOrder(value)
+            toolOrderState = normalized
+            prefs.edit().putString("toolOrder", normalized.joinToString(",")).apply()
+        }
 
     var templateHints: Int
         get() = prefs.getInt("templateHints", 0)

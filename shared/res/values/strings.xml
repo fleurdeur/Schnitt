@@ -75,6 +75,10 @@
     <string name="border">Border</string>
     <string name="none">None</string>
     <string name="color">Color</string>
+    <string name="face_guide">Face and eye detection</string>
+    <string name="face_guide_detect">Detect</string>
+    <string name="face_guide_missing">No clear face was found in this frame.</string>
+    <string name="face_guide_done">Eye and hair guides placed.</string>
     <string name="apply_to_children">Apply to Children</string>
     <string name="add_effect">Add Effect</string>
     <string name="drag_here_to_move_the_layer">Drag here to move the layer</string>
@@ -695,6 +699,13 @@
     <string name="newproject_custom_aspect">Custom aspect ratio</string>
     <string name="newproject_resolution">Resolution</string>
     <string name="newproject_canvas_size">Canvas Size</string>
+    <string name="project_link_import">Import project from link</string>
+    <string name="project_link_open_with">Open link with</string>
+    <string name="project_link_url">Alight Motion link or direct project URL</string>
+    <string name="project_link_alight">The Alight Motion package is unavailable. Check the share link and try again.</string>
+    <string name="project_link_web_page">This is a web page. Use a direct link to an exported project file.</string>
+    <string name="project_link_too_large">The project file is too large to download.</string>
+    <string name="project_link_download_failed">The project could not be downloaded. Check the link and try again.</string>
     <string name="newproject_link">Link</string>
     <string name="newproject_save_size_chip">+ Save size</string>
     <string name="newproject_save_size_title">Save size</string>
@@ -921,6 +932,12 @@
     <string name="media_error_interp_import">A video frame needed for Frame Interpolation could not be loaded (%1$s). Try again, or set Frame Interpolation to Off.</string>
     <string name="media_error_interp_render">%1$s could not render the requested video frame</string>
 
+    <string name="opening_reading">Reading project…</string>
+    <string name="opening_media">Checking media…</string>
+    <string name="opening_effects">Loading effects…</string>
+    <string name="opening_engine">Starting the editor…</string>
+    <string name="opening_preparing">Preparing the timeline…</string>
+    <string name="opening_saving">Saving changes…</string>
     <string name="engine_loading_effects">Loading effects…</string>
     <string name="engine_error_gpu_capture">GPU failed during capture</string>
 
@@ -2202,6 +2219,11 @@
     <string name="tools_download_addon">Download (%1$d MB)</string>
     <string name="tools_downloader_intro">Downloads videos and pictures from YouTube, Instagram, TikTok and other social media straight to your gallery. It needs a one-time add-on of %1$d MB.</string>
     <string name="tools_download_progress">Downloading %1$d%%</string>
+    <string name="tools_title">Tools</string>
+    <string name="tools_layout_hint">Hold a tool to drag it, or use the arrows</string>
+    <string name="tools_layout_change">Change layout</string>
+    <string name="tools_layout_move_up">Move up</string>
+    <string name="tools_layout_move_down">Move down</string>
     <string name="tools_ai_video">AI video</string>
     <string name="tools_twixor">Twixtor</string>
     <string name="tools_twixor_about">Blends new frames into slow motion so it stays smooth instead of stepping.</string>

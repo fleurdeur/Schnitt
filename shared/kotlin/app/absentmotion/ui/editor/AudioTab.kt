@@ -375,9 +375,13 @@ internal class SoundPreview(private val context: Context) {
     private var player: androidx.media3.exoplayer.ExoPlayer? = null
     var uri by mutableStateOf<String?>(null)
         private set
+    var key by mutableStateOf<String?>(null)
+        private set
 
-    fun toggle(next: String) {
-        val same = uri == next
+    fun toggle(next: String) = play(next, next)
+
+    fun play(next: String, tag: String) {
+        val same = key == tag
         stop()
         if (same) return
         val http = androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(okhttp3.OkHttpClient())
@@ -385,24 +389,45 @@ internal class SoundPreview(private val context: Context) {
         val nextPlayer = androidx.media3.exoplayer.ExoPlayer.Builder(context)
             .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(data)).build()
         player = nextPlayer
+        nextPlayer.setAudioAttributes(androidx.media3.common.AudioAttributes.DEFAULT, true)
+        nextPlayer.setHandleAudioBecomingNoisy(true)
         nextPlayer.setMediaItem(androidx.media3.common.MediaItem.fromUri(next))
         nextPlayer.addListener(object : androidx.media3.common.Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == androidx.media3.common.Player.STATE_ENDED) stop()
+                if (state == androidx.media3.common.Player.STATE_ENDED) finish(nextPlayer)
             }
 
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                stop()
+                // A failed preview must not look like a track that is still playing,
+                // and releasing inside the callback can leave ExoPlayer paused.
+                finish(nextPlayer)
             }
         })
         nextPlayer.prepare()
         nextPlayer.playWhenReady = true
         uri = next
+        key = tag
+    }
+
+    /** Drops a player only when it is still the one the UI is showing. */
+    private fun finish(done: androidx.media3.exoplayer.ExoPlayer) {
+        if (player !== done) {
+            done.release()
+            return
+        }
+        player = null
+        uri = null
+        key = null
+        done.stop()
+        done.release()
     }
 
     fun stop() {
-        player?.release()
+        val old = player ?: return
         player = null
         uri = null
+        key = null
+        old.stop()
+        old.release()
     }
 }

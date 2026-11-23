@@ -82,6 +82,7 @@ internal fun AudioLibrarySheet(state: EditorState, onClose: () -> Unit) {
     var ytdlpReady by remember { mutableStateOf(VideoDownloader.installed(context)) }
     var installing by remember { mutableStateOf(false) }
     var installProgress by remember { mutableStateOf(0f) }
+    var previewLoading by remember { mutableStateOf<String?>(null) }
     val query = debounced(search)
     val preview = remember { SoundPreview(context) }
     LaunchedEffect(shelf, ytdlpReady) {
@@ -123,6 +124,23 @@ internal fun AudioLibrarySheet(state: EditorState, onClose: () -> Unit) {
         val target = if (text.startsWith("http://") || text.startsWith("https://")) text else "ytsearch12:$text"
         loadedSite = target
         reload++
+    }
+    fun previewSound(sound: OnlineSound) {
+        if (previewLoading != null) return
+        if (!sound.viaDownloader) { preview.play(sound.url, sound.key); return }
+        previewLoading = sound.key
+        scope.launch {
+            try {
+                val file = OnlineAudio.download(context, sound)
+                preview.play(Uri.fromFile(file).toString(), sound.key)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Toast.makeText(context, app.absentmotion.i18n.failureText(context.getString(R.string.audio_library_error), e), Toast.LENGTH_SHORT).show()
+            } finally {
+                previewLoading = null
+            }
+        }
     }
     fun add(sound: OnlineSound) {
         if (adding != null) return
@@ -235,10 +253,12 @@ internal fun AudioLibrarySheet(state: EditorState, onClose: () -> Unit) {
                 }
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     itemsIndexed(shown.distinctBy { it.key }, key = { index, sound -> "$index:${sound.key}" }) { _, sound ->
-                        val playing = preview.uri == sound.url
-                        Row(Modifier.fillMaxWidth().height(62.dp).clickable { preview.toggle(sound.url) }.padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        val playing = preview.key == sound.key
+                        val loadingPreview = previewLoading == sound.key
+                        Row(Modifier.fillMaxWidth().height(62.dp).clickable(enabled = !loadingPreview) { previewSound(sound) }.padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(42.dp).clip(CircleShape).background(if (playing) Am.Accent else Am.Well), Alignment.Center) {
-                                Icon(if (playing) ChromeIcons.Pause else ChromeIcons.Play, null, Modifier.size(17.dp), tint = if (playing) Am.OnAccent else Am.OnDark)
+                                if (loadingPreview) CircularProgressIndicator(Modifier.size(17.dp), color = Am.Accent, strokeWidth = 2.dp)
+                                else Icon(if (playing) ChromeIcons.Pause else ChromeIcons.Play, null, Modifier.size(17.dp), tint = if (playing) Am.OnAccent else Am.OnDark)
                             }
                             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                                 Text(sound.title, color = if (playing) Am.Accent else Am.OnDark, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)

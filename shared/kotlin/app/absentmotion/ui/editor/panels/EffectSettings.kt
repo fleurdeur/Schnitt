@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -73,6 +75,7 @@ internal fun EffectSettings(state: EditorState, layer: Layer, instance: XmlNode,
     val enabled = definition.available
     val turn = effectTurn(definition, state.effectIndex)
     if (turn != null && enabled) TurnHook(state, turn)
+    if (definition.key in setOf("eyeblink", "hairflow")) FaceGuideRow(state, layer, definition, enabled)
     if (definition.category != "move" && !(definition.native && definition.category == "repeat") && state.scene.hasChildren(layer)) {
         Row(Modifier.fillMaxWidth().height(38.dp).padding(horizontal = 8.dp).alpha(if (enabled) 1f else 0.35f), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.apply_to_children), Modifier.weight(1f), color = Am.OnDark, fontSize = 14.sp)
@@ -112,6 +115,52 @@ internal fun EffectSettings(state: EditorState, layer: Layer, instance: XmlNode,
 }
 
 private val PieceEffects = setOf("scatter3d", "fracture3d", "particles")
+
+@Composable
+private fun FaceGuideRow(state: EditorState, layer: Layer, definition: EffectDefinition, enabled: Boolean) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    val media = layer.mediaFill
+    Row(Modifier.fillMaxWidth().height(38.dp).padding(horizontal = 8.dp).alpha(if (enabled && media != null) 1f else 0.35f), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.face_guide), Modifier.weight(1f), color = Am.OnDark, fontSize = 14.sp)
+        if (busy) CircularProgressIndicator(Modifier.size(18.dp), color = Am.Accent, strokeWidth = 2.dp)
+        else TextButton(enabled = enabled && media != null, onClick = {
+            val fill = media ?: return@TextButton
+            busy = true
+            scope.launch {
+                val found = app.absentmotion.ai.FaceGuides.detect(context, fill.uri, state.timeMs)
+                busy = false
+                if (found == null) {
+                    Toast.makeText(context, context.getString(R.string.face_guide_missing), Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                val eye = clamp01(found.eyeSpacing).coerceIn(0.05f, 0.55f)
+                state.editSelected("face-guide") { current ->
+                    current.withEffect(state.effectIndex) { fx ->
+                        if (definition.key == "eyeblink") {
+                            var next = fx.withEffectProperty("center", "point", formatFloats(floatArrayOf(found.centreX, found.centreY)), current.t, current.snap)
+                            next = next.withEffectProperty("spacing", "float", formatFloats(floatArrayOf(eye)), current.t, current.snap)
+                            next = next.withEffectProperty("width", "float", formatFloats(floatArrayOf(eye * 1.2f)), current.t, current.snap)
+                            next = next.withEffectProperty("height", "float", formatFloats(floatArrayOf(eye * 0.62f)), current.t, current.snap)
+                            next
+                        } else {
+                            val top = (found.centreY - eye * 2.15f).coerceIn(0.02f, 0.7f)
+                            val bottom = (found.centreY + eye * 5.6f).coerceIn(0.32f, 0.98f)
+                            var next = fx.withEffectProperty("root", "point", formatFloats(floatArrayOf(found.centreX, top)), current.t, current.snap)
+                            next = next.withEffectProperty("tip", "point", formatFloats(floatArrayOf((found.centreX + eye * 0.35f).coerceIn(0f, 1f), bottom)), current.t, current.snap)
+                            next = next.withEffectProperty("width", "float", formatFloats(floatArrayOf((eye * 2.8f).coerceIn(0.15f, 0.9f))), current.t, current.snap)
+                            next
+                        }
+                    }
+                }
+                Toast.makeText(context, context.getString(R.string.face_guide_done), Toast.LENGTH_SHORT).show()
+            }
+        }) { Text(stringResource(R.string.face_guide_detect), color = Am.Accent, fontSize = 13.sp, maxLines = 1) }
+    }
+}
+
+private fun clamp01(value: Float): Float = value.coerceIn(0f, 1f)
 
 @Composable
 internal fun MixPiecesRow(state: EditorState, layer: Layer, enabled: Boolean = true) {

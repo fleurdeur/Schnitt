@@ -95,12 +95,13 @@ fun OpeningOverlay(onCancel: () -> Unit, progress: Float? = null, detail: String
     ) {
         if (shown) Column(Modifier.size(if (working) 280.dp else 220.dp, if (working) 190.dp else 150.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             if (working) {
-                androidx.compose.material3.LinearProgressIndicator(
-                    progress = { progress?.coerceIn(0f, 1f) ?: 0f },
+                val fraction = progress
+                if (fraction != null) androidx.compose.material3.LinearProgressIndicator(
+                    progress = { fraction.coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth(),
                     color = Am.Accent,
                     trackColor = Color.White.copy(alpha = 0.2f),
-                )
+                ) else CircularProgressIndicator(Modifier.size(44.dp), color = Am.Accent)
                 Text(
                     detail ?: stringResource(R.string.still_working),
                     Modifier.padding(top = 16.dp),

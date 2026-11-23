@@ -7,6 +7,7 @@ import app.absentmotion.i18n.txt
 import app.absentmotion.platform.Context
 import app.absentmotion.platform.Bitmap
 import app.absentmotion.platform.Uri
+import app.absentmotion.effects.AexImporter
 import app.absentmotion.engine.EngineThread
 import app.absentmotion.library.CrashLogs
 import app.absentmotion.library.CrashReason
@@ -285,7 +286,8 @@ class Exporter(context: Context, private val engine: EngineThread, private val s
     }
 
     private suspend fun pack(scene: Scene, xml: String, out: OutputStream, community: CommunityPart? = null, progress: (Float) -> Unit) = withContext(Dispatchers.IO) {
-        writeProjectPackage(scene, xml, out, access, { uri -> runCatching { context.contentResolver.openInputStream(Uri.parse(uri)) }.getOrNull() }, community) { ensureStorage(); progress(it) }
+        val custom = AexImporter.bundle(context, scene.node.effectIds())
+        writeProjectPackage(scene, xml, out, access, { uri -> runCatching { context.contentResolver.openInputStream(Uri.parse(uri)) }.getOrNull() }, community, custom) { ensureStorage(); progress(it) }
     }
 
     private fun encode(pixels: ByteArray, width: Int, height: Int, settings: ExportSettings, reuse: Bitmap?, out: OutputStream) {
@@ -362,14 +364,15 @@ internal class CommunityPart(val info: JSONObject, val thumbnail: ByteArray)
 
 internal const val CommunityThumbnail = "community/thumb.webp"
 
-private fun app.absentmotion.model.XmlNode.effectIds(): Set<String> =
+internal fun app.absentmotion.model.XmlNode.effectIds(): Set<String> =
     (if (name == "effect") setOfNotNull(this["id"]) else emptySet()) + children.flatMap { it.effectIds() }
 
 internal suspend fun writeProjectPackage(scene: Scene, xml: String, out: OutputStream, access: MediaAccess, open: (String) -> InputStream?, progress: (Float) -> Unit) =
-    writeProjectPackage(scene, xml, out, access, open, null, progress)
+    writeProjectPackage(scene, xml, out, access, open, null, emptyList(), progress)
 
 internal suspend fun writeProjectPackage(
-    scene: Scene, xml: String, out: OutputStream, access: MediaAccess, open: (String) -> InputStream?, community: CommunityPart?, progress: (Float) -> Unit,
+    scene: Scene, xml: String, out: OutputStream, access: MediaAccess, open: (String) -> InputStream?, community: CommunityPart?,
+    customEffects: List<AexImporter.Bundled> = emptyList(), progress: (Float) -> Unit,
 ) {
     val allowed = ImportLimits().unpacked - PACKAGE_MARGIN
     if (scene.packageBytes() > allowed) throw ExportError(txt(R.string.export_package_too_large, (allowed shr 20).toString()))
@@ -430,6 +433,20 @@ internal suspend fun writeProjectPackage(
         if (community != null) {
             zip.putNextEntry(ZipEntry(CommunityThumbnail)); zip.write(community.thumbnail); zip.closeEntry()
             manifest.put("community", community.info)
+        }
+        if (customEffects.isNotEmpty()) {
+            val listed = JSONArray()
+            for (item in customEffects) {
+                currentCoroutineContext().ensureActive()
+                val entry = "effects/${item.id}.aex"
+                zip.putNextEntry(ZipEntry(entry))
+                item.file.inputStream().use { it.copyTo(zip) }
+                zip.closeEntry()
+                listed.put(item.json.put("file", entry))
+            }
+            zip.putNextEntry(ZipEntry("effects/custom-effects.json"))
+            zip.write(listed.toString().toByteArray())
+            zip.closeEntry()
         }
         zip.putNextEntry(ZipEntry("manifest.json")); zip.write(manifest.put("media", media).put("fonts", fonts).toString(1).toByteArray()); zip.closeEntry()
     }

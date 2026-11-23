@@ -125,7 +125,10 @@ object Beats {
         val hopMs = hop * 1000.0 / rate
         val sense = sensitivity.coerceIn(0.25f, 4f)
         val onsets = pickOnsets(flux, (MIN_GAP_SECONDS * 1000 / hopMs).roundToInt().coerceAtLeast(1), (MEAN_SECONDS * 1000 / hopMs).roundToInt(), sense)
-        if (onsets.size < 4) return Found(0f, emptyList())
+        val lead = LEAD * WINDOW / hop
+        fun at(frame: Double) = (frame + WINDOW / 2.0 / hop - lead) * hopMs
+        val fallback = onsets.map(::at).filter { it >= 0 }
+        if (onsets.size < 4) return Found(0f, fallback)
         val (period, phase) = tempo(flux, hopMs, minBpm, maxBpm)
         val tolerance = GRID_TOLERANCE * period
         val beats = sortedMapOf<Int, Double>()
@@ -134,12 +137,11 @@ object Beats {
             val off = abs(onset - (phase + n * period))
             if (off <= tolerance && (n !in beats || off < abs(beats.getValue(n) - (phase + n * period)))) beats[n] = onset
         }
-        val lead = LEAD * WINDOW / hop
-        val times = beats.values.map { (it + WINDOW / 2.0 / hop - lead) * hopMs }.filter { it >= 0 }
+        val times = beats.values.map { at(it) }.filter { it >= 0 }
         var bpm = 60_000.0 / (period * hopMs)
         while (bpm < minBpm && bpm > 0) bpm *= 2
         while (bpm > maxBpm && bpm > 0) bpm /= 2
-        return Found(bpm.toFloat(), times)
+        return Found(bpm.toFloat(), if (times.isEmpty()) fallback else times)
     }
 
     private fun tempo(flux: DoubleArray, hopMs: Double, minBpm: Double, maxBpm: Double): Pair<Double, Double> {

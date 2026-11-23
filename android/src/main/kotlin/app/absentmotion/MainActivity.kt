@@ -112,6 +112,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -158,7 +159,9 @@ class MainActivity : ComponentActivity() {
     private var importFailed by mutableStateOf<String?>(null)
     private var importProgress by mutableStateOf<Float?>(null)
     private var importDetail by mutableStateOf<String?>(null)
+    private var openingDetail by mutableStateOf<String?>(null)
     private var sharedMedia by mutableStateOf<List<SharedMedia>>(emptyList())
+    private var projectLinkInput by mutableStateOf<String?>(null)
     private var fontOffer by mutableStateOf<Pair<EditorState, List<String>>?>(null)
     private val fontsDeclined = HashSet<String>()
     private var engineProblem by mutableStateOf<String?>(null)
@@ -305,6 +308,7 @@ class MainActivity : ComponentActivity() {
                                 imported = imported, onImportShown = { imported = emptyList() }, onImportFile = { importUris(listOf(it)) },
                                 onTemplate = { id -> if (!opening && !openingProject) { openingProject = true; openJob = lifecycleScope.launch { try { if (engineWorks()) editingTemplate = id } finally { openingProject = false } } } }, onTemplateProject = ::projectFromTemplate,
                                 onHistory = { historyFor = Triple(it.id, it.title, it.damaged) }, onCollect = ::collectMedia, changes = projectsChanged,
+                                onImportLink = { if (!opening && !openingProject) projectLinkInput = "" },
                             )
                         }
                         editingTemplate?.let { id ->
@@ -340,7 +344,7 @@ class MainActivity : ComponentActivity() {
                 if (opening || openingProject) OpeningOverlay(
                     onCancel = { openJob?.cancel() },
                     progress = importProgress.takeIf { opening && !openingProject },
-                    detail = importDetail.takeIf { opening && !openingProject },
+                    detail = importDetail.takeIf { opening && !openingProject } ?: openingDetail,
                 )
                 engineProblem?.takeIf { problemShown }?.let { problem ->
                     UnsupportedPhone(problem, onClose = { problemShown = false }, onRetry = {
@@ -350,6 +354,14 @@ class MainActivity : ComponentActivity() {
                             if (!engineWorks()) problemShown = true
                         }
                     })
+                }
+                projectLinkInput?.let { input ->
+                    app.absentmotion.ui.home.ProjectLinkDialog({ projectLinkInput = null }, input) { uri, _ ->
+                        val temp = java.io.File(cacheDir, "project-link-" + System.nanoTime() + ".dat")
+                        runCatching { contentResolver.openInputStream(uri)?.use { source -> temp.outputStream().use { source.copyTo(it) } } }
+                            .getOrElse { throw app.absentmotion.library.ImportFailed(app.absentmotion.i18n.txt(R.string.project_link_download_failed)) }
+                        importUris(listOf(Uri.fromFile(temp)))
+                    }
                 }
                 openFailed?.let { id -> OpenFailedDialog({ openFailed = null; historyFor = Triple(id, "", false) }, outdated) { openFailed = null } }
                 importFailed?.let { reason ->
@@ -620,6 +632,7 @@ class MainActivity : ComponentActivity() {
         val started = SystemClock.elapsedRealtime()
         var tip = false
         val scene = try {
+            openingDetail = getString(R.string.opening_reading)
             val xml = withContext(DiskThread.dispatcher) { store.text(id) }
             val loaded = CrashLogs.during("opening a project") {
                 withContext(DiskThread.dispatcher) { xml?.let { store.load(id, it) } }
@@ -628,9 +641,11 @@ class MainActivity : ComponentActivity() {
                 DiskThread.executor.execute { runCatching { store.versions.snapshot(id, xml) } }
             }
             loaded?.let { scene ->
+                openingDetail = getString(R.string.opening_media)
                 withContext(Dispatchers.IO) {
                     ShapeCatalog.load(applicationContext)
                     val relinked = MediaRelink.relink(this@MainActivity, scene)
+                    openingDetail = getString(R.string.opening_effects)
                     val migrated = if (EffectMigration.needsMigration(relinked)) migration.migrate(relinked)
                         else EffectMigration.Result(relinked, emptyMap(), emptySet())
                     if (migrated.dropped.isNotEmpty()) DebugLog.write("import", "project $id could not carry over: ${migrated.dropped.joinToString("; ")}")
@@ -651,6 +666,7 @@ class MainActivity : ComponentActivity() {
             null
         } finally {
             opening = false
+            openingDetail = null
         }
         if (scene == null) openFailed = id
         if (tip) Toast.makeText(this, getString(R.string.alight_reimport_tip), Toast.LENGTH_LONG).show()
@@ -683,11 +699,16 @@ class MainActivity : ComponentActivity() {
     }
 
     internal suspend fun openNow(id: String): EditorState? {
-        if (!engineWorks()) return null
-        val scene = loadInBackground(id) ?: return null
-        cameFromEditor = true
-        val saver = ProjectSaver(id, store, recovery, failed = { runOnUiThread { Toast.makeText(this, getString(R.string.home_save_project_failed), Toast.LENGTH_LONG).show() } })
-        return EditorState(id, scene, store, engine, settings, saver).also { editor = it; offerFonts(it) }
+        return kotlinx.coroutines.coroutineScope {
+            openingDetail = getString(R.string.opening_engine)
+            val engineReady = async(kotlinx.coroutines.Dispatchers.Default) { engineWorks() }
+            val scene = loadInBackground(id)
+            if (!engineReady.await() || scene == null) return@coroutineScope null
+            openingDetail = getString(R.string.opening_preparing)
+            cameFromEditor = true
+            val saver = ProjectSaver(id, store, recovery, failed = { runOnUiThread { Toast.makeText(this@MainActivity, getString(R.string.home_save_project_failed), Toast.LENGTH_LONG).show() } })
+            EditorState(id, scene, store, engine, settings, saver).also { editor = it; offerFonts(it) }
+        }
     }
 
     private fun collectMedia(id: String) {
@@ -780,6 +801,8 @@ class MainActivity : ComponentActivity() {
         closing.endGesture()
         closing.leaveGroups()
         val scene = closing.scene
+        val timeMs = closing.timeMs
+        val projectId = closing.projectId
         lifecycleScope.launch {
             withContext(Dispatchers.IO) { runCatching { closing.saver.flush().get() } }
             if (closing.saver.failing && !closeAnyway) {
@@ -788,16 +811,19 @@ class MainActivity : ComponentActivity() {
                 return@launch
             }
             closeAnyway = false
+            engine.audio?.release()
+            MultiSelect.clear()
+            // Close the editor before serialising. Saving is already durable
+            // through the debounced saver, so the home screen appears at once
+            // while the final XML snapshot and thumbnail finish in the background.
+            if (editor === closing) editor = null
+            closingEditor = false
+            openingDetail = null
+            projectsChanged++
             val xml = withContext(Dispatchers.Default) { scene.toXml() }
             closing.saver.snapshot(xml)
-            engine.audio?.release()
-            try {
-                saveThumbnail(scene, closing.timeMs, closing.projectId, xml)
-            } finally {
-                MultiSelect.clear()
-                if (editor === closing) editor = null
-                closingEditor = false
-            }
+            withContext(Dispatchers.IO) { runCatching { saveThumbnail(scene, timeMs, projectId, xml) } }
+            projectsChanged++
         }
     }
 

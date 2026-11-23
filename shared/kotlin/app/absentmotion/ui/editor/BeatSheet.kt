@@ -65,9 +65,7 @@ internal fun BeatSheet(state: EditorState, onClose: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val sources = remember(state.scene) { state.beatSourceLayers() }
-    val targets = remember(state.scene) { state.scene.layers.filter { it.kind != "audio" } }
     var sourceId by remember { mutableStateOf(sources.firstOrNull { it.id == state.selectedId }?.id ?: sources.firstOrNull()?.id ?: 0L) }
-    var targetId by remember { mutableStateOf(state.selectedId?.takeIf { id -> targets.any { it.id == id } } ?: targets.firstOrNull()?.id ?: 0L) }
     var sensitivity by remember { mutableFloatStateOf(1f) }
     var band by remember { mutableStateOf(BeatBand.Full) }
     var minBpm by remember { mutableIntStateOf(70) }
@@ -94,9 +92,6 @@ internal fun BeatSheet(state: EditorState, onClose: () -> Unit) {
                 }
                 Section(stringResource(R.string.beat_source))
                 Chips(sources, sourceId, { "Audio · " + it.label.ifBlank { "layer" } }) { sourceId = it; analysis = null }
-                Section(stringResource(R.string.beat_target))
-                if (targets.isEmpty()) Text(stringResource(R.string.beat_no_audio), Modifier.padding(horizontal = 16.dp), color = Am.Warning, fontSize = 13.sp)
-                else Chips(targets, targetId, { it.label.ifBlank { it.kind } }) { targetId = it }
                 Section(stringResource(R.string.beat_sensitivity))
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Slider(
@@ -164,7 +159,7 @@ internal fun BeatSheet(state: EditorState, onClose: () -> Unit) {
                     val frames = state.beatFrames(found, sourceId)
                     Box(
                         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).height(46.dp).clip(RoundedCornerShape(23.dp)).background(Am.Accent)
-                            .clickable(enabled = targetId != 0L) {
+                            .clickable {
                                 val baked = state.bakeBeatBookmarks(found.beats, sourceId)
                                 Toast.makeText(context, context.getString(R.string.beat_baked, baked), Toast.LENGTH_SHORT).show()
                                 if (baked > 0) onClose()
