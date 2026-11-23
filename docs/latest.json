@@ -1,23 +1,13 @@
 {
-  "tag": "v5.17.0",
-  "name": "Schnitt 5.17.0",
-  "published": "2026-11-23T21:12:08Z",
-  "notes": "# Schnitt 5.17.0\n\n## Import a project from a link\nPaste an Alight Motion share link or a direct project file. Schnitt reads the title and picture first, so you can check it before importing.\n\n## Recommended effects\nThe effects browser now begins with three suggestions for the selected layer. It spots green screens, beat marks, short clips, cut-out pictures, and dark footage, then ranks the effects that fit.\n\n## Arrange the Tools page\nIn Change layout, hold a tool and drag it anywhere on the grid. The arrow buttons still work for precise moves.\n\n## Easier grouping\nSelect several layers and use the labelled Group button. Group and Mask and Group and Exclude are now inside the Group options.\n\n## Better Alight Motion imports\nMore older projects keep their settings, including Oscillate, Move Along Path, 360 Reorient Sphere, lens and box blur, Glass, Glow Scan, Clouds, and Displacement Map.\n\n## Bundle the effects a project uses\nProject packages now carry imported AEX effects, so a project opens with the same look on another phone.\n\n## Faster opening and closing\nProjects open with the engine and media steps running together. Closing returns to the home screen immediately while the final save and thumbnail finish in the background. Small phones start with a lighter preview and raise it when paused.\n\n## Face and eye guides\nEye Blink and Hair Flow can place themselves from a detected face. Nothing is guessed when no face is found.\n",
+  "tag": "v5.17.1",
+  "name": "Schnitt 5.17.1",
+  "published": "2026-11-23T22:17:20Z",
+  "notes": "# Schnitt 5.17.1\n\n## Smoother imported projects\nImported Alight Motion XML projects and share links now use a stricter performance profile. The preview measures its real render cost and lowers detail while playing instead of trying to draw every source frame.\n\nHeavy imported scenes also render at a reduced size while paused, so moving, trimming and editing a stacked project no longer forces full resolution for every touch.\n\nPlayback is capped to a sustainable frame rate. A 120 fps import no longer asks a phone for twice the frames it can draw, and a struggling renderer drops to a stable 30 fps instead of stuttering through every frame.\n\n## No more preview freezes while assets load\nWhile the first media, fonts or effect shaders are still being prepared, the background preview now waits instead of looping through the timeline. This removes the long unresponsive period after opening a large imported project or link.\n\nVideo preview copies are also paused during playback, so making a proxy never competes with decoding the clip you are watching.\n\n## Loading hints in the preview\nThe preview now says what it is waiting for:\n\n- Loading project assets\n- Preparing effects and shaders\n- Preparing text and fonts\n\nThe hint disappears as soon as the required work finishes.\n\n## Better effect cost estimates\nThe preview now counts hidden layers correctly, gives heavier effects such as blur, glow and particles a larger cost, and reduces quality further when a project stacks many effects on one layer.\n",
   "assets": [
     {
       "name": "app-arm64-v8a.apk",
-      "size": 106920073,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.17.0/app-arm64-v8a.apk"
-    },
-    {
-      "name": "app-armeabi-v7a.apk",
-      "size": 110619377,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.17.0/app-armeabi-v7a.apk"
-    },
-    {
-      "name": "app-universal.apk",
-      "size": 154207715,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.17.0/app-universal.apk"
+      "size": 106926757,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.17.1/app-arm64-v8a.apk"
     }
   ]
 }
