@@ -1,23 +1,13 @@
 {
-  "tag": "v5.17.1",
-  "name": "Schnitt 5.17.1",
-  "published": "2026-11-23T22:17:20Z",
-  "notes": "# Schnitt 5.17.1\n\n## Smoother imported projects\nImported Alight Motion XML projects and share links now use a stricter performance profile. The preview measures its real render cost and lowers detail while playing instead of trying to draw every source frame.\n\nHeavy imported scenes also render at a reduced size while paused, so moving, trimming and editing a stacked project no longer forces full resolution for every touch.\n\nPlayback is capped to a sustainable frame rate. A 120 fps import no longer asks a phone for twice the frames it can draw, and a struggling renderer drops to a stable 30 fps instead of stuttering through every frame.\n\n## No more preview freezes while assets load\nWhile the first media, fonts or effect shaders are still being prepared, the background preview now waits instead of looping through the timeline. This removes the long unresponsive period after opening a large imported project or link.\n\nVideo preview copies are also paused during playback, so making a proxy never competes with decoding the clip you are watching.\n\n## Loading hints in the preview\nThe preview now says what it is waiting for:\n\n- Loading project assets\n- Preparing effects and shaders\n- Preparing text and fonts\n\nThe hint disappears as soon as the required work finishes.\n\n## Better effect cost estimates\nThe preview now counts hidden layers correctly, gives heavier effects such as blur, glow and particles a larger cost, and reduces quality further when a project stacks many effects on one layer.\n",
+  "tag": "v5.17.2",
+  "name": "Schnitt 5.17.2",
+  "published": "2026-11-25T07:43:38Z",
+  "notes": "## Fixed green frames in exported stills\nExporting the current frame as PNG could come out green when the clip did not declare its colour standard. Those frames are now converted with the standard matrix instead of being sampled raw.\n\n## Projects that cannot open no longer crash\nIf a project file is damaged or unreadable, the app now shows an error and keeps your library intact instead of closing.\n\n## GM Anime and GM Soul accept every video\nThe upscale models no longer stop at small clips. Any resolution is prepared at the size the model handles well, then the finished frame is returned at a sharp output size up to 4K.\n\n## Anime eye and hair guides\nEye Blink and Hair Flow can now also find cartoon and anime eyes by analysing the frame. Nothing is placed when the analysis is not confident.\n\n## Telegram instead of Discord\nThe report dialog and the community links now point to the Telegram chat at t.me/schnitts.",
   "assets": [
     {
       "name": "app-arm64-v8a.apk",
-      "size": 106926757,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.17.1/app-arm64-v8a.apk"
-    },
-    {
-      "name": "app-armeabi-v7a.apk",
-      "size": 110626065,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.17.1/app-armeabi-v7a.apk"
-    },
-    {
-      "name": "app-universal.apk",
-      "size": 154214403,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.17.1/app-universal.apk"
+      "size": 106926497,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.17.2/app-arm64-v8a.apk"
     }
   ]
 }
