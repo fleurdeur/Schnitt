@@ -165,7 +165,6 @@
     <string name="settings_about">關於</string>
     <string name="settings_report_issue">回報問題</string>
     <string name="settings_suggest_feature">建議功能</string>
-    <string name="join_discord">加入 Discord</string>
     <string name="alight_reimport_tip">這是舊版的Alight Motion匯入：請從Alight Motion重新匯入，以取得最新外觀。</string>
     <string name="settings_help">說明</string>
     <string name="tutorial_settings_start">開始教學</string>
@@ -657,7 +656,7 @@
     <string name="report_title">複製並回報</string>
     <string name="report_copied">詳細資訊已複製。請貼到回報內容中。</string>
     <string name="report_github">GitHub問題回報</string>
-    <string name="report_discord">Discord</string>
+    <string name="report_telegram">Telegram</string>
     <string name="report_form">錯誤回報表單</string>
     <string name="report_open_failed">無法開啟專案。</string>
     <string name="safety_open_failed_with_history">專案檔案遺失或損毀，因此未進行任何變更。您可以從版本記錄還原先前的版本。</string>
@@ -2577,3 +2576,10 @@
 <string name="update_channel">更新</string>
 <string name="update_hide">隱藏</string>
 </resources>
+
+
+
+
+
+
+

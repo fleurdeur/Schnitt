@@ -165,7 +165,6 @@
     <string name="settings_about">Giới thiệu</string>
     <string name="settings_report_issue">Báo cáo sự cố</string>
     <string name="settings_suggest_feature">Đề xuất tính năng</string>
-    <string name="join_discord">Tham gia Discord</string>
     <string name="alight_reimport_tip">Bản nhập cũ từ Alight Motion: hãy nhập lại từ Alight Motion để có giao diện mới nhất.</string>
     <string name="settings_help">Trợ giúp</string>
     <string name="tutorial_settings_start">Bắt đầu hướng dẫn</string>
@@ -657,7 +656,7 @@
     <string name="report_title">Sao chép và báo cáo</string>
     <string name="report_copied">Đã sao chép thông tin. Hãy dán vào báo cáo của bạn.</string>
     <string name="report_github">Vấn đề trên GitHub</string>
-    <string name="report_discord">Discord</string>
+    <string name="report_telegram">Telegram</string>
     <string name="report_form">Biểu mẫu báo lỗi</string>
     <string name="report_open_failed">Không thể mở một dự án.</string>
     <string name="safety_open_failed_with_history">Tệp dự án bị thiếu hoặc hỏng nên không có gì bị thay đổi. Bạn có thể khôi phục phiên bản trước đó từ Lịch sử phiên bản.</string>
@@ -2577,3 +2576,10 @@
 <string name="update_channel">Bản cập nhật</string>
 <string name="update_hide">Ẩn</string>
 </resources>
+
+
+
+
+
+
+

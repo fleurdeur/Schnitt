@@ -165,7 +165,6 @@
     <string name="settings_about">Tungkol</string>
     <string name="settings_report_issue">Mag-ulat ng problema</string>
     <string name="settings_suggest_feature">Magmungkahi ng feature</string>
-    <string name="join_discord">Sumali sa Discord</string>
     <string name="alight_reimport_tip">Lumang import mula sa Alight Motion: i-import ulit mula sa Alight Motion para sa pinakabagong itsura.</string>
     <string name="settings_help">Tulong</string>
     <string name="tutorial_settings_start">Simulan ang tutorial</string>
@@ -661,7 +660,7 @@
     <string name="report_title">Kopyahin at iulat</string>
     <string name="report_copied">Nakopya ang mga detalye. I-paste ang mga ito sa iyong ulat.</string>
     <string name="report_github">Isyu sa GitHub</string>
-    <string name="report_discord">Discord</string>
+    <string name="report_telegram">Telegram</string>
     <string name="report_form">Form ng ulat ng bug</string>
     <string name="report_open_failed">Hindi mabuksan ang isang proyekto.</string>
     <string name="safety_open_failed_with_history">Nawawala o sira ang file ng proyekto, kaya walang nabago. Maaari mong ibalik ang naunang bersyon mula sa Version history.</string>
@@ -2610,3 +2609,10 @@
 <string name="update_channel">Mga update</string>
 <string name="update_hide">Itago</string>
 </resources>
+
+
+
+
+
+
+

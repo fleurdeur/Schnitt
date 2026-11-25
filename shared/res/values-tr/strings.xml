@@ -165,7 +165,6 @@
     <string name="settings_about">Hakkında</string>
     <string name="settings_report_issue">Sorun bildir</string>
     <string name="settings_suggest_feature">Özellik öner</string>
-    <string name="join_discord">Discord\'a katıl</string>
     <string name="alight_reimport_tip">Eski Alight Motion içe aktarımı: en güncel görünüm için Alight Motion\'dan yeniden içe aktarın.</string>
     <string name="settings_help">Yardım</string>
     <string name="tutorial_settings_start">Eğitimi başlat</string>
@@ -661,7 +660,7 @@
     <string name="report_title">Kopyala ve bildir</string>
     <string name="report_copied">Ayrıntılar kopyalandı. Bunları raporunuza yapıştırın.</string>
     <string name="report_github">GitHub sorunu</string>
-    <string name="report_discord">Discord</string>
+    <string name="report_telegram">Telegram</string>
     <string name="report_form">Hata bildirim formu</string>
     <string name="report_open_failed">Bir proje açılamadı.</string>
     <string name="safety_open_failed_with_history">Proje dosyası eksik veya bozuk, bu yüzden hiçbir şey değiştirilmedi. Sürüm geçmişinden daha eski bir sürümü geri getirebilirsiniz.</string>
@@ -2610,3 +2609,10 @@
 <string name="update_channel">Güncellemeler</string>
 <string name="update_hide">Gizle</string>
 </resources>
+
+
+
+
+
+
+

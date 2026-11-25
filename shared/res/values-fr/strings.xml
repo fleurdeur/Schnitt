@@ -165,7 +165,6 @@
     <string name="settings_about">À propos</string>
     <string name="settings_report_issue">Signaler un problème</string>
     <string name="settings_suggest_feature">Suggérer une fonctionnalité</string>
-    <string name="join_discord">Rejoindre Discord</string>
     <string name="alight_reimport_tip">Ancienne importation d’Alight Motion : importez-la à nouveau depuis Alight Motion pour obtenir le dernier rendu.</string>
     <string name="settings_help">Aide</string>
     <string name="tutorial_settings_start">Démarrer le tutoriel</string>
@@ -665,7 +664,7 @@
     <string name="report_title">Copier et signaler</string>
     <string name="report_copied">Les détails ont été copiés. Collez-les dans votre signalement.</string>
     <string name="report_github">Ticket GitHub</string>
-    <string name="report_discord">Discord</string>
+    <string name="report_telegram">Telegram</string>
     <string name="report_form">Formulaire de signalement de bug</string>
     <string name="report_open_failed">Un projet n’a pas pu être ouvert.</string>
     <string name="safety_open_failed_with_history">Le fichier du projet est manquant ou endommagé ; rien n’a été modifié. Vous pouvez restaurer une version antérieure depuis l’historique des versions.</string>
@@ -2643,3 +2642,10 @@
 <string name="update_channel">Mises à jour</string>
 <string name="update_hide">Masquer</string>
 </resources>
+
+
+
+
+
+
+

@@ -165,7 +165,6 @@
     <string name="settings_about">حول</string>
     <string name="settings_report_issue">الإبلاغ عن مشكلة</string>
     <string name="settings_suggest_feature">اقترح ميزة</string>
-    <string name="join_discord">انضم إلى Discord</string>
     <string name="alight_reimport_tip">استيراد قديم من Alight Motion: استورده مرة أخرى من Alight Motion للحصول على أحدث مظهر.</string>
     <string name="settings_help">مساعدة</string>
     <string name="tutorial_settings_start">بدء البرنامج التعليمي</string>
@@ -677,7 +676,7 @@
     <string name="report_title">نسخ وإبلاغ</string>
     <string name="report_copied">تم نسخ التفاصيل. الصقها في بلاغك.</string>
     <string name="report_github">مشكلة على GitHub</string>
-    <string name="report_discord">Discord</string>
+    <string name="report_telegram">Telegram</string>
     <string name="report_form">نموذج الإبلاغ عن خطأ</string>
     <string name="report_open_failed">تعذر فتح مشروع.</string>
     <string name="safety_open_failed_with_history">ملف المشروع مفقود أو تالف، لذا لم يتم تغيير أي شيء. يمكنك استرجاع إصدار سابق من سجل الإصدارات.</string>
@@ -2742,3 +2741,10 @@
 <string name="update_channel">التحديثات</string>
 <string name="update_hide">إخفاء</string>
 </resources>
+
+
+
+
+
+
+

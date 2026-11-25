@@ -23,8 +23,8 @@ enum class EnhanceMode(val xml: String, @StringRes val title: Int, @StringRes va
     Upscale4("upscale4", R.string.ai_enhance_upscale4, R.string.ai_enhance_upscale4_hint, R.string.ai_enhance_upscale4_help, 4, 360),
     Sharpen("sharpen", R.string.ai_enhance_sharpen, R.string.ai_enhance_sharpen_hint, R.string.ai_enhance_sharpen_help, 1, 1080),
     Faces("faces", R.string.ai_enhance_faces, R.string.ai_enhance_faces_hint, R.string.ai_enhance_faces_help, 1, 2160),
-    GmAnime("gm-anime", R.string.ai_enhance_gm_anime, R.string.ai_enhance_gm_anime_hint, R.string.ai_enhance_gm_anime_help, 4, 360),
-    GmSoul("gm-soul", R.string.ai_enhance_gm_soul, R.string.ai_enhance_gm_soul_hint, R.string.ai_enhance_gm_soul_help, 4, 360);
+    GmAnime("gm-anime", R.string.ai_enhance_gm_anime, R.string.ai_enhance_gm_anime_hint, R.string.ai_enhance_gm_anime_help, 4, 8192),
+    GmSoul("gm-soul", R.string.ai_enhance_gm_soul, R.string.ai_enhance_gm_soul_hint, R.string.ai_enhance_gm_soul_help, 4, 8192);
 
     fun fits(width: Int, height: Int): Boolean = width > 0 && height > 0 && min(width, height) <= maxShortSide
 }
@@ -42,7 +42,14 @@ data class EnhanceOptions(val mode: EnhanceMode = EnhanceMode.Upscale2, val cart
     val xml: String get() = mode.xml + (if (cartoon) "+cartoon" else "") + (if (blend != null) "+grain" else "")
 
     internal fun gmacPerFrame(width: Int, height: Int): Double = model.gmacPerMegapixel *
-        if (mode == EnhanceMode.Faces) FACE_MEGAPIXELS else width.toDouble() * height / 1e6 * TILE_OVERHEAD
+        when (mode) {
+            EnhanceMode.Faces -> FACE_MEGAPIXELS
+            EnhanceMode.GmAnime, EnhanceMode.GmSoul -> {
+                val (w, h) = gmWorkingSize(width, height)
+                w.toDouble() * h / 1e6 * TILE_OVERHEAD
+            }
+            else -> width.toDouble() * height / 1e6 * TILE_OVERHEAD
+        }
 
     companion object {
         fun parse(xml: String?): EnhanceOptions? {
@@ -51,6 +58,25 @@ data class EnhanceOptions(val mode: EnhanceMode = EnhanceMode.Upscale2, val cart
             return EnhanceOptions(mode, "cartoon" in parts, "grain" in parts)
         }
     }
+}
+
+/**
+ * The GM models are 128-tile generators.  A phone finishes a frame in a
+ * predictable time only when the model sees about six tiles, so larger sources
+ * are scaled to a working frame first and the finished 4x result is then
+ * resized to the declared output.  The output long side never exceeds 4K so
+ * the hardware encoder always accepts it.
+ */
+internal fun gmWorkingSize(width: Int, height: Int): Pair<Int, Int> {
+    require(width > 0 && height > 0) { "gm working size needs a real frame" }
+    val scale = min(540.0 / max(width, height), 360.0 / min(width, height))
+    fun even(v: Double) = maxOf(2, (v / 2).roundToInt() * 2)
+    return even(width * scale) to even(height * scale)
+}
+
+internal fun gmOutputSize(width: Int, height: Int): Pair<Int, Int> {
+    val (w, h) = gmWorkingSize(width, height)
+    return (w * 4) to (h * 4)
 }
 
 internal const val GRAIN_WEIGHT = 0.5f
@@ -168,11 +194,13 @@ internal object AiEnhance {
         if (options.mode == EnhanceMode.GmAnime || options.mode == EnhanceMode.GmSoul) {
             val gm = GmUpscale.open(context, options.mode)
                 ?: error(AppText.get(R.string.ai_enhance_gm_missing))
+            val working = gmWorkingSize(media.width, media.height)
+            val out = gmOutputSize(media.width, media.height)
             return gm.use {
                 val work = FrameWork { pts, argb, width, height, emit ->
-                    emit(pts, gm.upscale(argb, width, height))
+                    emit(pts, gm.frame(argb, width, height, working, out))
                 }
-                rewriteVideo(context, VideoJob(layer, media, options.mode.scale), progress, work)
+                rewriteVideo(context, VideoJob(layer, media, options.mode.scale, output = out), progress, work)
             }
         }
         AiDevice.probeGpu(context, options.model)

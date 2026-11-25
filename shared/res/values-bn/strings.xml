@@ -165,7 +165,6 @@
     <string name="settings_about">সম্পর্কে</string>
     <string name="settings_report_issue">সমস্যা জানান</string>
     <string name="settings_suggest_feature">একটি ফিচার প্রস্তাব করুন</string>
-    <string name="join_discord">Discord-এ যোগ দিন</string>
     <string name="alight_reimport_tip">পুরোনো Alight Motion ইমপোর্ট: সর্বশেষ চেহারার জন্য Alight Motion থেকে আবার ইমপোর্ট করুন।</string>
     <string name="settings_help">সহায়তা</string>
     <string name="tutorial_settings_start">টিউটোরিয়াল শুরু করুন</string>
@@ -661,7 +660,7 @@
     <string name="report_title">কপি ও রিপোর্ট করুন</string>
     <string name="report_copied">বিস্তারিত কপি হয়েছে। আপনার রিপোর্টে পেস্ট করুন।</string>
     <string name="report_github">GitHub ইস্যু</string>
-    <string name="report_discord">Discord</string>
+    <string name="report_telegram">Telegram</string>
     <string name="report_form">বাগ রিপোর্ট ফর্ম</string>
     <string name="report_open_failed">একটি প্রজেক্ট খোলা যায়নি।</string>
     <string name="safety_open_failed_with_history">প্রজেক্ট ফাইলটি নেই বা নষ্ট হয়েছে, তাই কিছুই বদলানো হয়নি। ভার্সন হিস্টোরি থেকে আগের কোনো ভার্সন ফিরিয়ে আনতে পারেন।</string>
@@ -2610,3 +2609,10 @@
 <string name="update_channel">আপডেট</string>
 <string name="update_hide">লুকান</string>
 </resources>
+
+
+
+
+
+
+

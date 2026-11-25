@@ -165,7 +165,6 @@
     <string name="settings_about">เกี่ยวกับ</string>
     <string name="settings_report_issue">รายงานปัญหา</string>
     <string name="settings_suggest_feature">เสนอฟีเจอร์</string>
-    <string name="join_discord">เข้าร่วม Discord</string>
     <string name="alight_reimport_tip">นำเข้าจาก Alight Motion แบบเก่า: นำเข้าอีกครั้งจาก Alight Motion เพื่อให้ได้ลุคล่าสุด</string>
     <string name="settings_help">ช่วยเหลือ</string>
     <string name="tutorial_settings_start">เริ่มบทแนะนำ</string>
@@ -657,7 +656,7 @@
     <string name="report_title">คัดลอกและรายงาน</string>
     <string name="report_copied">คัดลอกรายละเอียดแล้ว ให้วางลงในรายงานของคุณ</string>
     <string name="report_github">ปัญหาบน GitHub</string>
-    <string name="report_discord">Discord</string>
+    <string name="report_telegram">Telegram</string>
     <string name="report_form">แบบฟอร์มรายงานข้อผิดพลาด</string>
     <string name="report_open_failed">ไม่สามารถเปิดโปรเจกต์ได้</string>
     <string name="safety_open_failed_with_history">ไฟล์โปรเจกต์หายไปหรือเสียหาย จึงไม่มีการเปลี่ยนแปลงใด ๆ คุณสามารถเรียกคืนเวอร์ชันก่อนหน้าจากประวัติเวอร์ชันได้</string>
@@ -2577,3 +2576,10 @@
 <string name="update_channel">อัปเดต</string>
 <string name="update_hide">ซ่อน</string>
 </resources>
+
+
+
+
+
+
+

@@ -165,7 +165,6 @@
     <string name="settings_about">परिचय</string>
     <string name="settings_report_issue">समस्या की रिपोर्ट करें</string>
     <string name="settings_suggest_feature">कोई फ़ीचर सुझाएँ</string>
-    <string name="join_discord">Discord से जुड़ें</string>
     <string name="alight_reimport_tip">पुराना Alight Motion इम्पोर्ट: नवीनतम रूप के लिए इसे Alight Motion से फिर से इम्पोर्ट करें।</string>
     <string name="settings_help">सहायता</string>
     <string name="tutorial_settings_start">ट्यूटोरियल शुरू करें</string>
@@ -661,7 +660,7 @@
     <string name="report_title">कॉपी करें और रिपोर्ट करें</string>
     <string name="report_copied">जानकारी कॉपी हो गई है। इसे अपनी रिपोर्ट में पेस्ट करें।</string>
     <string name="report_github">GitHub इश्यू</string>
-    <string name="report_discord">Discord</string>
+    <string name="report_telegram">Telegram</string>
     <string name="report_form">बग रिपोर्ट फ़ॉर्म</string>
     <string name="report_open_failed">एक प्रोजेक्ट नहीं खुल सका।</string>
     <string name="safety_open_failed_with_history">प्रोजेक्ट फ़ाइल मौजूद नहीं है या खराब है, इसलिए कुछ भी नहीं बदला गया। आप वर्ज़न हिस्ट्री से पिछला वर्ज़न वापस ला सकते हैं।</string>
@@ -2610,3 +2609,10 @@
 <string name="update_channel">अपडेट</string>
 <string name="update_hide">छिपाएँ</string>
 </resources>
+
+
+
+
+
+
+

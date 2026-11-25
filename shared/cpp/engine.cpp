@@ -817,7 +817,11 @@ skgpu::graphite::BackendTexture EngineImpl::importTexture(AHardwareBuffer* buffe
                                                {(int)desc.width, (int)desc.height});
     if (!tex.isValid()) return tex;
     skgpu::graphite::VulkanTextureInfo textureInfo;
-    if ((colorStandard == 1 || colorStandard == 2 || colorStandard == 4 || colorStandard == 6) && skgpu::graphite::TextureInfos::GetVulkanTextureInfo(tex.info(), &textureInfo) && textureInfo.fYcbcrConversionInfo.isValid()) {
+    // Standard 0 means the stream never declared its matrix.  Without the
+    // sampler conversion the raw YUV buffer is sampled as RGB and every frame
+    // comes out green; assume BT.601, which is what the conversion matrices
+    // below fall back to.
+    if ((colorStandard == 0 || colorStandard == 1 || colorStandard == 2 || colorStandard == 4 || colorStandard == 6) && skgpu::graphite::TextureInfos::GetVulkanTextureInfo(tex.info(), &textureInfo) && textureInfo.fYcbcrConversionInfo.isValid()) {
         const auto& conversion = textureInfo.fYcbcrConversionInfo;
         const auto model = VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_IDENTITY;
         const auto range = VK_SAMPLER_YCBCR_RANGE_ITU_FULL;

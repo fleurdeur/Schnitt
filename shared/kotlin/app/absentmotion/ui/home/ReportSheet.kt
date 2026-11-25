@@ -46,17 +46,17 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.util.Locale
 
-internal data class ReportLinks(val issues: String, val discord: String, val form: String, val feature: String = BuiltInFeature) {
+internal data class ReportLinks(val issues: String, val telegram: String, val form: String, val feature: String = BuiltInFeature) {
     fun named(name: String): String? = when (name) {
         "github-issues" -> issues
-        "discord" -> discord
+        "telegram", "discord" -> telegram
         "bug-form" -> form
         "feature-form" -> feature
         else -> name.takeIf { it.startsWith("https://") }
     }
 
     companion object {
-        val BuiltIn = ReportLinks("$HOME_PAGE/issues", "https://discord.gg/xXEHj8Sx8X", "https://forms.gle/6bY8KBPMKc2iUypV6", BuiltInFeature)
+        val BuiltIn = ReportLinks("$HOME_PAGE/issues", "https://t.me/schnitts", "https://forms.gle/6bY8KBPMKc2iUypV6", BuiltInFeature)
         private const val PREFS = "report_links"
         @Volatile private var fetched: ReportLinks? = null
 
@@ -64,7 +64,7 @@ internal data class ReportLinks(val issues: String, val discord: String, val for
             fetched?.let { return it }
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             return BuiltIn.copy(
-                discord = prefs.getString("discord", null)?.takeIf(::isDiscordLink) ?: BuiltIn.discord,
+                telegram = prefs.getString("telegram", null)?.takeIf(::isChatLink) ?: BuiltIn.telegram,
                 form = prefs.getString("form", null)?.takeIf(::isFormLink) ?: BuiltIn.form,
                 feature = prefs.getString("feature", null)?.takeIf(::isFormLink) ?: BuiltIn.feature,
             )
@@ -84,7 +84,7 @@ internal data class ReportLinks(val issues: String, val discord: String, val for
                 null
             } ?: return now
             val found = parseReportLinks(readme, now)
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("discord", found.discord).putString("form", found.form).putString("feature", found.feature).apply()
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("telegram", found.telegram).putString("form", found.form).putString("feature", found.feature).apply()
             fetched = found
             return found
         }
@@ -116,19 +116,20 @@ internal object ReadmeSource : UpdateSource {
 }
 
 private val DiscordLink = Regex("""https://(?:discord\.gg|discord\.com/invite)/[A-Za-z0-9_-]+""")
+private val TelegramLink = Regex("""https://t\.me/[A-Za-z0-9_]+""")
 private val FormLink = Regex("""https://(?:forms\.gle/[A-Za-z0-9_-]+|docs\.google\.com/forms/d/(?:e/)?[A-Za-z0-9_-]+/viewform)""")
 private val BugLine = Regex("""(?i)report[\s%20+-]*a[\s%20+-]*bug|bug report""")
 private val FeatureLine = Regex("""(?i)suggest[\s%20+-]*a[\s%20+-]*feature|feature request""")
 
-internal fun isDiscordLink(text: String) = DiscordLink.matches(text)
+internal fun isChatLink(text: String) = DiscordLink.matches(text) || TelegramLink.matches(text)
 
 internal fun isFormLink(text: String) = FormLink.matches(text)
 
 internal fun parseReportLinks(readme: String, fallback: ReportLinks = ReportLinks.BuiltIn): ReportLinks {
-    val discord = DiscordLink.find(readme)?.value
+    val telegram = TelegramLink.find(readme)?.value ?: DiscordLink.find(readme)?.value
     val form = readme.lineSequence().filter { BugLine.containsMatchIn(it) && !it.contains("feature", ignoreCase = true) }.firstNotNullOfOrNull { FormLink.find(it)?.value }
     val feature = readme.lineSequence().filter { FeatureLine.containsMatchIn(it) && !BugLine.containsMatchIn(it) }.firstNotNullOfOrNull { FormLink.find(it)?.value }
-    return fallback.copy(discord = discord ?: fallback.discord, form = form ?: fallback.form, feature = feature ?: fallback.feature)
+    return fallback.copy(telegram = telegram ?: fallback.telegram, form = form ?: fallback.form, feature = feature ?: fallback.feature)
 }
 
 private val HomeFolders = listOf(Regex("""(?i)(?:\b[a-z]:)?[\\/]+(?:users|home)[\\/]+[^\\/\s"'<>]+"""))
@@ -163,7 +164,7 @@ internal fun ReportDialog(summary: String, onDismiss: () -> Unit) {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.report_copied), color = Am.Navy, fontSize = 14.sp, lineHeight = 19.sp)
                 ReportLinkButton(stringResource(R.string.report_github)) { runCatching { opener.openUri(found.issues) } }
-                ReportLinkButton(stringResource(R.string.report_discord)) { runCatching { opener.openUri(found.discord) } }
+                ReportLinkButton(stringResource(R.string.report_telegram)) { runCatching { opener.openUri(found.telegram) } }
                 ReportLinkButton(stringResource(R.string.report_form)) { runCatching { opener.openUri(found.form) } }
             }
         },

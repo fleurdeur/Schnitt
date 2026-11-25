@@ -197,7 +197,7 @@ The presets are built from Schnitt's own free effect shaders. They are not copie
 
 <h1><a id="community"></a>Community</h1>
 
-Community presets and XML live on the **[Schnitt Community page](https://fleurdeur.github.io/Schnitt/community/)**.
+Community presets and XML live on the **[Schnitt Community page](https://fleurdeur.github.io/Schnitt/community/)**. Chat and support happen on **[Telegram](https://t.me/schnitts)**.
 
 - Upload a preset or XML directly.
 - Every file shows **Pending** or **Approved**.

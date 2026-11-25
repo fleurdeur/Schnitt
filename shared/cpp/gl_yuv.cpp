@@ -133,7 +133,9 @@ bool GlYuv::setUp() {
 sk_sp<SkImage> GlYuv::convert(GrDirectContext* context, AHardwareBuffer* buffer, int colorStandard, int colorRange, SkAlphaType alpha) {
     if (fState == 0) fState = this->setUp() ? 1 : -1;
     if (fState < 0) return nullptr;
-    if (!fDriver && colorStandard != 1 && colorStandard != 2 && colorStandard != 4 && colorStandard != 6) return nullptr;
+    // Standard 0 means the stream never declared its matrix; assume BT.601
+    // like the coefficient selection below instead of sampling raw YUV.
+    if (!fDriver && colorStandard != 0 && colorStandard != 1 && colorStandard != 2 && colorStandard != 4 && colorStandard != 6) return nullptr;
     AHardwareBuffer_Desc desc;
     AHardwareBuffer_describe(buffer, &desc);
     if (IsRgb(desc.format) || IsTenBit(desc.format)) return nullptr;

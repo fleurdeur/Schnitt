@@ -165,7 +165,6 @@
     <string name="settings_about">ایپ کے بارے میں</string>
     <string name="settings_report_issue">مسئلہ رپورٹ کریں</string>
     <string name="settings_suggest_feature">کوئی فیچر تجویز کریں</string>
-    <string name="join_discord">Discord میں شامل ہوں</string>
     <string name="alight_reimport_tip">پرانا Alight Motion امپورٹ: تازہ ترین شکل کے لیے اسے Alight Motion سے دوبارہ امپورٹ کریں۔</string>
     <string name="settings_help">مدد</string>
     <string name="tutorial_settings_start">ٹیوٹوریل شروع کریں</string>
@@ -661,7 +660,7 @@
     <string name="report_title">کاپی کریں اور رپورٹ کریں</string>
     <string name="report_copied">تفصیلات کاپی ہو گئی ہیں۔ انہیں اپنی رپورٹ میں پیسٹ کریں۔</string>
     <string name="report_github">GitHub ایشو</string>
-    <string name="report_discord">Discord</string>
+    <string name="report_telegram">Telegram</string>
     <string name="report_form">بگ رپورٹ فارم</string>
     <string name="report_open_failed">ایک پروجیکٹ نہیں کھولا جا سکا۔</string>
     <string name="safety_open_failed_with_history">پروجیکٹ فائل موجود نہیں یا خراب ہے، اس لیے کچھ تبدیل نہیں ہوا۔ آپ ورژن ہسٹری سے پرانا ورژن واپس لا سکتے ہیں۔</string>
@@ -2610,3 +2609,10 @@
 <string name="update_channel">اپ ڈیٹس</string>
 <string name="update_hide">چھپائیں</string>
 </resources>
+
+
+
+
+
+
+

@@ -165,7 +165,6 @@
     <string name="settings_about">정보</string>
     <string name="settings_report_issue">문제 신고</string>
     <string name="settings_suggest_feature">기능 제안</string>
-    <string name="join_discord">Discord 참여하기</string>
     <string name="alight_reimport_tip">이전 Alight Motion 가져오기입니다. 최신 모습으로 보려면 Alight Motion에서 다시 가져오세요.</string>
     <string name="settings_help">도움말</string>
     <string name="tutorial_settings_start">튜토리얼 시작</string>
@@ -657,7 +656,7 @@
     <string name="report_title">복사 후 보고</string>
     <string name="report_copied">상세 내용을 복사했습니다. 보고서에 붙여넣으세요.</string>
     <string name="report_github">GitHub 이슈</string>
-    <string name="report_discord">Discord</string>
+    <string name="report_telegram">Telegram</string>
     <string name="report_form">버그 보고 양식</string>
     <string name="report_open_failed">프로젝트를 열 수 없습니다.</string>
     <string name="safety_open_failed_with_history">프로젝트 파일이 없거나 손상되어 아무것도 변경되지 않았습니다. 버전 기록에서 이전 버전을 복원할 수 있습니다.</string>
@@ -2577,3 +2576,10 @@
 <string name="update_channel">업데이트</string>
 <string name="update_hide">숨기기</string>
 </resources>
+
+
+
+
+
+
+

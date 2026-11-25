@@ -165,7 +165,6 @@
     <string name="settings_about">Perihal</string>
     <string name="settings_report_issue">Laporkan masalah</string>
     <string name="settings_suggest_feature">Cadangkan ciri</string>
-    <string name="join_discord">Sertai Discord</string>
     <string name="alight_reimport_tip">Import Alight Motion lama: import semula dari Alight Motion untuk rupa terkini.</string>
     <string name="settings_help">Bantuan</string>
     <string name="tutorial_settings_start">Mulakan tutorial</string>
@@ -657,7 +656,7 @@
     <string name="report_title">Salin dan laporkan</string>
     <string name="report_copied">Butiran telah disalin. Tampalkannya ke dalam laporan anda.</string>
     <string name="report_github">Isu GitHub</string>
-    <string name="report_discord">Discord</string>
+    <string name="report_telegram">Telegram</string>
     <string name="report_form">Borang laporan pepijat</string>
     <string name="report_open_failed">Projek tidak dapat dibuka.</string>
     <string name="safety_open_failed_with_history">Fail projek tiada atau rosak, jadi tiada apa-apa diubah. Anda boleh memulihkan versi terdahulu daripada Sejarah versi.</string>
@@ -2577,3 +2576,10 @@
 <string name="update_channel">Kemas kini</string>
 <string name="update_hide">Sembunyi</string>
 </resources>
+
+
+
+
+
+
+

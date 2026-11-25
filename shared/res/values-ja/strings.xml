@@ -165,7 +165,6 @@
     <string name="settings_about">アプリについて</string>
     <string name="settings_report_issue">問題を報告</string>
     <string name="settings_suggest_feature">機能をリクエスト</string>
-    <string name="join_discord">Discordに参加</string>
     <string name="alight_reimport_tip">古いAlight Motionの読み込みです。最新の見た目にするには、Alight Motionからもう一度読み込んでください。</string>
     <string name="settings_help">ヘルプ</string>
     <string name="tutorial_settings_start">チュートリアルを開始</string>
@@ -657,7 +656,7 @@
     <string name="report_title">コピーして報告</string>
     <string name="report_copied">詳細をコピーしました。報告に貼り付けてください。</string>
     <string name="report_github">GitHubの課題</string>
-    <string name="report_discord">Discord</string>
+    <string name="report_telegram">Telegram</string>
     <string name="report_form">不具合報告フォーム</string>
     <string name="report_open_failed">プロジェクトを開けませんでした。</string>
     <string name="safety_open_failed_with_history">プロジェクトファイルが見つからないか破損しているため、変更は行われませんでした。バージョン履歴から以前のバージョンを復元できます。</string>
@@ -2577,3 +2576,10 @@
 <string name="update_channel">アップデート</string>
 <string name="update_hide">隠す</string>
 </resources>
+
+
+
+
+
+
+

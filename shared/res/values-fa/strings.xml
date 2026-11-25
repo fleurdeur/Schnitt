@@ -165,7 +165,6 @@
     <string name="settings_about">درباره</string>
     <string name="settings_report_issue">گزارش مشکل</string>
     <string name="settings_suggest_feature">پیشنهاد یک قابلیت</string>
-    <string name="join_discord">به Discord بپیوندید</string>
     <string name="alight_reimport_tip">ورود قدیمی از Alight Motion: برای جدیدترین ظاهر، دوباره آن را از Alight Motion وارد کنید.</string>
     <string name="settings_help">راهنما</string>
     <string name="tutorial_settings_start">شروع آموزش</string>
@@ -661,7 +660,7 @@
     <string name="report_title">کپی و گزارش</string>
     <string name="report_copied">جزئیات کپی شد. آن‌ها را در گزارش خود جای‌گذاری کنید.</string>
     <string name="report_github">مشکل در GitHub</string>
-    <string name="report_discord">Discord</string>
+    <string name="report_telegram">Telegram</string>
     <string name="report_form">فرم گزارش خطا</string>
     <string name="report_open_failed">پروژه‌ای باز نشد.</string>
     <string name="safety_open_failed_with_history">فایل پروژه گم شده یا آسیب دیده است، بنابراین چیزی تغییر نکرد. می‌توانید نسخه قبلی را از تاریخچه نسخه‌ها برگردانید.</string>
@@ -2610,3 +2609,10 @@
 <string name="update_channel">به‌روزرسانی‌ها</string>
 <string name="update_hide">پنهان کردن</string>
 </resources>
+
+
+
+
+
+
+

@@ -216,7 +216,7 @@ internal class FrameEncoder private constructor(
     }
 }
 
-internal class VideoJob(val layer: Layer, val media: MediaDeclaration, val scale: Int = 1, val fpsScale: Int = 1)
+internal class VideoJob(val layer: Layer, val media: MediaDeclaration, val scale: Int = 1, val fpsScale: Int = 1, val output: Pair<Int, Int>? = null)
 
 internal fun interface FrameWork {
     suspend fun frame(pts: Long, argb: IntArray, width: Int, height: Int, emit: suspend (Long, IntArray) -> Unit)
@@ -231,7 +231,8 @@ internal suspend fun rewriteVideo(context: Context, job: VideoJob, progress: AiP
     check(seconds <= MAX_MATTE_SECONDS) { AppText.get(R.string.ai_clip_too_long, (MAX_MATTE_SECONDS / 60).toString()) }
     val fps = (media.fps ?: 30f) * job.fpsScale
     val file = aiFile(context, "mp4")
-    val needed = (videoBitrate(media.width * job.scale, media.height * job.scale, fps) / 8.0 * seconds).roundToLong() * 2 + 50_000_000L
+    val outSize = job.output ?: (media.width * job.scale to media.height * job.scale)
+    val needed = (videoBitrate(outSize.first, outSize.second, fps) / 8.0 * seconds).roundToLong() * 2 + 50_000_000L
     check(file.parentFile!!.usableSpace >= needed) { AppText.get(R.string.ai_not_enough_storage, (needed / 1_000_000).toString()) }
     val soundLimitUs = if (fill.outTime == Int.MAX_VALUE) media.duration else fill.outTime * 1000L
     val sound = keepSound(context, fill.uri, soundLimitUs)
@@ -245,7 +246,7 @@ internal suspend fun rewriteVideo(context: Context, job: VideoJob, progress: AiP
             check(stamps.isNotEmpty()) { AppText.get(R.string.ai_no_video_frames) }
             var size = 0 to 0
             val emit: suspend (Long, IntArray) -> Unit = { pts, argb ->
-                val out = encoder ?: FrameEncoder.open(context, file, size.first * job.scale, size.second * job.scale, fps, media.orientation, sound?.uri).also {
+                val out = encoder ?: FrameEncoder.open(context, file, outSize.first, outSize.second, fps, media.orientation, sound?.uri).also {
                     encoder = it
                     if (pts > 0) it.write(0L, argb)
                 }

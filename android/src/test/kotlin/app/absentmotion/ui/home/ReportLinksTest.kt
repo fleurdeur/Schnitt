@@ -9,7 +9,7 @@ import java.net.URI
 class ReportLinksTest {
     private val readme = """
         <p align="center">
-          <a href="https://discord.gg/abcDEF123"><img alt="Discord" src="https://img.shields.io/badge/Discord-join"></a>
+          <a href="https://t.me/schnitts"><img alt="Telegram" src="https://img.shields.io/badge/Telegram-join"></a>
           <a href="https://forms.gle/BugForm123"><img alt="Report a bug" src="https://img.shields.io/badge/Report-a%20bug-2b2b33?style=for-the-badge"></a>
           <a href="https://forms.gle/FeatureForm9"><img alt="Suggest a feature" src="https://img.shields.io/badge/Suggest-a%20feature"></a>
         </p>
@@ -17,9 +17,9 @@ class ReportLinksTest {
     """.trimIndent()
 
     @Test
-    fun readsDiscordAndBugForm() {
+    fun readsTelegramAndBugForm() {
         val links = parseReportLinks(readme)
-        assertEquals("https://discord.gg/abcDEF123", links.discord)
+        assertEquals("https://t.me/schnitts", links.telegram)
         assertEquals("https://forms.gle/BugForm123", links.form)
         assertEquals(ReportLinks.BuiltIn.issues, links.issues)
     }
@@ -30,7 +30,8 @@ class ReportLinksTest {
         assertEquals("https://forms.gle/FeatureForm9", links.feature)
         assertEquals("https://forms.gle/BugForm123", links.named("bug-form"))
         assertEquals("https://forms.gle/FeatureForm9", links.named("feature-form"))
-        assertEquals("https://discord.gg/abcDEF123", links.named("discord"))
+        assertEquals("https://t.me/schnitts", links.named("telegram"))
+        assertEquals("https://t.me/schnitts", links.named("discord"))
         assertEquals(links.issues, links.named("github-issues"))
         assertEquals("https://example.com/a", links.named("https://example.com/a"))
         assertEquals(null, links.named("javascript:alert(1)"))
@@ -51,13 +52,13 @@ class ReportLinksTest {
 
     @Test
     fun acceptsInviteStyleDiscordLink() {
-        assertEquals("https://discord.com/invite/xyz-1", parseReportLinks("join https://discord.com/invite/xyz-1 now").discord)
+        assertEquals("https://discord.com/invite/xyz-1", parseReportLinks("join https://discord.com/invite/xyz-1 now").telegram)
     }
 
     @Test
     fun fallsBackWhenNothingMatches() {
         assertEquals(ReportLinks.BuiltIn, parseReportLinks("no links here, https://example.com/discord"))
-        val cached = ReportLinks.BuiltIn.copy(discord = "https://discord.gg/cached")
+        val cached = ReportLinks.BuiltIn.copy(telegram = "https://t.me/cached")
         assertEquals(cached, parseReportLinks("", cached))
     }
 
@@ -69,9 +70,10 @@ class ReportLinksTest {
 
     @Test
     fun linkShapesAreChecked() {
-        assertTrue(isDiscordLink("https://discord.gg/xXEHj8Sx8X"))
-        assertFalse(isDiscordLink("http://discord.gg/xXEHj8Sx8X"))
-        assertFalse(isDiscordLink("https://evil.example/https://discord.gg/a"))
+        assertTrue(isChatLink("https://t.me/schnitts"))
+        assertTrue(isChatLink("https://discord.gg/xXEHj8Sx8X"))
+        assertFalse(isChatLink("http://t.me/schnitts"))
+        assertFalse(isChatLink("https://evil.example/https://discord.gg/a"))
         assertTrue(isFormLink("https://forms.gle/6bY8KBPMKc2iUypV6"))
         assertFalse(isFormLink("https://forms.gle/a/../b"))
     }

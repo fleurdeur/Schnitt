@@ -165,7 +165,6 @@
     <string name="settings_about">Про застосунок</string>
     <string name="settings_report_issue">Повідомити про проблему</string>
     <string name="settings_suggest_feature">Запропонувати функцію</string>
-    <string name="join_discord">Приєднатися до Discord</string>
     <string name="alight_reimport_tip">Старий імпорт з Alight Motion: імпортуйте його знову з Alight Motion, щоб отримати найновіший вигляд.</string>
     <string name="settings_help">Довідка</string>
     <string name="tutorial_settings_start">Почати навчання</string>
@@ -669,7 +668,7 @@
     <string name="report_title">Скопіювати й повідомити</string>
     <string name="report_copied">Дані скопійовано. Вставте їх у своє повідомлення.</string>
     <string name="report_github">Запит на GitHub</string>
-    <string name="report_discord">Discord</string>
+    <string name="report_telegram">Telegram</string>
     <string name="report_form">Форма повідомлення про помилку</string>
     <string name="report_open_failed">Не вдалося відкрити проєкт.</string>
     <string name="safety_open_failed_with_history">Файл проєкту відсутній або пошкоджений, тому нічого не змінено. Ви можете повернути попередню версію з історії версій.</string>
@@ -2676,3 +2675,10 @@
 <string name="update_channel">Оновлення</string>
 <string name="update_hide">Сховати</string>
 </resources>
+
+
+
+
+
+
+

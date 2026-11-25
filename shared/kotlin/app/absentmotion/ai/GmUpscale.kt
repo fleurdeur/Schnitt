@@ -1,6 +1,7 @@
 package app.absentmotion.ai
 
 import android.content.Context
+import android.graphics.Bitmap
 import org.tensorflow.lite.Interpreter
 import java.io.Closeable
 import java.io.FileInputStream
@@ -27,6 +28,30 @@ internal class GmUpscale private constructor(
     private val output = ByteBuffer.allocateDirect(OUT * OUT * 3 * 4).order(ByteOrder.nativeOrder())
     private val tile = IntArray(IN * IN)
     private val pixels = IntArray(OUT * OUT)
+
+    /**
+     * One exported frame: scale the source to the working size, run the tiled
+     * model, then resize the 4x result to the declared output.  Sizes the
+     * model never sees are resized bilinearly like the reference tool does.
+     */
+    fun frame(source: IntArray, width: Int, height: Int, working: Pair<Int, Int>, out: Pair<Int, Int>): IntArray {
+        val prepared = if (working.first == width && working.second == height) source
+        else scale(source, width, height, working.first, working.second)
+        val made = upscale(prepared, working.first, working.second)
+        return if (out.first == working.first * 4 && out.second == working.second * 4) made
+        else scale(made, working.first * 4, working.second * 4, out.first, out.second)
+    }
+
+    private fun scale(pixels: IntArray, width: Int, height: Int, toWidth: Int, toHeight: Int): IntArray {
+        val source = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        source.setPixels(pixels, 0, width, 0, 0, width, height)
+        val made = Bitmap.createScaledBitmap(source, toWidth, toHeight, true)
+        val out = IntArray(toWidth * toHeight)
+        made.getPixels(out, 0, toWidth, 0, 0, toWidth, toHeight)
+        if (made !== source) made.recycle()
+        source.recycle()
+        return out
+    }
 
     fun upscale(source: IntArray, width: Int, height: Int): IntArray {
         val outWidth = width * scale
