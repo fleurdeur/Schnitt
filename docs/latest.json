@@ -1,7 +1,7 @@
 {
   "tag": "v5.17.2",
   "name": "Schnitt 5.17.2",
-  "published": "2026-11-25T07:43:38Z",
+  "published": "2026-11-25T15:30:00Z",
   "notes": "## Fixed green frames in exported stills\nExporting the current frame as PNG could come out green when the clip did not declare its colour standard. Those frames are now converted with the standard matrix instead of being sampled raw.\n\n## Projects that cannot open no longer crash\nIf a project file is damaged or unreadable, the app now shows an error and keeps your library intact instead of closing.\n\n## GM Anime and GM Soul accept every video\nThe upscale models no longer stop at small clips. Any resolution is prepared at the size the model handles well, then the finished frame is returned at a sharp output size up to 4K.\n\n## Anime eye and hair guides\nEye Blink and Hair Flow can now also find cartoon and anime eyes by analysing the frame. Nothing is placed when the analysis is not confident.\n\n## Telegram instead of Discord\nThe report dialog and the community links now point to the Telegram chat at t.me/schnitts.",
   "assets": [
     {
