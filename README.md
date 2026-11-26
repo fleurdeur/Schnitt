@@ -9,7 +9,7 @@
 
 ### Cut. Animate. Render.
 
-**A focused Android video editor with a native GPU engine, a real timeline, and no paywalls.**
+**A focused Android video editor with a native GPU engine, a multi-purpose timeline, and no paywalls.**
 
 <br/>
 
