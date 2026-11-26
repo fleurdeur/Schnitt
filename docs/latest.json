@@ -1,7 +1,7 @@
 {
   "tag": "v5.17.3",
   "name": "Schnitt 5.17.3",
-  "published": "2026-11-26T06:39:38Z",
+  "published": "2026-11-26T06:41:20Z",
   "notes": "## Ready for Android 16\nSchnitt now runs on Android 8 through Android 16, including phones that use 16 KB memory pages. The AI model runtimes were updated so every native library in the app is aligned for them; without that, the engine and AI models could fail to load on such devices.\n\nThe update, depth and upscale models now use the current ONNX Runtime and LiteRT releases, with the same features and the same quality. Export services already pick the right foreground-service type on Android 15 and newer.\n\n## Same engine, safer devices\nThe render engine, encoder and decoder paths are unchanged. Where a device reports unusual codec behaviour, the app keeps its existing safe fallbacks.",
   "assets": [
     {
