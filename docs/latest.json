@@ -1,23 +1,13 @@
 {
-  "tag": "v5.17.2",
-  "name": "Schnitt 5.17.2",
-  "published": "2026-11-25T07:43:38Z",
-  "notes": "## Fixed green frames in exported stills\nExporting the current frame as PNG could come out green when the clip did not declare its colour standard. Those frames are now converted with the standard matrix instead of being sampled raw.\n\n## Projects that cannot open no longer crash\nIf a project file is damaged or unreadable, the app now shows an error and keeps your library intact instead of closing.\n\n## GM Anime and GM Soul accept every video\nThe upscale models no longer stop at small clips. Any resolution is prepared at the size the model handles well, then the finished frame is returned at a sharp output size up to 4K.\n\n## Anime eye and hair guides\nEye Blink and Hair Flow can now also find cartoon and anime eyes by analysing the frame. Nothing is placed when the analysis is not confident.\n\n## Telegram instead of Discord\nThe report dialog and the community links now point to the Telegram chat at t.me/schnitts.",
+  "tag": "v5.17.3",
+  "name": "Schnitt 5.17.3",
+  "published": "2026-11-26T06:39:38Z",
+  "notes": "## Ready for Android 16\nSchnitt now runs on Android 8 through Android 16, including phones that use 16 KB memory pages. The AI model runtimes were updated so every native library in the app is aligned for them; without that, the engine and AI models could fail to load on such devices.\n\nThe update, depth and upscale models now use the current ONNX Runtime and LiteRT releases, with the same features and the same quality. Export services already pick the right foreground-service type on Android 15 and newer.\n\n## Same engine, safer devices\nThe render engine, encoder and decoder paths are unchanged. Where a device reports unusual codec behaviour, the app keeps its existing safe fallbacks.",
   "assets": [
     {
       "name": "app-arm64-v8a.apk",
-      "size": 106926505,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.17.2/app-arm64-v8a.apk"
-    },
-    {
-      "name": "app-armeabi-v7a.apk",
-      "size": 110625809,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.17.2/app-armeabi-v7a.apk"
-    },
-    {
-      "name": "app-universal.apk",
-      "size": 154214147,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.17.2/app-universal.apk"
+      "size": 107647457,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.17.3/app-arm64-v8a.apk"
     }
   ]
 }
