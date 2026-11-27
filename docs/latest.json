@@ -1,23 +1,33 @@
 {
-  "tag": "v5.17.3",
-  "name": "Schnitt 5.17.3",
-  "published": "2026-11-26T06:41:20Z",
-  "notes": "## Ready for Android 16\nSchnitt now runs on Android 8 through Android 16, including phones that use 16 KB memory pages. The AI model runtimes were updated so every native library in the app is aligned for them; without that, the engine and AI models could fail to load on such devices.\n\nThe update, depth and upscale models now use the current ONNX Runtime and LiteRT releases, with the same features and the same quality. Export services already pick the right foreground-service type on Android 15 and newer.\n\n## Same engine, safer devices\nThe render engine, encoder and decoder paths are unchanged. Where a device reports unusual codec behaviour, the app keeps its existing safe fallbacks.",
+  "tag": "v5.18.0",
+  "name": "Schnitt 5.18.0",
+  "published": "2026-11-27T08:47:34Z",
+  "notes": "# Schnitt 5.18.0\n\nThis release focuses on export quality, faithful project import and a wider Android range.\n\n## Export quality you control\n\nThe export screen now has three rate modes. **Quality** keeps the familiar simple slider. **Bits per pixel** lets you target a precise bits/(pixel * frame) value from 0.010 to 1.500. **Bitrate** lets you set an explicit rate from 1 to 200 Mbps. The estimated rate is shown live before rendering, and every value is clamped to what the selected encoder actually supports.\n\nCustom project frame rates now go up to 9999 fps, both for new projects and in project settings.\n\nExporting an unchanged project again with the same settings opens the finished file straight away instead of re-encoding it. If that file was deleted, Schnitt renders it again.\n\nFraming is taken from the project, never from the phone screen. The native renderer fits the scene uniformly into the output and centres it, so a project looks the same in the timeline and in the exported file on every screen size and aspect ratio. Rotated portrait video buffers keep their correct pre-rotation framing.\n\n## Paste Style and effect search\n\nPaste Style now copies effects and layer animations as well as fill, frame, shadow, opacity and blend mode. Each part is available on its own on phones and in the desktop multi-selection panel.\n\nEffect search keeps matching the English effect name after the app is translated, so the same search finds the same effect in every language. Imported Alight Motion effects also keep their upstream aliases.\n\nWith the playhead past a clip, the tool row now puts **Extend end** before **Move to playhead**.\n\n## Previews and thumbnails\n\nFull preview renders at the display resolution instead of an internal cap. Project cards show the last previewed frame, so finished projects no longer appear as transparent tiles.\n\n## Import that keeps the look\n\nAlight XML imports preserve effect colours, switches, point parameters and keyframes. When an effect is missing, the project is never silently guessed at: you are asked to choose from suggested similar effects, and the chosen effect receives the original property values and animation. Wave Warp, Replace Color and Lens Blur now import through this path.\n\nHome also gains **Image to XML** under Tools. It traces an image into colour groups and shapes and exports editable XML/SVG. It is marked unstable while the tracing improves.\n\nShared project links can be opened from other apps. Schnitt finds an XML or supported project link in the shared text, downloads it in the background with size progress, and imports it. Link previews show the project title, description and thumbnail when the host provides them. The downloaded package is now handed to the importer without copying it on the UI thread, so large linked projects no longer freeze the import dialog, and its temporary file is cleaned up afterwards.\n\n## Android 7 support\n\nThe Compatible builds target Android 7.0 (API 24) with a native engine built against API 24. Each shipped engine is checked for symbols above API 24 before release. The standard build still targets modern devices. Hardware-buffer video paths are only used on Android 8 and newer, where those APIs exist; older devices fall back safely instead of crashing.\n\nThe compatible downloads cover arm64 and 32-bit ARM phones. The standard universal APK also covers x86_64 emulators on modern Android.\n\n## Downloads\n\n| File | Phones | Android |\n| --- | --- | --- |\n| `app-arm64-v8a.apk` | 64-bit ARM | 13 and newer |\n| `app-armeabi-v7a.apk` | 32-bit ARM | 13 and newer |\n| `app-universal.apk` | ARM64, ARM32 and x86_64 | 13 and newer |\n| `app-compatible-arm64-v8a.apk` | 64-bit ARM | 7.0 and newer |\n| `app-compatible-armeabi-v7a.apk` | 32-bit ARM | 7.0 and newer |\n\nA compatible APK has the same features and output quality as the standard build; it uses the API-24 engine and the safe fallbacks older phones need. Install the standard APK whenever Android 13 or newer is available.\n\n## Under the hood\n\nEffect migration no longer replaces unknown effects with a guess, project saves remain atomic, and export frame counts are clamped safely for very long or very high-frame-rate projects.\n",
   "assets": [
     {
       "name": "app-arm64-v8a.apk",
-      "size": 107647457,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.17.3/app-arm64-v8a.apk"
+      "size": 107671343,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.18.0/app-arm64-v8a.apk"
     },
     {
       "name": "app-armeabi-v7a.apk",
-      "size": 110975149,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.17.3/app-armeabi-v7a.apk"
+      "size": 110999159,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.18.0/app-armeabi-v7a.apk"
+    },
+    {
+      "name": "app-compatible-arm64-v8a.apk",
+      "size": 90196084,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.18.0/app-compatible-arm64-v8a.apk"
+    },
+    {
+      "name": "app-compatible-armeabi-v7a.apk",
+      "size": 88073902,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.18.0/app-compatible-armeabi-v7a.apk"
     },
     {
       "name": "app-universal.apk",
-      "size": 156604663,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.17.3/app-universal.apk"
+      "size": 156629277,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.18.0/app-universal.apk"
     }
   ]
 }
