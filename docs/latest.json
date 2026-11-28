@@ -1,33 +1,33 @@
 {
-  "tag": "v5.19.0",
-  "name": "Schnitt 5.19.0",
-  "published": "2026-11-27T11:43:37Z",
-  "notes": "# Schnitt 5.19.0\n\nSchnitt 5.19.0 makes multi-selection faster, brings updates and imports into the app, and rebuilds Image to XML around a cleaner tracer. It also hardens graphics startup after a native crash.\n\n## Paste across a selection\n\nPaste Layer and Paste Style now work on several selected layers at once, on phones and in the desktop multi-selection panel. Clipboard actions keep the selection order and apply each paste to every chosen layer, so a whole group can be styled in one step.\n\n## Updates inside the app\n\nThe update sheet lets you choose the APK that matches your device. Schnitt downloads it in the app with a progress bar, verifies the release signature and checksum, and changes the button to **Install**. The system installer opens with the downloaded file, and a successful install removes the temporary APK.\n\nThe update list prefers the right architecture for the phone and does not offer an Android 13-only build to a compatible install by default.\n\n## Import with progress\n\nProject imports show a progress bar with an estimated time. Linked imports report download and processing separately, so a large package no longer looks frozen. A normal project opens as soon as the import finishes.\n\n## Image to XML rebuilt\n\nThe bitmap tracer now uses weighted palette selection, small-region cleanup, marching-squares contours, and adaptive simplification. A solid background is added only when the image is fully opaque, so transparent artwork keeps its holes.\n\nTraces are cleaner and smaller across 10 to 64 colours, with rectangle and ellipse snapping and cubic curves only where they stay faithful to the source. The generated SVG opens directly as an editable project.\n\n## Graphics stability\n\nThe engine remembers which graphics backend was in use if the app closed natively while editing, and starts the other backend next time instead of retrying the crashing one. HONOR phones on Android 17 start with OpenGL, avoiding a Vulkan driver crash seen on that combination. The Vulkan swapchain path also rejects unusable images instead of dereferencing a missing surface.\n\n## Downloads\n\n| File | Phones | Android |\n| --- | --- | --- |\n| `app-arm64-v8a.apk` | 64-bit ARM | 13 and newer |\n| `app-armeabi-v7a.apk` | 32-bit ARM | 13 and newer |\n| `app-universal.apk` | ARM64, ARM32 and x86_64 | 13 and newer |\n| `app-compatible-arm64-v8a.apk` | 64-bit ARM | 7.0 and newer |\n| `app-compatible-armeabi-v7a.apk` | 32-bit ARM | 7.0 and newer |\n\nInstall the standard APK whenever Android 13 or newer is available. The compatible APKs have the same features and use the API-24 engine and safe fallbacks older phones need.\n\n## Fixes\n\n- Removed two unsafe non-null assertions in the update flow that could fail on a malformed release response.\n- The release signer fingerprint used by update checks matches the published APKs.\n- Effect migration keeps unknown imported effects and their values instead of replacing them with a guess.\n- The bitmap tracer never adds an opaque background to an image that contains transparency.\n",
+  "tag": "v5.20.0",
+  "name": "Schnitt 5.20.0",
+  "published": "2026-11-28T01:17:18Z",
+  "notes": "# Schnitt 5.20.0\n\nSchnitt 5.20.0 fixes high-frame-rate export timing, imported transform timing, and the remaining blur and colour mismatches from Alight projects. Image to XML now produces editable shapes instead of vector outlines for simple icons.\n\n## High-frame-rate export\n\nEncoded frames now render at their exact sub-millisecond scene time instead of snapping to whole milliseconds. Transforms no longer repeat or skip at 120, 144, 240 or custom rates. Matroska and WebM use 10 microsecond timestamps for high rates, so 1/120 s and 1/240 s do not alternate between long and short frames.\n\nCustom rates above the encoder's advertised range now cap only the rate-control hint. Every real frame timestamp is still written, so a 9999 fps export can start instead of failing while the encoder is configured.\n\n## Imported projects\n\nImported scenes now upload the repaired document to the native renderer. Second-based Alight keyframes are normalized before preview and export, so positions, scales and retimed clips match the source at every timestamp.\n\nLegacy Alight lens and zoom blur instances are repaired when opened: their centers, radii, strengths and keyframes are carried into the new radial blur. Effect colours, switches and point parameters keep their imported names and values.\n\n## Image to XML\n\nTraced rectangles, ellipses and rounded rectangles become editable native shapes instead of vector paths. Each traced colour island is emitted as its own top-level icon layer, including single-contour even-odd islands that used to fall back to vectors.\n\n## Blur and colour\n\nZoom, lens, replace-colour, spot-colour, hue/saturation, RGB split, vignette, sharpen and displacement effects use the Alight sampling and colour maths. New radial blur and displacement controls are translated in every language.\n\n## Downloads\n\n- `app-arm64-v8a.apk` and `app-armeabi-v7a.apk` need Android 13 or newer.\n- `app-compatible-arm64-v8a.apk` and `app-compatible-armeabi-v7a.apk` work on Android 7.0 and newer.\n- `app-universal.apk` contains every supported 64-bit and 32-bit library for Android 13 or newer.\n\nAll APKs are signed with the same release certificate as 5.19.0.\n",
   "assets": [
     {
       "name": "app-arm64-v8a.apk",
-      "size": 107688079,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.19.0/app-arm64-v8a.apk"
+      "size": 107689523,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.20.0/app-arm64-v8a.apk"
     },
     {
       "name": "app-armeabi-v7a.apk",
-      "size": 111016007,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.19.0/app-armeabi-v7a.apk"
+      "size": 111017451,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.20.0/app-armeabi-v7a.apk"
     },
     {
       "name": "app-compatible-arm64-v8a.apk",
-      "size": 90212608,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.19.0/app-compatible-arm64-v8a.apk"
+      "size": 90215992,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.20.0/app-compatible-arm64-v8a.apk"
     },
     {
       "name": "app-compatible-armeabi-v7a.apk",
-      "size": 88090974,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.19.0/app-compatible-armeabi-v7a.apk"
+      "size": 88094422,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.20.0/app-compatible-armeabi-v7a.apk"
     },
     {
       "name": "app-universal.apk",
-      "size": 156646581,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.19.0/app-universal.apk"
+      "size": 156648029,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.20.0/app-universal.apk"
     }
   ]
 }
