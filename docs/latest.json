@@ -1,33 +1,33 @@
 {
-  "tag": "v5.21.0",
-  "name": "Schnitt 5.21.0",
-  "published": "2026-11-28T03:10:46Z",
-  "notes": "# Schnitt 5.21.0\n\nSchnitt 5.21.0 repairs Alight keyframes imported by 5.20, keeps Image to XML sharp and editable, and adds real face landmarks for eye and hair guides.\n\n## Imported keyframes\nAlight XML and linked-project imports keep every transform and effect key at the time it was authored. Keys outside the visible layer range are intentional trimmed-animation keys and are preserved. Projects that 5.20 already imported are restored automatically the next time they are opened.\n\n## Image to XML\nTraces keep up to 2048 pixels on the long edge instead of 1200, so logos and screenshots stay sharp. Rectangles and ellipses become native shape layers, and tiny islands of one colour share a layer instead of creating hundreds of one-pixel layers. Contour tracing now uses a sparse border graph, so large photos no longer allocate hundreds of megabytes or stall on low-end phones.\n\n## Face, eye and hair guides\nA bundled on-device face mesh with 478 landmarks drives eye and hair guides. Eye blink guides use the real iris positions, and hair flow starts at the forehead and spans the actual face width. Anime and illustrated portraits use a dark-eye fallback when the mesh is unsure.\n\n## Schnitt naming\nThe remaining AbsentMotion labels in update notifications and dialogs now say Schnitt.\n\n## Downloads\n\n- `app-arm64-v8a.apk` and `app-armeabi-v7a.apk` need Android 13 or newer.\n- `app-compatible-arm64-v8a.apk` and `app-compatible-armeabi-v7a.apk` work on Android 7.0 and newer.\n- `app-universal.apk` contains every supported 64-bit and 32-bit library for Android 13 or newer.\n\nAll APKs are signed with the same release certificate as 5.20.0.\n",
+  "tag": "v5.21.1",
+  "name": "Schnitt 5.21.1",
+  "published": "2026-11-28T05:02:56Z",
+  "notes": "# Schnitt 5.21.1\n\nSchnitt 5.21.1 fixes Wave Warp placement in imported Alight projects and makes imported trim keyframes visible again.\n\n## Wave Warp\nAlight stores Wave Warp spacing in radians across the layer. Schnitt was converting that value again as if it were degrees, so a wave that should ripple across the layer became an almost uniform offset and shifted the whole layer to the wrong position. Imported waves now keep their intended spacing, ripple and placement.\n\n## Imported keyframes\n- Keys outside a trimmed layer's visible range now appear as faint diamonds on the selected timeline row. They remain editable instead of being invisible but still clickable.\n- The easing graph stays available before the first key and after the last key, so animated imported properties no longer report that no keyframes exist.\n- Easing stays on the ending key, matching Alight's incoming-curve behaviour.\n\nProjects imported with 5.20 or 5.21.0 do not need to be imported again. Opening them in 5.21.1 applies the corrected Wave Warp spacing automatically.\n\n## Downloads\n\n- `app-arm64-v8a.apk` and `app-armeabi-v7a.apk` need Android 13 or newer.\n- `app-compatible-arm64-v8a.apk` and `app-compatible-armeabi-v7a.apk` work on Android 7.0 and newer.\n- `app-universal.apk` contains every supported 64-bit and 32-bit library for Android 13 or newer.\n\nAll APKs are signed with the same release certificate as 5.21.0.",
   "assets": [
     {
       "name": "app-arm64-v8a.apk",
-      "size": 108850238,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.21.0/app-arm64-v8a.apk"
+      "size": 108850362,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.21.1/app-arm64-v8a.apk"
     },
     {
       "name": "app-armeabi-v7a.apk",
-      "size": 112178166,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.21.0/app-armeabi-v7a.apk"
+      "size": 112178290,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.21.1/app-armeabi-v7a.apk"
     },
     {
       "name": "app-compatible-arm64-v8a.apk",
-      "size": 91376387,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.21.0/app-compatible-arm64-v8a.apk"
+      "size": 91376563,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.21.1/app-compatible-arm64-v8a.apk"
     },
     {
       "name": "app-compatible-armeabi-v7a.apk",
-      "size": 89254781,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.21.0/app-compatible-armeabi-v7a.apk"
+      "size": 89254957,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.21.1/app-compatible-armeabi-v7a.apk"
     },
     {
       "name": "app-universal.apk",
-      "size": 157808744,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.21.0/app-universal.apk"
+      "size": 157808868,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.21.1/app-universal.apk"
     }
   ]
 }
