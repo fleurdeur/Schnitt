@@ -1,33 +1,33 @@
 {
-  "tag": "v5.20.0",
-  "name": "Schnitt 5.20.0",
-  "published": "2026-11-28T01:17:18Z",
-  "notes": "# Schnitt 5.20.0\n\nSchnitt 5.20.0 fixes high-frame-rate export timing, imported transform timing, and the remaining blur and colour mismatches from Alight projects. Image to XML now produces editable shapes instead of vector outlines for simple icons.\n\n## High-frame-rate export\n\nEncoded frames now render at their exact sub-millisecond scene time instead of snapping to whole milliseconds. Transforms no longer repeat or skip at 120, 144, 240 or custom rates. Matroska and WebM use 10 microsecond timestamps for high rates, so 1/120 s and 1/240 s do not alternate between long and short frames.\n\nCustom rates above the encoder's advertised range now cap only the rate-control hint. Every real frame timestamp is still written, so a 9999 fps export can start instead of failing while the encoder is configured.\n\n## Imported projects\n\nImported scenes now upload the repaired document to the native renderer. Second-based Alight keyframes are normalized before preview and export, so positions, scales and retimed clips match the source at every timestamp.\n\nLegacy Alight lens and zoom blur instances are repaired when opened: their centers, radii, strengths and keyframes are carried into the new radial blur. Effect colours, switches and point parameters keep their imported names and values.\n\n## Image to XML\n\nTraced rectangles, ellipses and rounded rectangles become editable native shapes instead of vector paths. Each traced colour island is emitted as its own top-level icon layer, including single-contour even-odd islands that used to fall back to vectors.\n\n## Blur and colour\n\nZoom, lens, replace-colour, spot-colour, hue/saturation, RGB split, vignette, sharpen and displacement effects use the Alight sampling and colour maths. New radial blur and displacement controls are translated in every language.\n\n## Downloads\n\n- `app-arm64-v8a.apk` and `app-armeabi-v7a.apk` need Android 13 or newer.\n- `app-compatible-arm64-v8a.apk` and `app-compatible-armeabi-v7a.apk` work on Android 7.0 and newer.\n- `app-universal.apk` contains every supported 64-bit and 32-bit library for Android 13 or newer.\n\nAll APKs are signed with the same release certificate as 5.19.0.\n",
+  "tag": "v5.21.0",
+  "name": "Schnitt 5.21.0",
+  "published": "2026-11-28T03:10:46Z",
+  "notes": "# Schnitt 5.21.0\n\nSchnitt 5.21.0 repairs Alight keyframes imported by 5.20, keeps Image to XML sharp and editable, and adds real face landmarks for eye and hair guides.\n\n## Imported keyframes\nAlight XML and linked-project imports keep every transform and effect key at the time it was authored. Keys outside the visible layer range are intentional trimmed-animation keys and are preserved. Projects that 5.20 already imported are restored automatically the next time they are opened.\n\n## Image to XML\nTraces keep up to 2048 pixels on the long edge instead of 1200, so logos and screenshots stay sharp. Rectangles and ellipses become native shape layers, and tiny islands of one colour share a layer instead of creating hundreds of one-pixel layers. Contour tracing now uses a sparse border graph, so large photos no longer allocate hundreds of megabytes or stall on low-end phones.\n\n## Face, eye and hair guides\nA bundled on-device face mesh with 478 landmarks drives eye and hair guides. Eye blink guides use the real iris positions, and hair flow starts at the forehead and spans the actual face width. Anime and illustrated portraits use a dark-eye fallback when the mesh is unsure.\n\n## Schnitt naming\nThe remaining AbsentMotion labels in update notifications and dialogs now say Schnitt.\n\n## Downloads\n\n- `app-arm64-v8a.apk` and `app-armeabi-v7a.apk` need Android 13 or newer.\n- `app-compatible-arm64-v8a.apk` and `app-compatible-armeabi-v7a.apk` work on Android 7.0 and newer.\n- `app-universal.apk` contains every supported 64-bit and 32-bit library for Android 13 or newer.\n\nAll APKs are signed with the same release certificate as 5.20.0.\n",
   "assets": [
     {
       "name": "app-arm64-v8a.apk",
-      "size": 107689523,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.20.0/app-arm64-v8a.apk"
+      "size": 108850238,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.21.0/app-arm64-v8a.apk"
     },
     {
       "name": "app-armeabi-v7a.apk",
-      "size": 111017451,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.20.0/app-armeabi-v7a.apk"
+      "size": 112178166,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.21.0/app-armeabi-v7a.apk"
     },
     {
       "name": "app-compatible-arm64-v8a.apk",
-      "size": 90215992,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.20.0/app-compatible-arm64-v8a.apk"
+      "size": 91376387,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.21.0/app-compatible-arm64-v8a.apk"
     },
     {
       "name": "app-compatible-armeabi-v7a.apk",
-      "size": 88094422,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.20.0/app-compatible-armeabi-v7a.apk"
+      "size": 89254781,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.21.0/app-compatible-armeabi-v7a.apk"
     },
     {
       "name": "app-universal.apk",
-      "size": 156648029,
-      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.20.0/app-universal.apk"
+      "size": 157808744,
+      "url": "https://github.com/fleurdeur/Schnitt/releases/download/v5.21.0/app-universal.apk"
     }
   ]
 }
